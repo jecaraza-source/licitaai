@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmpresaPerfilForm } from "@/components/configuracion/empresa-perfil-form";
 
 export default function ConfiguracionPage() {
   return (
@@ -9,10 +10,7 @@ export default function ConfiguracionPage() {
           <CardTitle>Perfil de empresa</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            La edición del perfil de empresa (razón social, RFC, logo, certificaciones) se
-            construye en el Sprint 5.
-          </p>
+          <EmpresaPerfilForm />
         </CardContent>
       </Card>
     </div>

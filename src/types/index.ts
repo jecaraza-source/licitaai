@@ -54,6 +54,22 @@ export interface Licitacion {
   created_at: string;
 }
 
+export interface FirmaDigital {
+  firmado_por: string | null;
+  rfc: string | null;
+  numero_serie: string | null;
+  firmado_at: string;
+  algoritmo: string;
+  firma_base64: string;
+  tipo: "interna";
+}
+
+export interface AuditoriaDocumento {
+  valido: boolean;
+  observaciones: string[];
+  nivel_riesgo: "VERDE" | "AMARILLO" | "ROJO";
+}
+
 export interface Documento {
   id: string;
   licitacion_id: string;
@@ -64,6 +80,8 @@ export interface Documento {
   procesado: boolean;
   procesado_at: string | null;
   created_at: string;
+  auditoria_json?: AuditoriaDocumento | null;
+  firma_digital_json?: FirmaDigital | null;
 }
 
 export interface Partida {
@@ -182,6 +200,13 @@ export interface PropuestaEconomicaConfig {
   validez_oferta_dias: number | null;
 }
 
+export interface FuentePrecio {
+  nombre: string;
+  precio: number | null;
+  fecha: string | null;
+  url: string | null;
+}
+
 export interface EstudioMercado {
   id: string;
   licitacion_id: string;
@@ -190,7 +215,7 @@ export interface EstudioMercado {
   precio_maximo: number | null;
   precio_promedio: number | null;
   precio_recomendado: number | null;
-  fuentes_json: unknown[];
+  fuentes_json: FuentePrecio[];
   observaciones: string | null;
   nivel_confianza: NivelConfianza | null;
   created_at: string;

@@ -1,7 +1,24 @@
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LicitacionForm } from "@/components/licitaciones/licitacion-form";
 
-export default function NuevaLicitacionPage() {
+export default async function NuevaLicitacionPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: perfil } = await supabase.from("users").select("rol").eq("id", user.id).single();
+
+  if (perfil?.rol === "VIEWER") {
+    redirect("/licitaciones");
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold tracking-tight">Nueva licitación</h1>

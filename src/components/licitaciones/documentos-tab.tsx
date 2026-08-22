@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
-import { FileText, Trash2, UploadCloud } from "lucide-react";
+import { FileText, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, sanitizeFilename } from "@/lib/utils";
 import { PdfViewer } from "@/components/licitaciones/pdf-viewer";
+import { FirmaDigitalDialog } from "@/components/licitaciones/firma-digital-dialog";
 import type { Documento } from "@/types";
 
 const ACCEPTED = {
@@ -19,10 +20,6 @@ const ACCEPTED = {
 
 const MAX_SIZE = 50 * 1024 * 1024;
 const BUCKET = "documentos-originales";
-
-function sanitizeFilename(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
 
 function formatBytes(bytes: number | null) {
   if (!bytes) return "—";
@@ -51,6 +48,7 @@ export function DocumentosTab({
   const [uploads, setUploads] = useState<UploadState[]>([]);
   const [viewerDoc, setViewerDoc] = useState<Documento | null>(null);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [firmandoDoc, setFirmandoDoc] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -245,12 +243,24 @@ export function DocumentosTab({
                     onClick={() => handleOpen(doc)}
                     className="min-w-0 flex-1 text-left"
                   >
-                    <p className="truncate text-sm font-medium hover:underline">{doc.nombre}</p>
+                    <p className="truncate text-sm font-medium hover:underline">
+                      {doc.nombre}
+                      {doc.firma_digital_json && (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-normal text-primary">
+                          <ShieldCheck className="size-3" /> Firmado digitalmente
+                        </span>
+                      )}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {formatBytes(doc.tamanio_bytes)} ·{" "}
                       {doc.procesado ? "Procesado" : "Sin procesar"}
                     </p>
                   </button>
+                  {doc.nombre.toLowerCase().endsWith(".pdf") && (
+                    <Button variant="ghost" size="icon-sm" onClick={() => setFirmandoDoc(doc.id)}>
+                      <ShieldCheck className="text-muted-foreground" />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon-sm" onClick={() => handleDelete(doc)}>
                     <Trash2 className="text-destructive" />
                   </Button>
@@ -260,6 +270,19 @@ export function DocumentosTab({
           )}
         </CardContent>
       </Card>
+
+      {firmandoDoc && (
+        <FirmaDigitalDialog
+          documentoId={firmandoDoc}
+          open={!!firmandoDoc}
+          onOpenChange={(open) => !open && setFirmandoDoc(null)}
+          onFirmado={() => {
+            setFirmandoDoc(null);
+            // Recarga rápida vía realtime ya actualizará el registro; forzamos
+            // un refresh optimista mientras tanto.
+          }}
+        />
+      )}
 
       <PdfViewer
         url={viewerUrl}

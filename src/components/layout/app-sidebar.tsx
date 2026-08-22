@@ -19,12 +19,13 @@ import {
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/licitaciones", label: "Licitaciones", icon: FileStack },
-  { href: "/licitaciones/nueva", label: "Nueva licitación", icon: PlusCircle },
+  { href: "/licitaciones/nueva", label: "Nueva licitación", icon: PlusCircle, requiereEscritura: true },
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ puedeEscribir = true }: { puedeEscribir?: boolean }) {
   const pathname = usePathname();
+  const items = NAV_ITEMS.filter((item) => !item.requiereEscritura || puedeEscribir);
 
   return (
     <Sidebar collapsible="icon">
@@ -53,7 +54,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-sm">Navegación</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV_ITEMS.map((item) => {
+              {items.map((item) => {
                 const isActive =
                   item.href === "/licitaciones"
                     ? pathname === "/licitaciones"

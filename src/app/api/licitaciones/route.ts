@@ -83,6 +83,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const { data: plantillas } = await supabase
+    .from("checklist_templates")
+    .select("categoria, descripcion, fundamento_legal, vigencia_requerida, formato_aceptado, requerido")
+    .eq("estado_id", data.estado_id);
+
+  if (plantillas && plantillas.length > 0) {
+    await supabase.from("checklist_items").insert(
+      plantillas.map((p) => ({ ...p, licitacion_id: data.id })),
+    );
+  }
+
   await supabase.from("actividad_log").insert({
     licitacion_id: data.id,
     user_id: user.id,

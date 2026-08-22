@@ -9,6 +9,12 @@ import { ActividadTimeline, type ActividadLogConUsuario } from "@/components/lic
 import { DocumentosTab } from "@/components/licitaciones/documentos-tab";
 import { AnalisisIaTab } from "@/components/licitaciones/analisis-ia-tab";
 import { ChatDocumento } from "@/components/licitaciones/chat-documento";
+import { PartidasTab } from "@/components/licitaciones/partidas-tab";
+import { JuntaAclaracionesTab } from "@/components/licitaciones/junta-aclaraciones-tab";
+import { PropuestaTecnicaTab } from "@/components/licitaciones/propuesta-tecnica-tab";
+import { PropuestaEconomicaTab } from "@/components/licitaciones/propuesta-economica-tab";
+import { AuditoriaTab } from "@/components/licitaciones/auditoria-tab";
+import { SeguimientoTab } from "@/components/licitaciones/seguimiento-tab";
 import type { Licitacion } from "@/types";
 
 const TABS = [
@@ -20,6 +26,7 @@ const TABS = [
   { value: "propuesta-economica", label: "Propuesta Económica" },
   { value: "auditoria", label: "Auditoría" },
   { value: "junta", label: "Junta de Aclaraciones" },
+  { value: "seguimiento", label: "Seguimiento" },
 ];
 
 const FECHA_FIELDS: { key: keyof Licitacion; label: string }[] = [
@@ -159,7 +166,44 @@ export default async function LicitacionDetallePage({
           <ChatDocumento licitacionId={licitacion.id} />
         </TabsContent>
 
-        {TABS.filter((t) => !["resumen", "documentos", "analisis"].includes(t.value)).map((tab) => (
+        <TabsContent value="partidas">
+          <PartidasTab licitacionId={licitacion.id} />
+        </TabsContent>
+
+        <TabsContent value="junta">
+          <JuntaAclaracionesTab licitacionId={licitacion.id} />
+        </TabsContent>
+
+        <TabsContent value="propuesta-tecnica">
+          <PropuestaTecnicaTab licitacionId={licitacion.id} />
+        </TabsContent>
+
+        <TabsContent value="propuesta-economica">
+          <PropuestaEconomicaTab licitacionId={licitacion.id} />
+        </TabsContent>
+
+        <TabsContent value="auditoria">
+          <AuditoriaTab licitacionId={licitacion.id} organizationId={licitacion.organization_id} />
+        </TabsContent>
+
+        <TabsContent value="seguimiento">
+          <SeguimientoTab licitacionId={licitacion.id} organizationId={licitacion.organization_id} />
+        </TabsContent>
+
+        {TABS.filter(
+          (t) =>
+            ![
+              "resumen",
+              "documentos",
+              "analisis",
+              "partidas",
+              "junta",
+              "propuesta-tecnica",
+              "propuesta-economica",
+              "auditoria",
+              "seguimiento",
+            ].includes(t.value),
+        ).map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
             <Card>
               <CardHeader>

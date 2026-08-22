@@ -20,16 +20,17 @@ export default async function DashboardLayout({
 
   const { data: perfil } = await supabase
     .from("users")
-    .select("nombre, email")
+    .select("nombre, email, rol")
     .eq("id", user.id)
     .single();
 
   const nombre = perfil?.nombre ?? user.email ?? "Usuario";
   const email = perfil?.email ?? user.email ?? "";
+  const puedeEscribir = perfil?.rol !== "VIEWER";
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar puedeEscribir={puedeEscribir} />
       <SidebarInset>
         <Header nombre={nombre} email={email} />
         <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">{children}</main>

@@ -72,6 +72,11 @@ export default function RegisterPage() {
     }
 
     if (signUpData.session) {
+      fetch("/api/auth/bienvenida", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: values.email, nombre: values.nombre }),
+      }).catch(() => {});
       router.push("/dashboard");
       router.refresh();
       return;
