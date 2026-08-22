@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EstadoBadge } from "@/components/licitaciones/estado-badge";
 import { EstadoSelector } from "@/components/licitaciones/estado-selector";
+import { ProcesoTimeline } from "@/components/licitaciones/proceso-timeline";
 import { ActividadTimeline, type ActividadLogConUsuario } from "@/components/licitaciones/actividad-timeline";
 import { DocumentosTab } from "@/components/licitaciones/documentos-tab";
 import { AnalisisIaTab } from "@/components/licitaciones/analisis-ia-tab";
@@ -15,8 +16,6 @@ import { PropuestaTecnicaTab } from "@/components/licitaciones/propuesta-tecnica
 import { PropuestaEconomicaTab } from "@/components/licitaciones/propuesta-economica-tab";
 import { AuditoriaTab } from "@/components/licitaciones/auditoria-tab";
 import { SeguimientoTab } from "@/components/licitaciones/seguimiento-tab";
-import type { Licitacion } from "@/types";
-
 const TABS = [
   { value: "resumen", label: "Resumen" },
   { value: "documentos", label: "Documentos" },
@@ -28,23 +27,6 @@ const TABS = [
   { value: "junta", label: "Junta de Aclaraciones" },
   { value: "seguimiento", label: "Seguimiento" },
 ];
-
-const FECHA_FIELDS: { key: keyof Licitacion; label: string }[] = [
-  { key: "fecha_publicacion", label: "Publicación" },
-  { key: "fecha_junta_aclaraciones", label: "Junta de aclaraciones" },
-  { key: "fecha_visita", label: "Visita" },
-  { key: "fecha_entrega_propuesta", label: "Entrega de propuesta" },
-  { key: "fecha_apertura_tecnica", label: "Apertura técnica" },
-  { key: "fecha_apertura_economica", label: "Apertura económica" },
-  { key: "fecha_fallo", label: "Fallo" },
-];
-
-function formatFecha(fecha: string | null) {
-  if (!fecha) return "—";
-  return new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeStyle: "short" }).format(
-    new Date(fecha),
-  );
-}
 
 function formatMonto(monto: number | null) {
   if (monto === null) return "—";
@@ -125,22 +107,15 @@ export default async function LicitacionDetallePage({
         </TabsList>
 
         <TabsContent value="resumen" className="flex flex-col gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Proceso de la licitación</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ProcesoTimeline licitacion={licitacion} />
+            </CardContent>
+          </Card>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Fechas del procedimiento</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {FECHA_FIELDS.map((field) => (
-                    <div key={field.key}>
-                      <dt className="text-xs text-muted-foreground">{field.label}</dt>
-                      <dd className="font-medium">{formatFecha(licitacion[field.key])}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </CardContent>
-            </Card>
             <Card>
               <CardHeader>
                 <CardTitle>Monto máximo</CardTitle>
@@ -149,8 +124,10 @@ export default async function LicitacionDetallePage({
                 <p className="text-2xl font-bold">{formatMonto(licitacion.monto_maximo)}</p>
               </CardContent>
             </Card>
+            <div className="lg:col-span-2">
+              <ActividadTimeline actividad={actividad} />
+            </div>
           </div>
-          <ActividadTimeline actividad={actividad} />
         </TabsContent>
 
         <TabsContent value="documentos">
