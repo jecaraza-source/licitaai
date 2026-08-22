@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -123,6 +123,7 @@ export function EmpresaPerfilForm() {
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [subiendoLogo, setSubiendoLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/empresa-perfil")
@@ -276,23 +277,31 @@ export function EmpresaPerfilForm() {
               Sin logo
             </div>
           )}
-          <label>
+          <>
             <input
+              ref={logoInputRef}
               type="file"
               accept="image/*"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) handleLogoUpload(file);
+                e.target.value = "";
               }}
             />
-            <Button type="button" variant="outline" size="sm" disabled={subiendoLogo}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={subiendoLogo}
+              onClick={() => logoInputRef.current?.click()}
+            >
               <span className="flex items-center gap-1.5">
                 <Upload className="size-3.5" />
                 {subiendoLogo ? "Subiendo…" : "Subir logo"}
               </span>
             </Button>
-          </label>
+          </>
         </div>
       </div>
 
