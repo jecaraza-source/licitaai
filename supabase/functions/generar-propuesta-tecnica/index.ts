@@ -4,6 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
+import { getEmpresaPerfilActiva } from "../_shared/empresa-perfil.ts";
 
 const SECCIONES_BASE = [
   { id: "portada", titulo: "Portada" },
@@ -97,18 +98,14 @@ Deno.serve(async (req) => {
       .single();
     if (licError || !licitacion) throw new Error("Licitación no encontrada");
 
-    const [{ data: analisis }, { data: junta }, { data: empresa }] = await Promise.all([
+    const [{ data: analisis }, { data: junta }, empresa] = await Promise.all([
       supabase.from("analisis_bases").select("*").eq("licitacion_id", licitacion_id).maybeSingle(),
       supabase
         .from("junta_aclaraciones")
         .select("respuestas_json")
         .eq("licitacion_id", licitacion_id)
         .maybeSingle(),
-      supabase
-        .from("empresa_perfil")
-        .select("*")
-        .eq("organization_id", licitacion.organization_id)
-        .maybeSingle(),
+      getEmpresaPerfilActiva(supabase, licitacion.organization_id, licitacion.created_by),
     ]);
 
     const contextoBase = `

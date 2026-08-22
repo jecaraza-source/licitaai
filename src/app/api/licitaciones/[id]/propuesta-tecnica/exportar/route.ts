@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { Document, HeadingLevel, Packer, Paragraph, TextRun, AlignmentType } from "docx";
 import { createClient } from "@/lib/supabase/server";
 import { htmlToDocxElements } from "@/lib/html-to-docx";
+import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
 
 interface Seccion {
   titulo: string;
@@ -43,11 +44,7 @@ export async function POST(
     return NextResponse.json({ error: "No hay propuesta técnica generada" }, { status: 404 });
   }
 
-  const { data: perfil } = await supabase
-    .from("empresa_perfil")
-    .select("razon_social")
-    .eq("organization_id", licitacion.organization_id)
-    .maybeSingle();
+  const perfil = await getEmpresaPerfilActiva(supabase, licitacion.organization_id, user.id);
 
   const secciones = ((propuesta.contenido_json as { secciones?: Seccion[] })?.secciones ??
     []) as Seccion[];

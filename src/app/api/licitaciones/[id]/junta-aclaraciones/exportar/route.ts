@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx";
 import { createClient } from "@/lib/supabase/server";
+import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
 
 interface Pregunta {
   texto: string;
@@ -36,11 +37,7 @@ export async function POST(
     .eq("licitacion_id", id)
     .maybeSingle();
 
-  const { data: perfil } = await supabase
-    .from("empresa_perfil")
-    .select("razon_social")
-    .eq("organization_id", licitacion.organization_id)
-    .maybeSingle();
+  const perfil = await getEmpresaPerfilActiva(supabase, licitacion.organization_id, user.id);
 
   const preguntas = (junta?.preguntas_json ?? []) as Pregunta[];
 

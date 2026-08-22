@@ -4,6 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
+import { getEmpresaPerfilActiva } from "../_shared/empresa-perfil.ts";
 
 const SYSTEM_PROMPT = `Eres un auditor experto en documentación legal y fiscal para licitaciones
 públicas mexicanas. Verifica el documento adjunto contra el requisito esperado y los datos
@@ -79,7 +80,7 @@ Deno.serve(async (req) => {
     const [{ data: licitacion }, { data: checklistItem }] = await Promise.all([
       supabase
         .from("licitaciones")
-        .select("fecha_entrega_propuesta, organization_id")
+        .select("fecha_entrega_propuesta, organization_id, created_by")
         .eq("id", documento.licitacion_id)
         .single(),
       checklist_item_id
@@ -91,11 +92,11 @@ Deno.serve(async (req) => {
         : Promise.resolve({ data: null }),
     ]);
 
-    const { data: empresa } = await supabase
-      .from("empresa_perfil")
-      .select("razon_social, rfc")
-      .eq("organization_id", licitacion?.organization_id)
-      .maybeSingle();
+    const empresa = await getEmpresaPerfilActiva(
+      supabase,
+      licitacion?.organization_id,
+      licitacion?.created_by,
+    );
 
     const { data: archivo, error: downloadError } = await supabase.storage
       .from("documentos-requeridos")

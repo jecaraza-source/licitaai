@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
 import { Plus, Upload } from "lucide-react";
@@ -8,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import type { EmpresaPerfil } from "@/types";
 
@@ -30,6 +38,20 @@ const EMPTY: FormState = {
   clientes_referencia_json: [],
   logo_url: null,
 };
+
+const NUEVA = "__nueva__";
+
+function empresaToForm(data: EmpresaPerfil): FormState {
+  return {
+    razon_social: data.razon_social ?? "",
+    rfc: data.rfc ?? "",
+    giro: data.giro ?? "",
+    experiencia_anos: data.experiencia_anos?.toString() ?? "",
+    certificaciones_json: (data.certificaciones_json as string[]) ?? [],
+    clientes_referencia_json: (data.clientes_referencia_json as string[]) ?? [],
+    logo_url: data.logo_url,
+  };
+}
 
 function DynamicList({
   label,
@@ -94,6 +116,9 @@ function DynamicList({
 }
 
 export function EmpresaPerfilForm() {
+  const router = useRouter();
+  const [empresas, setEmpresas] = useState<EmpresaPerfil[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -103,20 +128,13 @@ export function EmpresaPerfilForm() {
     fetch("/api/empresa-perfil")
       .then((res) => res.json())
       .then((json) => {
-        const data = json.data as EmpresaPerfil | null;
-        setForm(
-          data
-            ? {
-                razon_social: data.razon_social ?? "",
-                rfc: data.rfc ?? "",
-                giro: data.giro ?? "",
-                experiencia_anos: data.experiencia_anos?.toString() ?? "",
-                certificaciones_json: (data.certificaciones_json as string[]) ?? [],
-                clientes_referencia_json: (data.clientes_referencia_json as string[]) ?? [],
-                logo_url: data.logo_url,
-              }
-            : EMPTY,
-        );
+        const data = (json.data as EmpresaPerfil[]) ?? [];
+        const activaId = (json.activaId as string | null) ?? null;
+        setEmpresas(data);
+
+        const inicial = data.find((e) => e.id === activaId) ?? data[0] ?? null;
+        setSelectedId(inicial?.id ?? null);
+        setForm(inicial ? empresaToForm(inicial) : EMPTY);
       });
 
     const supabase = createClient();
@@ -131,29 +149,68 @@ export function EmpresaPerfilForm() {
     });
   }, []);
 
+  function handleSelectEmpresa(value: string | null) {
+    if (!value || value === NUEVA) {
+      setSelectedId(null);
+      setForm(EMPTY);
+      return;
+    }
+    const empresa = empresas.find((e) => e.id === value);
+    if (!empresa) return;
+    setSelectedId(empresa.id);
+    setForm(empresaToForm(empresa));
+
+    fetch("/api/empresa-perfil/seleccionar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: empresa.id }),
+    }).then((res) => {
+      if (res.ok) router.refresh();
+    });
+  }
+
   async function handleGuardar() {
     if (!form) return;
     setGuardando(true);
 
-    const res = await fetch("/api/empresa-perfil", {
-      method: "PUT",
+    const payload = {
+      ...form,
+      experiencia_anos: form.experiencia_anos ? Number(form.experiencia_anos) : null,
+    };
+
+    const res = await fetch(selectedId ? `/api/empresa-perfil/${selectedId}` : "/api/empresa-perfil", {
+      method: selectedId ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        experiencia_anos: form.experiencia_anos ? Number(form.experiencia_anos) : null,
-      }),
+      body: JSON.stringify(payload),
     });
+    const json = await res.json();
     setGuardando(false);
 
     if (!res.ok) {
       toast.error("No se pudo guardar el perfil");
       return;
     }
-    toast.success("Perfil de empresa guardado");
+
+    const guardada = json.data as EmpresaPerfil;
+    setEmpresas((prev) => {
+      const existe = prev.some((e) => e.id === guardada.id);
+      return existe ? prev.map((e) => (e.id === guardada.id ? guardada : e)) : [...prev, guardada];
+    });
+    setSelectedId(guardada.id);
+
+    const nombre = guardada.razon_social?.trim() || "la empresa";
+    toast.success(`Perfil de "${nombre}" guardado`);
+    router.refresh();
   }
 
   async function handleLogoUpload(file: File) {
-    if (!organizationId || !form) return;
+    if (!form) return;
+    if (!organizationId) {
+      toast.error("Espera un momento", {
+        description: "Tu perfil todavía se está cargando, intenta de nuevo en unos segundos.",
+      });
+      return;
+    }
     setSubiendoLogo(true);
 
     const supabase = createClient();
@@ -179,6 +236,30 @@ export function EmpresaPerfilForm() {
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2">
+        <Label>Empresa</Label>
+        <Select value={selectedId ?? NUEVA} onValueChange={handleSelectEmpresa}>
+          <SelectTrigger className="w-full sm:w-80">
+            <SelectValue>
+              {(value: string | null) =>
+                !value || value === NUEVA
+                  ? "+ Nueva empresa"
+                  : empresas.find((e) => e.id === value)?.razon_social?.trim() ||
+                    "Empresa sin nombre"
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {empresas.map((e) => (
+              <SelectItem key={e.id} value={e.id}>
+                {e.razon_social?.trim() || "Empresa sin nombre"}
+              </SelectItem>
+            ))}
+            <SelectItem value={NUEVA}>+ Nueva empresa</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="flex flex-col gap-2">
         <Label>Logo de la empresa</Label>
         <div className="flex items-center gap-4">

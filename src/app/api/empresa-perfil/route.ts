@@ -12,7 +12,7 @@ export async function GET() {
 
   const { data: perfil } = await supabase
     .from("users")
-    .select("organization_id")
+    .select("organization_id, empresa_perfil_id")
     .eq("id", user.id)
     .single();
   if (!perfil) {
@@ -23,13 +23,13 @@ export async function GET() {
     .from("empresa_perfil")
     .select("*")
     .eq("organization_id", perfil.organization_id)
-    .maybeSingle();
+    .order("updated_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
+  return NextResponse.json({ data, activaId: perfil.empresa_perfil_id });
 }
 
-export async function PUT(request: Request) {
+export async function POST(request: Request) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -48,7 +48,7 @@ export async function PUT(request: Request) {
   }
 
   const body = await request.json();
-  const update = {
+  const nueva = {
     organization_id: perfil.organization_id,
     razon_social: body.razon_social ?? null,
     rfc: body.rfc ?? null,
@@ -61,12 +61,10 @@ export async function PUT(request: Request) {
     logo_url: body.logo_url ?? null,
   };
 
-  const { data, error } = await supabase
-    .from("empresa_perfil")
-    .upsert(update, { onConflict: "organization_id" })
-    .select()
-    .single();
-
+  const { data, error } = await supabase.from("empresa_perfil").insert(nueva).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await supabase.from("users").update({ empresa_perfil_id: data.id }).eq("id", user.id);
+
   return NextResponse.json({ data });
 }
