@@ -32,10 +32,17 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
 
+# local scratch/test files
+.scratch/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# supabase CLI local link cache
+supabase/.temp/
