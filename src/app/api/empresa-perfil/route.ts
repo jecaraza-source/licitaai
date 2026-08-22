@@ -59,6 +59,8 @@ export async function POST(request: Request) {
       ? body.clientes_referencia_json
       : [],
     logo_url: body.logo_url ?? null,
+    color_primario: body.color_primario ?? null,
+    color_secundario: body.color_secundario ?? null,
   };
 
   const { data, error } = await supabase.from("empresa_perfil").insert(nueva).select().single();

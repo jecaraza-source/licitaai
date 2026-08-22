@@ -261,6 +261,8 @@ export interface EmpresaPerfil {
   certificaciones_json: unknown[];
   clientes_referencia_json: unknown[];
   logo_url: string | null;
+  color_primario: string | null;
+  color_secundario: string | null;
   updated_at: string;
 }
 

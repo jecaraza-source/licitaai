@@ -22,6 +22,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       ? body.clientes_referencia_json
       : [],
     logo_url: body.logo_url ?? null,
+    color_primario: body.color_primario ?? null,
+    color_secundario: body.color_secundario ?? null,
   };
 
   const { data, error } = await supabase

@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
+import { extraerColoresDominantes } from "@/lib/color-extraction";
 import type { EmpresaPerfil } from "@/types";
 
 type FormState = {
@@ -27,6 +28,8 @@ type FormState = {
   certificaciones_json: string[];
   clientes_referencia_json: string[];
   logo_url: string | null;
+  color_primario: string | null;
+  color_secundario: string | null;
 };
 
 const EMPTY: FormState = {
@@ -37,6 +40,8 @@ const EMPTY: FormState = {
   certificaciones_json: [],
   clientes_referencia_json: [],
   logo_url: null,
+  color_primario: null,
+  color_secundario: null,
 };
 
 const NUEVA = "__nueva__";
@@ -50,6 +55,8 @@ function empresaToForm(data: EmpresaPerfil): FormState {
     certificaciones_json: (data.certificaciones_json as string[]) ?? [],
     clientes_referencia_json: (data.clientes_referencia_json as string[]) ?? [],
     logo_url: data.logo_url,
+    color_primario: data.color_primario,
+    color_secundario: data.color_secundario,
   };
 }
 
@@ -227,7 +234,18 @@ export function EmpresaPerfilForm() {
     }
 
     const { data: publicUrl } = supabase.storage.from("logos-empresa").getPublicUrl(path);
-    setForm({ ...form, logo_url: publicUrl.publicUrl });
+    const colores = await extraerColoresDominantes(file).catch(() => null);
+
+    setForm((actual) =>
+      actual
+        ? {
+            ...actual,
+            logo_url: publicUrl.publicUrl,
+            color_primario: colores?.primario ?? actual.color_primario,
+            color_secundario: colores?.secundario ?? actual.color_secundario,
+          }
+        : actual,
+    );
     setSubiendoLogo(false);
   }
 

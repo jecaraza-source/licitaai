@@ -23,7 +23,15 @@ const NAV_ITEMS = [
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ];
 
-export function AppSidebar({ puedeEscribir = true }: { puedeEscribir?: boolean }) {
+export function AppSidebar({
+  puedeEscribir = true,
+  logoUrl,
+  empresaNombre,
+}: {
+  puedeEscribir?: boolean;
+  logoUrl?: string | null;
+  empresaNombre?: string | null;
+}) {
   const pathname = usePathname();
   const items = NAV_ITEMS.filter((item) => !item.requiereEscritura || puedeEscribir);
 
@@ -31,22 +39,35 @@ export function AppSidebar({ puedeEscribir = true }: { puedeEscribir?: boolean }
     <Sidebar collapsible="icon">
       <SidebarHeader className="py-3">
         <Link href="/dashboard" className="flex items-center px-2">
-          <Image
-            src="/branding/tci-logo-full.png"
-            alt="TCI"
-            width={130}
-            height={60}
-            priority
-            className="h-11 w-auto group-data-[collapsible=icon]:hidden"
-          />
-          <Image
-            src="/branding/tci-mark.png"
-            alt="TCI"
-            width={512}
-            height={512}
-            priority
-            className="hidden size-9 group-data-[collapsible=icon]:block"
-          />
+          {logoUrl ? (
+            <Image
+              src={logoUrl}
+              alt={empresaNombre ?? "Logo"}
+              width={130}
+              height={60}
+              priority
+              className="h-11 w-auto object-contain group-data-[collapsible=icon]:size-9"
+            />
+          ) : (
+            <>
+              <Image
+                src="/branding/tci-logo-full.png"
+                alt="TCI"
+                width={130}
+                height={60}
+                priority
+                className="h-11 w-auto group-data-[collapsible=icon]:hidden"
+              />
+              <Image
+                src="/branding/tci-mark.png"
+                alt="TCI"
+                width={512}
+                height={512}
+                priority
+                className="hidden size-9 group-data-[collapsible=icon]:block"
+              />
+            </>
+          )}
         </Link>
       </SidebarHeader>
       <SidebarContent>
