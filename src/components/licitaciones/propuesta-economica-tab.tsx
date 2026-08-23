@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
-import { Sparkles } from "lucide-react";
+import { CheckCircle2, Sparkles, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,9 @@ interface FilaPartida {
   total: number | null;
   margen_porcentaje: number | null;
   precio_referencia_mercado: number | null;
+  cantidad_compras_mx: number | null;
+  precio_unitario_compras_mx: number | null;
+  total_compras_mx: number | null;
 }
 
 interface Config {
@@ -86,6 +89,14 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
         f.id === id
           ? calcularFila({ ...f, precio_unitario_ofertado: precio === "" ? null : Number(precio) })
           : f,
+      ),
+    );
+  }
+
+  function actualizarComprasMx(id: string, campo: "total_compras_mx", valor: string) {
+    setFilas((prev) =>
+      (prev ?? []).map((f) =>
+        f.id === id ? { ...f, [campo]: valor === "" ? null : Number(valor) } : f,
       ),
     );
   }
@@ -274,6 +285,71 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
           )}
         </CardContent>
       </Card>
+
+      {filas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Conciliación con Compras MX</CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <p className="mb-3 text-xs text-muted-foreground">
+              Compras MX no expone una API pública, así que este dato se captura a mano justo
+              después de cargar el importe en la plataforma. Ambos totales deben originarse de la
+              misma hoja maestra — cualquier diferencia indica un error de captura.
+            </p>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>Partida</TableHead>
+                  <TableHead>Total hoja maestra</TableHead>
+                  <TableHead>Total capturado en Compras MX</TableHead>
+                  <TableHead>Concilia</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filas.map((f, i) => {
+                  const concilia =
+                    f.total_compras_mx !== null &&
+                    f.total !== null &&
+                    Math.abs(f.total_compras_mx - f.total) < 1;
+                  return (
+                    <TableRow key={f.id}>
+                      <TableCell>{i + 1}</TableCell>
+                      <TableCell className="max-w-xs truncate">{f.descripcion}</TableCell>
+                      <TableCell>{formatMonto(f.total)}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="w-32"
+                          value={f.total_compras_mx ?? ""}
+                          onChange={(e) =>
+                            actualizarComprasMx(f.id, "total_compras_mx", e.target.value)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {f.total_compras_mx === null ? (
+                          <span className="text-xs text-muted-foreground">Pendiente</span>
+                        ) : concilia ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
+                            <CheckCircle2 className="size-3.5" /> Concilia
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
+                            <TriangleAlert className="size-3.5" /> No concilia
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="max-w-sm self-end">
         <CardContent className="flex flex-col gap-1 pt-6 text-sm">

@@ -45,6 +45,7 @@ export const licitacionSchema = z.object({
   fecha_apertura_tecnica: optionalDateTime,
   fecha_apertura_economica: optionalDateTime,
   fecha_fallo: optionalDateTime,
+  es_investigacion_mercado: z.boolean().optional().default(false),
 });
 
 export type LicitacionFormValues = z.input<typeof licitacionSchema>;

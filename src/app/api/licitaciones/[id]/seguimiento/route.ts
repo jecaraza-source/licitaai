@@ -45,6 +45,20 @@ export async function PUT(
     update.acta_apertura_tecnica_documento_id = body.acta_apertura_tecnica_documento_id;
   if (typeof body.acta_apertura_economica_documento_id === "string")
     update.acta_apertura_economica_documento_id = body.acta_apertura_economica_documento_id;
+  for (const campo of [
+    "contrato_documento_id",
+    "garantia_documento_id",
+    "fianza_documento_id",
+    "administrador_contrato_id",
+  ]) {
+    if (typeof body[campo] === "string" || body[campo] === null) update[campo] = body[campo];
+  }
+  for (const campo of ["vigencia_inicio", "vigencia_fin"]) {
+    if (typeof body[campo] === "string" || body[campo] === null) update[campo] = body[campo];
+  }
+  for (const campo of ["orden_suministro", "lugar_entrega", "penalizaciones", "niveles_servicio"]) {
+    if (typeof body[campo] === "string" || body[campo] === null) update[campo] = body[campo];
+  }
 
   const { data: existente } = await supabase
     .from("seguimiento")

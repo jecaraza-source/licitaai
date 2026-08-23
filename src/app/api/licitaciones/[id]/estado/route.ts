@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { estadoLicitacionSchema } from "@/lib/validations/licitacion";
+import { getGateStatus } from "@/lib/liberacion";
 
 export async function POST(
   request: NextRequest,
@@ -19,6 +20,20 @@ export async function POST(
   const parsed = estadoLicitacionSchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  }
+
+  if (parsed.data.estado_licitacion === "ENVIADA") {
+    const gate = await getGateStatus(supabase, id);
+    if (gate.bloqueado) {
+      return NextResponse.json(
+        {
+          error:
+            "No se puede marcar como enviada: hay requisitos en rojo, requisitos críticos en amarillo o pendientes en el checklist de liberación.",
+          gate,
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const { data: anterior } = await supabase

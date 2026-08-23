@@ -25,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, sanitizeFilename } from "@/lib/utils";
+import { VincularAclaracionDialog } from "@/components/licitaciones/vincular-aclaracion-dialog";
 
 interface Pregunta {
   id: string;
@@ -390,8 +391,9 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
       )}
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle>Respuestas — cargar acta de la junta</CardTitle>
+          {junta && <VincularAclaracionDialog licitacionId={licitacionId} />}
         </CardHeader>
         <CardContent>
           <div

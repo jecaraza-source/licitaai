@@ -19,7 +19,7 @@ export async function GET(
   const [{ data: checklist }, { data: ultimoReporte }] = await Promise.all([
     supabase
       .from("checklist_items")
-      .select("*, documentos(id, nombre, auditoria_json)")
+      .select("*, documentos(id, nombre, auditoria_json), responsable:users(id, nombre)")
       .eq("licitacion_id", id)
       .order("categoria"),
     supabase
@@ -37,7 +37,7 @@ export async function GET(
   const porCategoria: Record<string, { total: number; completos: number; pct: number }> = {};
   for (const cat of CATEGORIAS) {
     const delCategoria = items.filter((i) => i.categoria === cat && i.requerido);
-    const completos = delCategoria.filter((i) => i.estado === "COMPLETO" || i.estado === "NO_APLICA");
+    const completos = delCategoria.filter((i) => i.estado === "VERDE" || i.estado === "GRIS");
     porCategoria[cat] = {
       total: delCategoria.length,
       completos: completos.length,
@@ -46,8 +46,11 @@ export async function GET(
   }
 
   const requeridos = items.filter((i) => i.requerido);
-  const totalCompletos = requeridos.filter((i) => i.estado === "COMPLETO" || i.estado === "NO_APLICA");
+  const totalCompletos = requeridos.filter((i) => i.estado === "VERDE" || i.estado === "GRIS");
   const score = requeridos.length > 0 ? Math.round((totalCompletos.length / requeridos.length) * 100) : 0;
+
+  const rojos = items.filter((i) => i.estado === "ROJO");
+  const amarillosCriticos = items.filter((i) => i.estado === "AMARILLO" && i.critico);
 
   return NextResponse.json({
     data: {
@@ -55,6 +58,11 @@ export async function GET(
       porCategoria,
       checklist: items,
       ultimoReporte: ultimoReporte?.metadata_json ?? null,
+      gate: {
+        rojos: rojos.length,
+        amarillosCriticos: amarillosCriticos.length,
+        bloqueado: rojos.length > 0 || amarillosCriticos.length > 0,
+      },
     },
   });
 }

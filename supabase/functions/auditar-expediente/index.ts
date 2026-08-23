@@ -1,19 +1,24 @@
 // LicitaAI — Sprint 6: auditar-expediente
 //
-// Revisión cruzada: compara los campos detectados en todos los documentos
-// auditados del expediente (RFC, razón social, vigencias) y genera una
-// lista de pendientes críticos vs advertencias.
+// Revisión cruzada (Paso 15 del proceso operativo de Compras MX): compara
+// razón social, RFC, representante legal, número de procedimiento y vigencias
+// entre todos los documentos auditados, la empresa activa y la propuesta
+// económica del expediente, y genera pendientes críticos, advertencias e
+// inconsistencias puntuales.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
+import { getEmpresaPerfilActiva } from "../_shared/empresa-perfil.ts";
 
 const SYSTEM_PROMPT = `Eres un auditor experto en expedientes de licitaciones públicas mexicanas.
-Recibes los resultados de auditoría individual de cada documento de un expediente.
-Verifica consistencia cruzada: mismo RFC y razón social en todos los documentos que los mencionan,
-representante legal consistente, y vigencias válidas para la fecha de entrega de propuesta.
-Clasifica cada hallazgo como pendiente crítico (bloqueador para participar) o advertencia (riesgo menor).
+Recibes los datos de la empresa participante, la propuesta económica y los resultados de auditoría
+individual de cada documento de un expediente. Verifica consistencia cruzada entre TODAS las fuentes:
+razón social, RFC, representante legal, número de procedimiento, cantidades, unidades y montos, y
+vigencias válidas para la fecha de entrega de propuesta. Un mismo dato no debe aparecer de forma
+distinta entre documentos. Clasifica cada hallazgo como pendiente crítico (bloqueador para participar),
+advertencia (riesgo menor) o inconsistencia puntual (un campo con valores distintos entre dos fuentes).
 Usa siempre la herramienta proporcionada.`;
 
 const TOOL_SCHEMA = {
@@ -33,8 +38,20 @@ const TOOL_SCHEMA = {
       },
     },
     advertencias: { type: "array", items: { type: "string" } },
+    inconsistencias: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          campo: { type: "string" },
+          detalle: { type: "string" },
+        },
+        required: ["campo", "detalle"],
+        additionalProperties: false,
+      },
+    },
   },
-  required: ["resumen", "pendientes_criticos", "advertencias"],
+  required: ["resumen", "pendientes_criticos", "advertencias", "inconsistencias"],
   additionalProperties: false,
 };
 
@@ -59,14 +76,23 @@ Deno.serve(async (req) => {
 
     const { data: licitacion } = await supabase
       .from("licitaciones")
-      .select("fecha_entrega_propuesta")
+      .select("numero_expediente, titulo, organization_id, created_by, fecha_entrega_propuesta")
       .eq("id", licitacion_id)
       .single();
 
-    const { data: checklistItems } = await supabase
-      .from("checklist_items")
-      .select("descripcion, categoria, estado, requerido, documento_id, documentos(nombre, auditoria_json)")
-      .eq("licitacion_id", licitacion_id);
+    const [{ data: checklistItems }, empresa, { data: partidasEconomicas }] = await Promise.all([
+      supabase
+        .from("checklist_items")
+        .select("descripcion, categoria, estado, requerido, documento_id, documentos(nombre, auditoria_json)")
+        .eq("licitacion_id", licitacion_id),
+      licitacion
+        ? getEmpresaPerfilActiva(supabase, licitacion.organization_id, licitacion.created_by)
+        : Promise.resolve(null),
+      supabase
+        .from("propuesta_economica_partidas")
+        .select("descripcion, cantidad, unidad, precio_unitario_ofertado, total")
+        .eq("licitacion_id", licitacion_id),
+    ]);
 
     if (!checklistItems || checklistItems.length === 0) {
       return new Response(
@@ -76,7 +102,15 @@ Deno.serve(async (req) => {
     }
 
     const contexto = `
+Número de expediente: ${licitacion?.numero_expediente ?? "N/D"}
 Fecha de entrega de propuesta: ${licitacion?.fecha_entrega_propuesta ?? "N/D"}
+
+Datos de referencia de la empresa (fuente de verdad para razón social y RFC):
+Razón social: ${empresa?.razon_social ?? "N/D"}
+RFC: ${empresa?.rfc ?? "N/D"}
+
+Propuesta económica (hoja maestra — cantidades y montos de referencia):
+${JSON.stringify(partidasEconomicas ?? [], null, 2)}
 
 Checklist y auditorías de documentos:
 ${JSON.stringify(checklistItems, null, 2)}
@@ -102,7 +136,12 @@ ${JSON.stringify(checklistItems, null, 2)}
     const toolUse = response.content.find(
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
     );
-    const reporte = toolUse?.input ?? { resumen: "", pendientes_criticos: [], advertencias: [] };
+    const reporte = toolUse?.input ?? {
+      resumen: "",
+      pendientes_criticos: [],
+      advertencias: [],
+      inconsistencias: [],
+    };
 
     await supabase.from("actividad_log").insert({
       licitacion_id,

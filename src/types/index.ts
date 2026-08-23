@@ -52,6 +52,7 @@ export interface Licitacion {
   sistema: Sistema;
   created_by: string | null;
   created_at: string;
+  es_investigacion_mercado: boolean;
 }
 
 export interface FirmaDigital {
@@ -106,10 +107,12 @@ export interface Propuesta {
   contenido_json: Record<string, unknown>;
   created_by: string | null;
   created_at: string;
+  revisor_id: string | null;
+  revisado_at: string | null;
 }
 
 export type CategoriaChecklist = "LEGAL" | "FISCAL" | "TECNICO" | "ECONOMICO" | "ESPECIFICO";
-export type EstadoChecklistItem = "PENDIENTE" | "COMPLETO" | "NO_APLICA";
+export type EstadoChecklistItem = "VERDE" | "AMARILLO" | "ROJO" | "GRIS";
 
 export interface ChecklistItem {
   id: string;
@@ -122,6 +125,27 @@ export interface ChecklistItem {
   requerido: boolean;
   estado: EstadoChecklistItem;
   documento_id: string | null;
+  critico: boolean;
+  fuente: string | null;
+  responsable_id: string | null;
+  fecha_limite: string | null;
+  causa_desechamiento: string | null;
+  observaciones: string | null;
+  aclaracion_id: string | null;
+  tipo_formato: "A" | "B" | "C" | "D" | null;
+}
+
+export interface ChecklistLiberacionItem {
+  id: string;
+  label: string;
+  checked: boolean;
+}
+
+export interface ChecklistLiberacion {
+  id: string;
+  licitacion_id: string;
+  items_json: ChecklistLiberacionItem[];
+  updated_at: string;
 }
 
 export interface DocumentacionRequeridaItem {
@@ -144,6 +168,12 @@ export interface GarantiaItem {
   monto_o_porcentaje: string | null;
   vigencia: string | null;
   descripcion: string | null;
+}
+
+export interface EspecificacionTecnica {
+  especificacion: string;
+  cantidad: string | null;
+  obligatorio: boolean;
 }
 
 export interface FechasAnalisis {
@@ -169,8 +199,60 @@ export interface AnalisisBases {
   criterios_evaluacion_json: CriterioEvaluacion[];
   garantias_json: GarantiaItem[];
   forma_presentacion: string | null;
+  especificaciones_tecnicas_json: EspecificacionTecnica[];
   notas_json: { confianza_por_seccion?: Record<string, NivelConfianza> };
   nivel_confianza: NivelConfianza | null;
+  created_at: string;
+}
+
+export interface RequisitoTecnico {
+  id: string;
+  licitacion_id: string;
+  orden: number;
+  requisito: string;
+  obligatorio: boolean;
+  cumple: boolean | null;
+  como_cumple: string | null;
+  evidencia: string | null;
+  documento_id: string | null;
+  created_at: string;
+}
+
+export type EjeViabilidad =
+  | "JURIDICO"
+  | "TECNICO"
+  | "EXPERIENCIA"
+  | "PERSONAL"
+  | "CERTIFICACIONES"
+  | "COMERCIAL"
+  | "LOGISTICO"
+  | "FINANCIERO"
+  | "ECONOMICO";
+
+export interface RespuestaViabilidad {
+  eje: EjeViabilidad;
+  respuesta: "SI" | "PARCIAL" | "NO" | null;
+  comentario: string;
+}
+
+export interface Viabilidad {
+  id: string;
+  licitacion_id: string;
+  respuestas_json: RespuestaViabilidad[];
+  decision: "GO" | "NO_GO" | null;
+  decidido_por: string | null;
+  decidido_at: string | null;
+  updated_at: string;
+}
+
+export interface EvidenciaEnvio {
+  id: string;
+  licitacion_id: string;
+  documento_id: string | null;
+  notas: string | null;
+  registrado_por: string | null;
+  registrado_por_nombre?: string | null;
+  documento_nombre?: string | null;
   created_at: string;
 }
 
@@ -187,6 +269,9 @@ export interface PropuestaEconomicaPartida {
   total: number | null;
   margen_porcentaje: number | null;
   precio_referencia_mercado: number | null;
+  cantidad_compras_mx: number | null;
+  precio_unitario_compras_mx: number | null;
+  total_compras_mx: number | null;
 }
 
 export interface PropuestaEconomicaConfig {
@@ -280,4 +365,37 @@ export interface DashboardStats {
   proximasAVencer: number;
   enPreparacion: number;
   enviadasEsteMes: number;
+}
+
+export type FuncionProcedimiento =
+  | "COORDINADOR"
+  | "JURIDICO"
+  | "TECNICO"
+  | "COMERCIAL"
+  | "FINANZAS"
+  | "DIRECCION"
+  | "OPERADOR_COMPRAS_MX"
+  | "REVISOR";
+
+export interface AsignacionResponsabilidad {
+  funcion: FuncionProcedimiento;
+  usuario_id: string | null;
+}
+
+export interface ResponsabilidadesProcedimiento {
+  id: string;
+  licitacion_id: string;
+  asignaciones_json: AsignacionResponsabilidad[];
+  updated_at: string;
+}
+
+export interface DocumentoCorporativo {
+  id: string;
+  empresa_perfil_id: string;
+  organization_id: string;
+  tipo: string;
+  nombre: string;
+  storage_path: string;
+  vigencia_hasta: string | null;
+  created_at: string;
 }

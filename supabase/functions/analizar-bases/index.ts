@@ -111,6 +111,10 @@ const SECCIONES: Seccion[] = [
               vigencia_requerida: { type: ["string", "null"] },
               formato_aceptado: { type: ["string", "null"] },
               requerido: { type: "boolean" },
+              tipo_formato: {
+                type: ["string", "null"],
+                enum: ["A", "B", "C", "D", null],
+              },
             },
             required: [
               "descripcion",
@@ -119,6 +123,7 @@ const SECCIONES: Seccion[] = [
               "vigencia_requerida",
               "formato_aceptado",
               "requerido",
+              "tipo_formato",
             ],
             additionalProperties: false,
           },
@@ -129,7 +134,7 @@ const SECCIONES: Seccion[] = [
       additionalProperties: false,
     },
     prompt:
-      "Extrae la lista de requisitos legales generales y el checklist detallado de documentación requerida para participar.",
+      "Extrae la lista de requisitos legales generales y el checklist detallado de documentación requerida para participar. Para cada uno, clasifica tipo_formato: A si es un formato obligatorio que debe usarse exactamente sin modificaciones, B si es un formato modelo que se puede llenar o adaptar, C si es un escrito libre pero con texto obligatorio exigido, D si es un documento emitido por un tercero (SAT, IMSS, banco, fabricante, etc.). Usa null solo si genuinamente no aplica ninguna categoría.",
   },
   {
     key: "criterios",
@@ -188,6 +193,36 @@ const SECCIONES: Seccion[] = [
       additionalProperties: false,
     },
     prompt: "Extrae las garantías/fianzas requeridas y la forma de presentación de la propuesta.",
+  },
+  {
+    key: "especificaciones",
+    query:
+      "especificaciones técnicas, personal requerido, perfiles, certificaciones, equipamiento, características mínimas, normas aplicables, niveles de servicio, entregables, plazos",
+    toolName: "reportar_especificaciones_tecnicas",
+    toolDescription: "Reporta cada especificación técnica de cumplimiento obligatorio como un renglón independiente",
+    schema: {
+      type: "object",
+      properties: {
+        especificaciones_tecnicas: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              especificacion: { type: "string" },
+              cantidad: { type: ["string", "null"] },
+              obligatorio: { type: "boolean" },
+            },
+            required: ["especificacion", "cantidad", "obligatorio"],
+            additionalProperties: false,
+          },
+        },
+        nivel_confianza: { type: "string", enum: ["ALTO", "MEDIO", "BAJO"] },
+      },
+      required: ["especificaciones_tecnicas", "nivel_confianza"],
+      additionalProperties: false,
+    },
+    prompt:
+      "Extrae cada especificación técnica u obligación de cumplimiento exigida en el Anexo Técnico como un renglón independiente (personal, perfiles, certificaciones, equipamiento, características mínimas, normas, niveles de servicio, plazos, entregables). No agrupes varias exigencias en un solo renglón: si el documento pide '5 especialistas certificados', repórtalo como una especificación que exige acreditar 5 especialistas con certificación, no como una sola línea genérica de 'personal'.",
   },
   {
     key: "partidas",
@@ -322,6 +357,7 @@ Deno.serve(async (req) => {
     const documentacion = (resultados.documentacion ?? {}) as Record<string, unknown>;
     const criterios = (resultados.criterios ?? {}) as Record<string, unknown>;
     const garantias = (resultados.garantias ?? {}) as Record<string, unknown>;
+    const especificaciones = (resultados.especificaciones ?? {}) as Record<string, unknown>;
     const partidasResult = (resultados.partidas ?? {}) as Record<string, unknown>;
 
     const nivelesPresentes = Object.values(confianzas).filter(Boolean);
@@ -343,6 +379,7 @@ Deno.serve(async (req) => {
       criterios_evaluacion_json: criterios.criterios_evaluacion ?? [],
       garantias_json: garantias.garantias ?? [],
       forma_presentacion: garantias.forma_presentacion ?? null,
+      especificaciones_tecnicas_json: especificaciones.especificaciones_tecnicas ?? [],
       notas_json: { confianza_por_seccion: confianzas },
       nivel_confianza: nivelGeneral,
     };
@@ -363,6 +400,7 @@ Deno.serve(async (req) => {
       vigencia_requerida: string | null;
       formato_aceptado: string | null;
       requerido: boolean;
+      tipo_formato: string | null;
     }>;
 
     if (documentacionRequerida.length > 0) {
@@ -375,6 +413,7 @@ Deno.serve(async (req) => {
           fundamento_legal: item.fundamento_legal,
           vigencia_requerida: item.vigencia_requerida,
           formato_aceptado: item.formato_aceptado,
+          tipo_formato: item.tipo_formato,
           requerido: item.requerido,
         })),
       );
@@ -396,6 +435,24 @@ Deno.serve(async (req) => {
           descripcion: p.descripcion,
           unidad: p.unidad,
           cantidad: p.cantidad,
+        })),
+      );
+    }
+
+    const especificacionesTecnicas = (especificaciones.especificaciones_tecnicas ?? []) as Array<{
+      especificacion: string;
+      cantidad: string | null;
+      obligatorio: boolean;
+    }>;
+
+    if (especificacionesTecnicas.length > 0) {
+      await supabase.from("requisitos_tecnicos").delete().eq("licitacion_id", licitacion_id);
+      await supabase.from("requisitos_tecnicos").insert(
+        especificacionesTecnicas.map((e, i) => ({
+          licitacion_id,
+          orden: i,
+          requisito: e.cantidad ? `${e.especificacion} (${e.cantidad})` : e.especificacion,
+          obligatorio: e.obligatorio,
         })),
       );
     }

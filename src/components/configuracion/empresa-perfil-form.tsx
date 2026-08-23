@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { extraerColoresDominantes } from "@/lib/color-extraction";
+import { DocumentosCorporativosCard } from "@/components/configuracion/documentos-corporativos-card";
 import type { EmpresaPerfil } from "@/types";
 
 type FormState = {
@@ -367,6 +368,8 @@ export function EmpresaPerfilForm() {
           {guardando ? "Guardando…" : "Guardar perfil"}
         </Button>
       </div>
+
+      {selectedId && <DocumentosCorporativosCard empresaId={selectedId} />}
     </div>
   );
 }

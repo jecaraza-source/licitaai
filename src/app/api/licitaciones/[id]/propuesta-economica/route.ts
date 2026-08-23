@@ -47,6 +47,9 @@ export async function GET(
         total: null,
         margen_porcentaje: null,
         precio_referencia_mercado: referencia,
+        cantidad_compras_mx: null,
+        precio_unitario_compras_mx: null,
+        total_compras_mx: null,
         _nueva: true,
       };
     });
@@ -117,6 +120,9 @@ export async function PUT(
         total: p.total,
         margen_porcentaje: p.margen_porcentaje,
         precio_referencia_mercado: p.precio_referencia_mercado,
+        cantidad_compras_mx: p.cantidad_compras_mx ?? null,
+        precio_unitario_compras_mx: p.precio_unitario_compras_mx ?? null,
+        total_compras_mx: p.total_compras_mx ?? null,
       }));
       const { error } = await supabase.from("propuesta_economica_partidas").insert(filas);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });

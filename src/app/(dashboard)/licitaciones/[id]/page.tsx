@@ -11,9 +11,12 @@ import { AnalisisIaTab } from "@/components/licitaciones/analisis-ia-tab";
 import { ChatDocumento } from "@/components/licitaciones/chat-documento";
 import { PartidasTab } from "@/components/licitaciones/partidas-tab";
 import { JuntaAclaracionesTab } from "@/components/licitaciones/junta-aclaraciones-tab";
+import { ViabilidadTab } from "@/components/licitaciones/viabilidad-tab";
+import { ResponsabilidadesCard } from "@/components/licitaciones/responsabilidades-card";
 import { PropuestaTecnicaTab } from "@/components/licitaciones/propuesta-tecnica-tab";
 import { PropuestaEconomicaTab } from "@/components/licitaciones/propuesta-economica-tab";
 import { AuditoriaTab } from "@/components/licitaciones/auditoria-tab";
+import { LiberacionTab } from "@/components/licitaciones/liberacion-tab";
 import { SeguimientoTab } from "@/components/licitaciones/seguimiento-tab";
 import type { Licitacion } from "@/types";
 
@@ -21,10 +24,12 @@ const TABS = [
   { value: "resumen", label: "Resumen" },
   { value: "documentos", label: "Documentos" },
   { value: "analisis", label: "Análisis IA" },
+  { value: "viabilidad", label: "Viabilidad" },
   { value: "partidas", label: "Partidas" },
   { value: "propuesta-tecnica", label: "Propuesta Técnica" },
   { value: "propuesta-economica", label: "Propuesta Económica" },
   { value: "auditoria", label: "Auditoría" },
+  { value: "liberacion", label: "Liberación" },
   { value: "junta", label: "Junta de Aclaraciones" },
   { value: "seguimiento", label: "Seguimiento" },
 ];
@@ -110,6 +115,9 @@ export default async function LicitacionDetallePage({
             <Badge variant="outline">{licitacion.estado_id}</Badge>
             <Badge variant="outline">{licitacion.sistema}</Badge>
             <Badge variant="outline">{licitacion.tipo}</Badge>
+            {licitacion.es_investigacion_mercado && (
+              <Badge variant="outline">Investigación de mercado</Badge>
+            )}
           </div>
         </div>
         <EstadoSelector licitacionId={licitacion.id} estadoActual={licitacion.estado_licitacion} />
@@ -150,6 +158,7 @@ export default async function LicitacionDetallePage({
               </CardContent>
             </Card>
           </div>
+          <ResponsabilidadesCard licitacionId={licitacion.id} />
           <ActividadTimeline actividad={actividad} />
         </TabsContent>
 
@@ -164,6 +173,10 @@ export default async function LicitacionDetallePage({
         <TabsContent value="analisis" className="flex flex-col gap-6">
           <AnalisisIaTab licitacionId={licitacion.id} />
           <ChatDocumento licitacionId={licitacion.id} />
+        </TabsContent>
+
+        <TabsContent value="viabilidad">
+          <ViabilidadTab licitacionId={licitacion.id} />
         </TabsContent>
 
         <TabsContent value="partidas">
@@ -186,6 +199,14 @@ export default async function LicitacionDetallePage({
           <AuditoriaTab licitacionId={licitacion.id} organizationId={licitacion.organization_id} />
         </TabsContent>
 
+        <TabsContent value="liberacion">
+          <LiberacionTab
+            licitacionId={licitacion.id}
+            organizationId={licitacion.organization_id}
+            esInvestigacionMercado={licitacion.es_investigacion_mercado}
+          />
+        </TabsContent>
+
         <TabsContent value="seguimiento">
           <SeguimientoTab licitacionId={licitacion.id} organizationId={licitacion.organization_id} />
         </TabsContent>
@@ -196,11 +217,13 @@ export default async function LicitacionDetallePage({
               "resumen",
               "documentos",
               "analisis",
+              "viabilidad",
               "partidas",
               "junta",
               "propuesta-tecnica",
               "propuesta-economica",
               "auditoria",
+              "liberacion",
               "seguimiento",
             ].includes(t.value),
         ).map((tab) => (

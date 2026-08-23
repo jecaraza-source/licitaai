@@ -22,6 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RequisitosTecnicosCard } from "@/components/licitaciones/requisitos-tecnicos-card";
+import { RevisorPropuestaCard } from "@/components/licitaciones/revisor-propuesta-card";
 import { cn } from "@/lib/utils";
 
 interface Seccion {
@@ -36,6 +38,9 @@ interface Propuesta {
   version: number;
   nombre_version: string | null;
   contenido_json: { secciones: Seccion[] };
+  created_by: string | null;
+  revisor_id: string | null;
+  revisado_at: string | null;
 }
 
 export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) {
@@ -74,7 +79,7 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
     }, 1200);
   }
 
-  useEffect(() => {
+  function cargarPropuesta() {
     fetch(`/api/licitaciones/${licitacionId}/propuesta-tecnica`)
       .then((res) => res.json())
       .then((json) => {
@@ -82,8 +87,13 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
         setPropuesta(data ?? null);
         const secs = data?.contenido_json?.secciones ?? [];
         setSecciones(secs);
-        setActiveId(secs[0]?.id ?? null);
+        setActiveId((prev) => prev ?? secs[0]?.id ?? null);
       });
+  }
+
+  useEffect(() => {
+    cargarPropuesta();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [licitacionId]);
 
   useEffect(() => {
@@ -187,17 +197,20 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
 
   if (!propuesta) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-          <p className="text-sm text-muted-foreground">
-            Aún no se ha generado la propuesta técnica.
-          </p>
-          <Button onClick={handleGenerar} disabled={generando}>
-            <Sparkles />
-            {generando ? "Generando…" : "Generar propuesta técnica con IA"}
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-4">
+        <RequisitosTecnicosCard licitacionId={licitacionId} />
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+            <p className="text-sm text-muted-foreground">
+              Aún no se ha generado la propuesta técnica.
+            </p>
+            <Button onClick={handleGenerar} disabled={generando}>
+              <Sparkles />
+              {generando ? "Generando…" : "Generar propuesta técnica con IA"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -205,6 +218,7 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
 
   return (
     <div className="flex flex-col gap-4">
+      <RequisitosTecnicosCard licitacionId={licitacionId} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="outline" onClick={handleGenerar} disabled={generando}>
           <Sparkles />
@@ -307,6 +321,7 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
           </CardContent>
         </Card>
 
+        <div className="flex flex-col gap-4">
         <Card className="h-fit lg:sticky lg:top-4">
           <CardContent className="flex flex-col gap-3 pt-4 text-sm">
             <div>
@@ -333,6 +348,15 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
             </div>
           </CardContent>
         </Card>
+
+        <RevisorPropuestaCard
+          licitacionId={licitacionId}
+          createdBy={propuesta.created_by}
+          revisorId={propuesta.revisor_id}
+          revisadoAt={propuesta.revisado_at}
+          onUpdated={cargarPropuesta}
+        />
+        </div>
       </div>
     </div>
   );

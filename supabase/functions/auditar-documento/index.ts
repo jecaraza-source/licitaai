@@ -160,7 +160,7 @@ RFC: ${empresa?.rfc ?? "N/D"}
         .from("checklist_items")
         .update({
           documento_id,
-          estado: auditoria.valido ? "COMPLETO" : "PENDIENTE",
+          estado: auditoria.valido ? "VERDE" : "ROJO",
         })
         .eq("id", checklist_item_id);
     }

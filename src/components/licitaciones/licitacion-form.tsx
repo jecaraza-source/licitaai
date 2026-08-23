@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -105,6 +106,21 @@ export function LicitacionForm() {
           <Label htmlFor="titulo">Título</Label>
           <Input id="titulo" {...register("titulo")} />
           {errors.titulo && <p className="text-sm text-destructive">{errors.titulo.message}</p>}
+        </div>
+
+        <div className="flex items-start gap-2.5 sm:col-span-2">
+          <Checkbox
+            id="es_investigacion_mercado"
+            onCheckedChange={(checked) => setValue("es_investigacion_mercado", checked === true)}
+          />
+          <div>
+            <Label htmlFor="es_investigacion_mercado" className="font-normal">
+              Es una investigación de mercado o solicitud de cotización
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Usa el checklist de intake simplificado en vez del checklist de liberación completo.
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-col gap-2">
