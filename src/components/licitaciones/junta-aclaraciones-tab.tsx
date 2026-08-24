@@ -18,14 +18,22 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus, Sparkles, Trash2, UploadCloud } from "lucide-react";
+import { GripVertical, Plus, Printer, Sparkles, Trash2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { cn, sanitizeFilename } from "@/lib/utils";
 import { VincularAclaracionDialog } from "@/components/licitaciones/vincular-aclaracion-dialog";
+import type { EmpresaPerfil } from "@/types";
 
 interface Pregunta {
   id: string;
@@ -69,12 +77,14 @@ function SortablePregunta({
   pregunta,
   index,
   respuesta,
+  ocultarAlImprimir,
   onChange,
   onDelete,
 }: {
   pregunta: Pregunta;
   index: number;
   respuesta?: Respuesta;
+  ocultarAlImprimir: boolean;
   onChange: (id: string, patch: Partial<Pregunta>) => void;
   onDelete: (id: string) => void;
 }) {
@@ -89,6 +99,7 @@ function SortablePregunta({
       className={cn(
         "flex flex-col gap-2 rounded-lg border p-3",
         isDragging && "opacity-50",
+        ocultarAlImprimir && "print:hidden",
       )}
     >
       <div className="flex items-start gap-2">
@@ -155,8 +166,21 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
   const [guardando, setGuardando] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [subiendoActa, setSubiendoActa] = useState(false);
+  const [filtroImpresion, setFiltroImpresion] = useState<"todas" | "decididas">("todas");
+  const [empresaNombre, setEmpresaNombre] = useState<string | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  useEffect(() => {
+    fetch("/api/empresa-perfil")
+      .then((res) => res.json())
+      .then((json) => {
+        const data = (json.data as EmpresaPerfil[]) ?? [];
+        const activaId = (json.activaId as string | null) ?? null;
+        const activa = data.find((e) => e.id === activaId) ?? data[0] ?? null;
+        setEmpresaNombre(activa?.razon_social?.trim() || null);
+      });
+  }, []);
 
   useEffect(() => {
     fetch(`/api/licitaciones/${licitacionId}/junta-aclaraciones`)
@@ -337,15 +361,33 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
   );
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="flex flex-col gap-4" id="junta-aclaraciones-printable">
+      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <Button onClick={handleGenerar} disabled={generando}>
           <Sparkles />
           {generando ? "Generando…" : "Generar preguntas con IA"}
         </Button>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={onAgregarManual}>
             <Plus /> Agregar pregunta
+          </Button>
+          <Select value={filtroImpresion} onValueChange={(v) => v && setFiltroImpresion(v as typeof filtroImpresion)}>
+            <SelectTrigger size="sm" className="w-56">
+              <SelectValue>
+                {() =>
+                  filtroImpresion === "decididas"
+                    ? "Imprimir: solo con respuesta"
+                    : "Imprimir: todas las preguntas"
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas las preguntas</SelectItem>
+              <SelectItem value="decididas">Solo con respuesta (decididas)</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" onClick={() => window.print()} disabled={preguntas.length === 0}>
+            <Printer /> Imprimir
           </Button>
           <Button
             variant="outline"
@@ -355,6 +397,14 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
             {exportando ? "Exportando…" : "Exportar a Word"}
           </Button>
         </div>
+      </div>
+
+      <div className="hidden print:block">
+        {empresaNombre && <p className="text-lg font-bold">{empresaNombre}</p>}
+        <h2 className="text-xl font-semibold">Preguntas para la Junta de Aclaraciones</h2>
+        {filtroImpresion === "decididas" && (
+          <p className="text-sm text-muted-foreground">Solo preguntas con respuesta vinculada</p>
+        )}
       </div>
 
       {preguntas.length === 0 ? (
@@ -373,6 +423,7 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
                   pregunta={p}
                   index={i}
                   respuesta={respuestaPorPregunta.get(p.id)}
+                  ocultarAlImprimir={filtroImpresion === "decididas" && !respuestaPorPregunta.has(p.id)}
                   onChange={onChangePregunta}
                   onDelete={onDeletePregunta}
                 />
@@ -383,14 +434,14 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
       )}
 
       {preguntas.length > 0 && (
-        <div className="flex justify-end">
+        <div className="flex justify-end print:hidden">
           <Button variant="outline" size="sm" onClick={() => handleGuardar(preguntas)} disabled={guardando}>
             {guardando ? "Guardando…" : "Guardar cambios"}
           </Button>
         </div>
       )}
 
-      <Card>
+      <Card className="print:hidden">
         <CardHeader className="flex flex-row items-center justify-between gap-2">
           <CardTitle>Respuestas — cargar acta de la junta</CardTitle>
           {junta && <VincularAclaracionDialog licitacionId={licitacionId} />}

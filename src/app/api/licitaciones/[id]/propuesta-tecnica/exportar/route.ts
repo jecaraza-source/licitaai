@@ -3,6 +3,7 @@ import { Document, HeadingLevel, Packer, Paragraph, TextRun, AlignmentType } fro
 import { createClient } from "@/lib/supabase/server";
 import { htmlToDocxElements } from "@/lib/html-to-docx";
 import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
+import { sanitizeFilename } from "@/lib/utils";
 
 interface Seccion {
   titulo: string;
@@ -88,7 +89,7 @@ export async function POST(
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; filename="propuesta-tecnica-${licitacion.numero_expediente}.docx"`,
+      "Content-Disposition": `attachment; filename="propuesta-tecnica-${sanitizeFilename(licitacion.numero_expediente)}.docx"`,
     },
   });
 }

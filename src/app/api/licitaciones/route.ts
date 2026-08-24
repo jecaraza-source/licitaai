@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from("licitaciones")
-    .select("*", { count: "exact" })
+    .select("*, analisis_bases(objeto_contrato)", { count: "exact" })
     .order("created_at", { ascending: false });
 
   if (estado_licitacion) query = query.eq("estado_licitacion", estado_licitacion);

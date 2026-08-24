@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { FileText, Trash2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -41,6 +42,7 @@ const TIPOS_DOCUMENTO = [
 
 export function DocumentosCorporativosCard({ empresaId }: { empresaId: string }) {
   const [documentos, setDocumentos] = useState<DocumentoCorporativo[] | null>(null);
+  const [noAplican, setNoAplican] = useState<string[]>([]);
   const [tipoSeleccionado, setTipoSeleccionado] = useState(TIPOS_DOCUMENTO[0]);
   const [subiendo, setSubiendo] = useState(false);
 
@@ -48,6 +50,22 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
     fetch(`/api/empresa-perfil/${empresaId}/documentos`)
       .then((res) => res.json())
       .then((json) => setDocumentos(json.data ?? []));
+    fetch(`/api/empresa-perfil/${empresaId}`)
+      .then((res) => res.json())
+      .then((json) => setNoAplican(json.data?.documentos_no_aplican ?? []));
+  }
+
+  async function toggleNoAplica(tipo: string, no_aplica: boolean) {
+    setNoAplican((prev) => (no_aplica ? [...prev, tipo] : prev.filter((t) => t !== tipo)));
+    const res = await fetch(`/api/empresa-perfil/${empresaId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tipo, no_aplica }),
+    });
+    if (!res.ok) {
+      toast.error("No se pudo actualizar");
+      cargar();
+    }
   }
 
   useEffect(() => {
@@ -119,15 +137,31 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
             <ul className="flex flex-col gap-1">
               {TIPOS_DOCUMENTO.filter((tipo) => tipo !== "Otro").map((tipo) => {
                 const subido = documentos.some((d) => d.tipo === tipo);
+                const marcadoNoAplica = noAplican.includes(tipo);
                 return (
                   <li key={tipo} className="flex items-center gap-2 text-sm">
                     <span
                       className={cn(
                         "size-2 shrink-0 rounded-full",
-                        subido ? "bg-emerald-500" : "bg-destructive",
+                        subido
+                          ? "bg-emerald-500"
+                          : marcadoNoAplica
+                            ? "bg-muted-foreground/40"
+                            : "bg-destructive",
                       )}
                     />
-                    {tipo}
+                    <span className={cn("flex-1", marcadoNoAplica && !subido && "text-muted-foreground line-through")}>
+                      {tipo}
+                    </span>
+                    {!subido && (
+                      <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                        <Checkbox
+                          checked={marcadoNoAplica}
+                          onCheckedChange={(checked) => toggleNoAplica(tipo, checked === true)}
+                        />
+                        No aplica
+                      </label>
+                    )}
                   </li>
                 );
               })}

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx";
 import { createClient } from "@/lib/supabase/server";
 import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
+import { sanitizeFilename } from "@/lib/utils";
 
 interface Pregunta {
   texto: string;
@@ -94,7 +95,7 @@ export async function POST(
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; filename="junta-aclaraciones-${licitacion.numero_expediente}.docx"`,
+      "Content-Disposition": `attachment; filename="junta-aclaraciones-${sanitizeFilename(licitacion.numero_expediente)}.docx"`,
     },
   });
 }

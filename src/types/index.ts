@@ -53,6 +53,7 @@ export interface Licitacion {
   created_by: string | null;
   created_at: string;
   es_investigacion_mercado: boolean;
+  analisis_bases?: { objeto_contrato: string | null }[] | null;
 }
 
 export interface FirmaDigital {
@@ -351,6 +352,7 @@ export interface EmpresaPerfil {
   logo_url: string | null;
   color_primario: string | null;
   color_secundario: string | null;
+  documentos_no_aplican: string[];
   updated_at: string;
 }
 

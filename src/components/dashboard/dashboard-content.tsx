@@ -21,6 +21,11 @@ function diasRestantes(fecha: string | null): number | null {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+function formatMonto(monto: number | null) {
+  if (monto === null) return null;
+  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(monto);
+}
+
 function Countdown({ fecha }: { fecha: string | null }) {
   const dias = diasRestantes(fecha);
   if (dias === null) return <span className="text-muted-foreground">Sin fecha</span>;
@@ -89,23 +94,33 @@ export function DashboardContent() {
             <p className="text-sm text-muted-foreground">Aún no hay licitaciones registradas.</p>
           ) : (
             <ul className="flex flex-col divide-y">
-              {recientes.map((l) => (
-                <li key={l.id} className="flex items-center justify-between gap-4 py-3">
-                  <div className="min-w-0">
-                    <Link
-                      href={`/licitaciones/${l.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {l.numero_expediente} — {l.titulo}
-                    </Link>
-                    <p className="truncate text-sm text-muted-foreground">{l.institucion}</p>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1 text-sm">
-                    <EstadoBadge estado={l.estado_licitacion} />
-                    <Countdown fecha={l.fecha_entrega_propuesta} />
-                  </div>
-                </li>
-              ))}
+              {recientes.map((l) => {
+                const descripcion = l.analisis_bases?.[0]?.objeto_contrato;
+                const monto = formatMonto(l.monto_maximo);
+                return (
+                  <li key={l.id} className="flex items-center justify-between gap-4 py-3">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/licitaciones/${l.id}`}
+                        className="font-medium hover:underline"
+                      >
+                        {l.numero_expediente} — {l.titulo}
+                      </Link>
+                      <p className="truncate text-sm text-muted-foreground">{l.institucion}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {descripcion || "Sin descripción (aún no se analiza con IA)"}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1 text-sm">
+                      <EstadoBadge estado={l.estado_licitacion} />
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {monto ?? "Monto sin definir"}
+                      </span>
+                      <Countdown fecha={l.fecha_entrega_propuesta} />
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>
