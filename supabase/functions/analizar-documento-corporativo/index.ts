@@ -7,12 +7,13 @@ import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
 
-const SYSTEM_PROMPT = `Eres un asistente que extrae fechas de documentos oficiales mexicanos
+const SYSTEM_PROMPT = `Eres un asistente que extrae datos de documentos oficiales mexicanos
 (actas, poderes, constancias fiscales, opiniones de cumplimiento, identificaciones, etc.).
 Busca la fecha de emisión o expedición del documento. Si el documento indica explícitamente
-una fecha de vigencia, vencimiento o "válido hasta", repórtala también. Si no puedes determinar
-una fecha con certeza, repórtala como null en vez de adivinar. Usa siempre la herramienta
-proporcionada.`;
+una fecha de vigencia, vencimiento o "válido hasta", repórtala también. También busca el RFC
+y la razón social (o nombre de la persona) a quien pertenece el documento, para poder
+verificar que corresponde a la empresa correcta. Si no puedes determinar un dato con certeza,
+repórtalo como null en vez de adivinar. Usa siempre la herramienta proporcionada.`;
 
 const TOOL_SCHEMA = {
   type: "object" as const,
@@ -26,8 +27,17 @@ const TOOL_SCHEMA = {
       description:
         "Fecha de vigencia o vencimiento indicada explícitamente en el documento (YYYY-MM-DD), o null si el documento no la indica",
     },
+    rfc_detectado: {
+      type: ["string", "null"],
+      description: "RFC de la empresa o persona a quien pertenece el documento, o null si no aparece",
+    },
+    razon_social_detectada: {
+      type: ["string", "null"],
+      description:
+        "Razón social o nombre completo de la empresa/persona a quien pertenece el documento, o null si no aparece",
+    },
   },
-  required: ["fecha_emision", "fecha_vigencia_indicada"],
+  required: ["fecha_emision", "fecha_vigencia_indicada", "rfc_detectado", "razon_social_detectada"],
   additionalProperties: false,
 };
 
@@ -69,6 +79,39 @@ function sumarDiasHabiles(fecha: Date, dias: number): Date {
   return resultado;
 }
 
+function normalizarTexto(texto: string): string {
+  // NFD + strip-non-alphanumeric quita acentos y cualquier puntuación/espacio
+  // de un solo golpe (las marcas diacríticas que separa NFD no son A-Z0-9).
+  return texto
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+/**
+ * true = coincide, false = no coincide, null = el documento no traía RFC
+ * ni razón social para comparar (p. ej. un comprobante de domicilio).
+ */
+function coincideEmpresa(
+  empresa: { rfc: string | null; razon_social: string | null } | null,
+  rfcDetectado: string | null,
+  razonSocialDetectada: string | null,
+): boolean | null {
+  if (!empresa) return null;
+
+  if (rfcDetectado && empresa.rfc) {
+    return normalizarTexto(rfcDetectado) === normalizarTexto(empresa.rfc);
+  }
+
+  if (razonSocialDetectada && empresa.razon_social) {
+    const detectada = normalizarTexto(razonSocialDetectada);
+    const propia = normalizarTexto(empresa.razon_social);
+    return detectada === propia || detectada.includes(propia) || propia.includes(detectada);
+  }
+
+  return null;
+}
+
 function calcularVigenciaHasta(tipo: string, fechaEmision: string | null): string | null {
   const regla = REGLAS_VIGENCIA[tipo];
   if (!regla || !fechaEmision) return null;
@@ -103,10 +146,16 @@ Deno.serve(async (req) => {
 
     const { data: documento, error: docError } = await supabase
       .from("documentos_corporativos")
-      .select("id, tipo, nombre, storage_path")
+      .select("id, tipo, nombre, storage_path, empresa_perfil_id")
       .eq("id", documento_id)
       .single();
     if (docError || !documento) throw new Error("Documento no encontrado");
+
+    const { data: empresa } = await supabase
+      .from("empresa_perfil")
+      .select("rfc, razon_social")
+      .eq("id", documento.empresa_perfil_id)
+      .maybeSingle();
 
     // Si el usuario capturó la fecha a mano (porque no se pudo detectar
     // automáticamente, o para corregirla), no hace falta volver a llamar
@@ -164,23 +213,33 @@ Deno.serve(async (req) => {
     const toolUse = response.content.find(
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
     );
-    const fechas = toolUse?.input as
-      | { fecha_emision: string | null; fecha_vigencia_indicada: string | null }
+    const datos = toolUse?.input as
+      | {
+          fecha_emision: string | null;
+          fecha_vigencia_indicada: string | null;
+          rfc_detectado: string | null;
+          razon_social_detectada: string | null;
+        }
       | undefined;
-    if (!fechas) throw new Error("No se pudieron extraer fechas del documento");
+    if (!datos) throw new Error("No se pudieron extraer datos del documento");
 
     const vigenciaHasta =
-      fechas.fecha_vigencia_indicada ?? calcularVigenciaHasta(documento.tipo, fechas.fecha_emision);
+      datos.fecha_vigencia_indicada ?? calcularVigenciaHasta(documento.tipo, datos.fecha_emision);
+    const coincide = coincideEmpresa(empresa, datos.rfc_detectado, datos.razon_social_detectada);
 
     await supabase
       .from("documentos_corporativos")
-      .update({ fecha_emision: fechas.fecha_emision, vigencia_hasta: vigenciaHasta })
+      .update({
+        fecha_emision: datos.fecha_emision,
+        vigencia_hasta: vigenciaHasta,
+        coincide_empresa: coincide,
+      })
       .eq("id", documento_id);
 
     return new Response(
       JSON.stringify({
         ok: true,
-        data: { fecha_emision: fechas.fecha_emision, vigencia_hasta: vigenciaHasta },
+        data: { fecha_emision: datos.fecha_emision, vigencia_hasta: vigenciaHasta, coincide_empresa: coincide },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

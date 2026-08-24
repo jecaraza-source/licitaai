@@ -463,5 +463,6 @@ export interface DocumentoCorporativo {
   storage_path: string;
   fecha_emision: string | null;
   vigencia_hasta: string | null;
+  coincide_empresa: boolean | null;
   created_at: string;
 }

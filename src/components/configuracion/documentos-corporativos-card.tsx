@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
-import { FileText, Trash2, UploadCloud } from "lucide-react";
+import { FileText, TriangleAlert, Trash2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -116,6 +116,17 @@ function VigenciaBadge({ doc }: { doc: DocumentoCorporativo }) {
   );
 }
 
+function EmpresaMismatchBadge({ doc }: { doc: DocumentoCorporativo }) {
+  if (doc.coincide_empresa !== false) return null;
+
+  return (
+    <span className="flex shrink-0 items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+      <TriangleAlert className="size-3" />
+      No coincide con la empresa activa
+    </span>
+  );
+}
+
 export function DocumentosCorporativosCard({ empresaId }: { empresaId: string }) {
   const [documentos, setDocumentos] = useState<DocumentoCorporativo[] | null>(null);
   const [noAplican, setNoAplican] = useState<string[]>([]);
@@ -167,6 +178,12 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
               : "No se detectó la fecha de emisión automáticamente. Captúrala manualmente.",
           });
           return;
+        }
+        const json = await res.json().catch(() => null);
+        if (!fechaEmisionManual && json?.data?.coincide_empresa === false) {
+          toast.warning("El documento no coincide con la empresa activa", {
+            description: "El RFC o razón social detectados no corresponden a esta empresa. Verifícalo.",
+          });
         }
         cargar();
       } catch {
@@ -309,7 +326,10 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
                     {analizando ? (
                       <span className="shrink-0 text-xs text-muted-foreground">Calculando vigencia…</span>
                     ) : (
-                      <VigenciaBadge doc={doc} />
+                      <>
+                        <EmpresaMismatchBadge doc={doc} />
+                        <VigenciaBadge doc={doc} />
+                      </>
                     )}
                     <Button variant="ghost" size="icon-sm" onClick={() => eliminar(doc)}>
                       <Trash2 className="text-destructive" />
