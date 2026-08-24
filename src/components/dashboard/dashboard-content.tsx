@@ -2,17 +2,21 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Rocket, Clock, FileEdit, Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EstadoBadge } from "@/components/licitaciones/estado-badge";
+import { EstadoBarChart } from "@/components/dashboard/estado-bar-chart";
 import { cn } from "@/lib/utils";
 import type { DashboardStats, Licitacion } from "@/types";
 
-const KPI_LABELS: { key: keyof DashboardStats; label: string }[] = [
-  { key: "totalActivas", label: "Licitaciones activas" },
-  { key: "proximasAVencer", label: "Próximas a vencer (7 días)" },
-  { key: "enPreparacion", label: "En preparación" },
-  { key: "enviadasEsteMes", label: "Enviadas este mes" },
+type KpiKey = "totalActivas" | "proximasAVencer" | "enPreparacion" | "enviadasEsteMes";
+
+const KPI_LABELS: { key: KpiKey; label: string; icon: typeof Rocket }[] = [
+  { key: "totalActivas", label: "Licitaciones activas", icon: Rocket },
+  { key: "proximasAVencer", label: "Próximas a vencer (7 días)", icon: Clock },
+  { key: "enPreparacion", label: "En preparación", icon: FileEdit },
+  { key: "enviadasEsteMes", label: "Enviadas este mes", icon: Send },
 ];
 
 function diasRestantes(fecha: string | null): number | null {
@@ -61,12 +65,15 @@ export function DashboardContent() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {KPI_LABELS.map(({ key, label }) => (
+        {KPI_LABELS.map(({ key, label, icon: Icon }) => (
           <Card key={key}>
-            <CardHeader className="pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 {label}
               </CardTitle>
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Icon className="size-4" />
+              </span>
             </CardHeader>
             <CardContent>
               {stats ? (
@@ -78,6 +85,19 @@ export function DashboardContent() {
           </Card>
         ))}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Licitaciones por estado</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {stats ? (
+            <EstadoBarChart porEstado={stats.porEstado} />
+          ) : (
+            <Skeleton className="h-40 w-full" />
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

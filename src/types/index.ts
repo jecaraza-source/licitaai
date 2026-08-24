@@ -391,6 +391,7 @@ export interface DashboardStats {
   proximasAVencer: number;
   enPreparacion: number;
   enviadasEsteMes: number;
+  porEstado: Record<EstadoLicitacion, number>;
 }
 
 export type FuncionProcedimiento =
