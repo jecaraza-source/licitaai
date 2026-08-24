@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EstadoBadge } from "@/components/licitaciones/estado-badge";
 import { EstadoSelector } from "@/components/licitaciones/estado-selector";
 import { ProcesoTimeline } from "@/components/licitaciones/proceso-timeline";
+import { ResumenAnexoTecnicoCard } from "@/components/licitaciones/resumen-anexo-tecnico-card";
 import { ActividadTimeline, type ActividadLogConUsuario } from "@/components/licitaciones/actividad-timeline";
 import { DocumentosTab } from "@/components/licitaciones/documentos-tab";
 import { AnalisisIaTab } from "@/components/licitaciones/analisis-ia-tab";
@@ -41,20 +42,26 @@ function formatMonto(monto: number | null) {
 async function getData(id: string) {
   const supabase = await createClient();
 
-  const [{ data: licitacion }, { data: documentos }, { data: actividad }] = await Promise.all([
-    supabase.from("licitaciones").select("*").eq("id", id).single(),
-    supabase
-      .from("documentos")
-      .select("*")
-      .eq("licitacion_id", id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("actividad_log")
-      .select("*, usuario:users(nombre)")
-      .eq("licitacion_id", id)
-      .order("created_at", { ascending: false })
-      .limit(30),
-  ]);
+  const [{ data: licitacion }, { data: documentos }, { data: actividad }, { data: analisis }] =
+    await Promise.all([
+      supabase.from("licitaciones").select("*").eq("id", id).single(),
+      supabase
+        .from("documentos")
+        .select("*")
+        .eq("licitacion_id", id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("actividad_log")
+        .select("*, usuario:users(nombre)")
+        .eq("licitacion_id", id)
+        .order("created_at", { ascending: false })
+        .limit(30),
+      supabase
+        .from("analisis_bases")
+        .select("objeto_contrato, tipo_procedimiento, especificaciones_tecnicas_json")
+        .eq("licitacion_id", id)
+        .maybeSingle(),
+    ]);
 
   if (!licitacion) return null;
 
@@ -65,7 +72,7 @@ async function getData(id: string) {
     return { ...rest, usuario_nombre: usuario?.nombre ?? null };
   });
 
-  return { licitacion, documentos: documentos ?? [], actividad: actividadConUsuario };
+  return { licitacion, documentos: documentos ?? [], actividad: actividadConUsuario, analisis };
 }
 
 export default async function LicitacionDetallePage({
@@ -80,7 +87,7 @@ export default async function LicitacionDetallePage({
     notFound();
   }
 
-  const { licitacion, documentos, actividad } = result;
+  const { licitacion, documentos, actividad, analisis } = result;
 
   return (
     <div className="flex flex-col gap-6">
@@ -123,6 +130,11 @@ export default async function LicitacionDetallePage({
               <ProcesoTimeline licitacion={licitacion} />
             </CardContent>
           </Card>
+          <ResumenAnexoTecnicoCard
+            tipo={licitacion.tipo}
+            esInvestigacionMercado={licitacion.es_investigacion_mercado}
+            analisis={analisis}
+          />
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card>
               <CardHeader>
