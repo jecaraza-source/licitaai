@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
+import { UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,7 +92,10 @@ export default function RegisterPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Crear cuenta</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <UserPlus className="size-4.5 text-primary" />
+          Crear cuenta
+        </CardTitle>
         <CardDescription>Registra tu empresa en LicitaAI</CardDescription>
       </CardHeader>
       <CardContent>

@@ -48,10 +48,10 @@ export function buildCompanyThemeStyle(
   const primarioForeground = contrastText(primario);
 
   return `:root {
-  --brand-burgundy: ${primario};
-  --brand-burgundy-light: ${mix(primario, "white", 0.55)};
-  --brand-teal: ${secundario};
-  --brand-teal-light: ${mix(secundario, "white", 0.55)};
+  --brand-primary: ${primario};
+  --brand-primary-light: ${mix(primario, "white", 0.55)};
+  --brand-secondary: ${secundario};
+  --brand-secondary-light: ${mix(secundario, "white", 0.55)};
   --primary-foreground: ${primarioForeground};
   --sidebar-primary-foreground: ${primarioForeground};
   --secondary: ${mix(primario, "white", 0.92)};

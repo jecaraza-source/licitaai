@@ -51,14 +51,14 @@
 :root {
   --font-sans: "Calibri", "Carlito", "Segoe UI", Arial, ui-sans-serif, system-ui, sans-serif;
 
-  /* Colores institucionales TCI, muestreados directamente del logo oficial
-     (public/branding/TCI-logo.jpg): guinda #8C2131, verde azulado #42797C,
-     gris azulado #97A3AF. */
-  --brand-burgundy: #8c2131;
-  --brand-burgundy-light: #b46f79;
-  --brand-teal: #42797c;
-  --brand-teal-light: #84a8aa;
-  --brand-slate: #97a3af;
+  /* Paleta institucional propia de LicitaAI (verde). Esta es la marca por
+     defecto de la plataforma; se sobreescribe en tiempo de ejecución con los
+     colores del logotipo de la empresa activa — ver src/lib/theme-colors.ts. */
+  --brand-primary: #1f6b4a;
+  --brand-primary-light: #6fae8c;
+  --brand-secondary: #4c7a5d;
+  --brand-secondary-light: #9cc2ac;
+  --brand-neutral: #8a9b93;
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -66,40 +66,40 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: var(--brand-burgundy);
+  --primary: var(--brand-primary);
   --primary-foreground: #ffffff;
-  --secondary: #f4e9ea;
-  --secondary-foreground: var(--brand-burgundy);
+  --secondary: #e6f0ea;
+  --secondary-foreground: var(--brand-primary);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: #ecf2f2;
-  --accent-foreground: #325658;
+  --accent: #eff5f0;
+  --accent-foreground: #33513f;
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: var(--brand-burgundy);
-  --chart-1: var(--brand-burgundy);
-  --chart-2: var(--brand-teal);
-  --chart-3: var(--brand-slate);
-  --chart-4: var(--brand-burgundy-light);
-  --chart-5: var(--brand-teal-light);
+  --ring: var(--brand-primary);
+  --chart-1: var(--brand-primary);
+  --chart-2: var(--brand-secondary);
+  --chart-3: var(--brand-neutral);
+  --chart-4: var(--brand-primary-light);
+  --chart-5: var(--brand-secondary-light);
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: var(--brand-burgundy);
+  --sidebar-primary: var(--brand-primary);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f4e9ea;
-  --sidebar-accent-foreground: var(--brand-burgundy);
+  --sidebar-accent: #e6f0ea;
+  --sidebar-accent-foreground: var(--brand-primary);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: var(--brand-burgundy);
+  --sidebar-ring: var(--brand-primary);
 }
 
 .dark {
-  --brand-burgundy: #b46f79;
-  --brand-burgundy-light: #8c2131;
-  --brand-teal: #84a8aa;
-  --brand-teal-light: #42797c;
-  --brand-slate: #97a3af;
+  --brand-primary: #6fae8c;
+  --brand-primary-light: #1f6b4a;
+  --brand-secondary: #9cc2ac;
+  --brand-secondary-light: #4c7a5d;
+  --brand-neutral: #9fb0a8;
 
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -107,31 +107,31 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: var(--brand-burgundy);
-  --primary-foreground: #1a0a10;
+  --primary: var(--brand-primary);
+  --primary-foreground: #0a1f16;
   --secondary: oklch(0.269 0 0);
-  --secondary-foreground: #f4e9ea;
+  --secondary-foreground: #e6f0ea;
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: #152021;
-  --accent-foreground: #aac3c4;
+  --accent: #132019;
+  --accent-foreground: #b9d0c4;
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: var(--brand-burgundy);
-  --chart-1: var(--brand-burgundy);
-  --chart-2: var(--brand-teal);
-  --chart-3: var(--brand-slate);
-  --chart-4: var(--brand-burgundy-light);
-  --chart-5: var(--brand-teal-light);
+  --ring: var(--brand-primary);
+  --chart-1: var(--brand-primary);
+  --chart-2: var(--brand-secondary);
+  --chart-3: var(--brand-neutral);
+  --chart-4: var(--brand-primary-light);
+  --chart-5: var(--brand-secondary-light);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: var(--brand-burgundy);
-  --sidebar-primary-foreground: #1a0a10;
-  --sidebar-accent: #2a1619;
-  --sidebar-accent-foreground: #f4e9ea;
+  --sidebar-primary: var(--brand-primary);
+  --sidebar-primary-foreground: #0a1f16;
+  --sidebar-accent: #16261d;
+  --sidebar-accent-foreground: #e6f0ea;
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: var(--brand-burgundy);
+  --sidebar-ring: var(--brand-primary);
 }
 
 @layer base {

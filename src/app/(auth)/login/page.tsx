@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
+import { LogIn } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,7 +54,10 @@ export default function LoginPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Iniciar sesión</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <LogIn className="size-4.5 text-primary" />
+          Iniciar sesión
+        </CardTitle>
         <CardDescription>Accede a tu cuenta de LicitaAI</CardDescription>
       </CardHeader>
       <CardContent>

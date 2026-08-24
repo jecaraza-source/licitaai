@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileStack, LayoutDashboard, PlusCircle, Scale, Settings } from "lucide-react";
+import { FileStack, Landmark, LayoutDashboard, PlusCircle, Scale, Settings } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -50,24 +50,14 @@ export function AppSidebar({
               className="h-11 w-auto object-contain group-data-[collapsible=icon]:size-9"
             />
           ) : (
-            <>
-              <Image
-                src="/branding/tci-logo-full.png"
-                alt="TCI"
-                width={130}
-                height={60}
-                priority
-                className="h-11 w-auto group-data-[collapsible=icon]:hidden"
-              />
-              <Image
-                src="/branding/tci-mark.png"
-                alt="TCI"
-                width={512}
-                height={512}
-                priority
-                className="hidden size-9 group-data-[collapsible=icon]:block"
-              />
-            </>
+            <span className="flex items-center gap-2 group-data-[collapsible=icon]:gap-0">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <Landmark className="size-4.5" />
+              </span>
+              <span className="text-base font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
+                LicitaAI
+              </span>
+            </span>
           )}
         </Link>
       </SidebarHeader>
