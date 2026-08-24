@@ -464,5 +464,6 @@ export interface DocumentoCorporativo {
   fecha_emision: string | null;
   vigencia_hasta: string | null;
   coincide_empresa: boolean | null;
+  nombre_persona_detectado: string | null;
   created_at: string;
 }

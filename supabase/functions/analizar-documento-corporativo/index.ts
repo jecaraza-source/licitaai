@@ -12,8 +12,12 @@ const SYSTEM_PROMPT = `Eres un asistente que extrae datos de documentos oficiale
 Busca la fecha de emisión o expedición del documento. Si el documento indica explícitamente
 una fecha de vigencia, vencimiento o "válido hasta", repórtala también. También busca el RFC
 y la razón social (o nombre de la persona) a quien pertenece el documento, para poder
-verificar que corresponde a la empresa correcta. Si no puedes determinar un dato con certeza,
-repórtalo como null en vez de adivinar. Usa siempre la herramienta proporcionada.`;
+verificar que corresponde a la empresa correcta. Además, si el documento es una identificación
+oficial, extrae el nombre completo del titular; si es un poder notarial o escrito de
+personalidad, extrae el nombre completo de la persona apoderada o reconocida como
+representante legal (no el del notario ni el de quien otorga el poder). Si no puedes
+determinar un dato con certeza, repórtalo como null en vez de adivinar. Usa siempre la
+herramienta proporcionada.`;
 
 const TOOL_SCHEMA = {
   type: "object" as const,
@@ -36,8 +40,19 @@ const TOOL_SCHEMA = {
       description:
         "Razón social o nombre completo de la empresa/persona a quien pertenece el documento, o null si no aparece",
     },
+    nombre_persona_detectado: {
+      type: ["string", "null"],
+      description:
+        "Nombre completo del titular (si es una identificación oficial) o del apoderado/representante legal nombrado (si es un poder o escrito de personalidad). Null si no aplica o no se detecta.",
+    },
   },
-  required: ["fecha_emision", "fecha_vigencia_indicada", "rfc_detectado", "razon_social_detectada"],
+  required: [
+    "fecha_emision",
+    "fecha_vigencia_indicada",
+    "rfc_detectado",
+    "razon_social_detectada",
+    "nombre_persona_detectado",
+  ],
   additionalProperties: false,
 };
 
@@ -219,6 +234,7 @@ Deno.serve(async (req) => {
           fecha_vigencia_indicada: string | null;
           rfc_detectado: string | null;
           razon_social_detectada: string | null;
+          nombre_persona_detectado: string | null;
         }
       | undefined;
     if (!datos) throw new Error("No se pudieron extraer datos del documento");
@@ -233,13 +249,19 @@ Deno.serve(async (req) => {
         fecha_emision: datos.fecha_emision,
         vigencia_hasta: vigenciaHasta,
         coincide_empresa: coincide,
+        nombre_persona_detectado: datos.nombre_persona_detectado,
       })
       .eq("id", documento_id);
 
     return new Response(
       JSON.stringify({
         ok: true,
-        data: { fecha_emision: datos.fecha_emision, vigencia_hasta: vigenciaHasta, coincide_empresa: coincide },
+        data: {
+          fecha_emision: datos.fecha_emision,
+          vigencia_hasta: vigenciaHasta,
+          coincide_empresa: coincide,
+          nombre_persona_detectado: datos.nombre_persona_detectado,
+        },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

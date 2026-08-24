@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
-import { FileText, TriangleAlert, Trash2, UploadCloud } from "lucide-react";
+import { BadgeCheck, FileText, TriangleAlert, Trash2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -124,6 +124,76 @@ function EmpresaMismatchBadge({ doc }: { doc: DocumentoCorporativo }) {
       <TriangleAlert className="size-3" />
       No coincide con la empresa activa
     </span>
+  );
+}
+
+const TIPOS_REPRESENTANTE = ["Poder del representante legal", "Escrito de personalidad"];
+
+function normalizarNombre(nombre: string): string {
+  return nombre
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[^A-Z\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Coinciden si todos los nombres/apellidos del más corto aparecen en el más largo. */
+function nombresCoinciden(a: string, b: string): boolean {
+  const tokensA = normalizarNombre(a).split(" ").filter(Boolean);
+  const tokensB = normalizarNombre(b).split(" ").filter(Boolean);
+  if (tokensA.length < 2 || tokensB.length < 2) return false;
+
+  const [menor, mayor] = tokensA.length <= tokensB.length ? [tokensA, tokensB] : [tokensB, tokensA];
+  const mayorSet = new Set(mayor);
+  return menor.every((token) => mayorSet.has(token));
+}
+
+function verificarRepresentante(
+  documentos: DocumentoCorporativo[],
+): { coincide: boolean; nombrePoder: string; nombreId: string } | null {
+  const idDoc = documentos.find((d) => d.tipo === "Identificación oficial" && d.nombre_persona_detectado);
+  const poderDoc = documentos.find(
+    (d) => TIPOS_REPRESENTANTE.includes(d.tipo) && d.nombre_persona_detectado,
+  );
+  if (!idDoc?.nombre_persona_detectado || !poderDoc?.nombre_persona_detectado) return null;
+
+  return {
+    coincide: nombresCoinciden(idDoc.nombre_persona_detectado, poderDoc.nombre_persona_detectado),
+    nombrePoder: poderDoc.nombre_persona_detectado,
+    nombreId: idDoc.nombre_persona_detectado,
+  };
+}
+
+function RepresentanteVerificacion({ documentos }: { documentos: DocumentoCorporativo[] }) {
+  const verificacion = verificarRepresentante(documentos);
+  if (!verificacion) return null;
+
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-2 rounded-md px-3 py-2 text-xs",
+        verificacion.coincide
+          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          : "bg-destructive/10 text-destructive",
+      )}
+    >
+      {verificacion.coincide ? (
+        <BadgeCheck className="size-3.5 shrink-0 translate-y-0.5" />
+      ) : (
+        <TriangleAlert className="size-3.5 shrink-0 translate-y-0.5" />
+      )}
+      {verificacion.coincide ? (
+        <span>
+          El representante legal coincide con su identificación oficial ({verificacion.nombreId}).
+        </span>
+      ) : (
+        <span>
+          El nombre del poder/escrito de personalidad (&quot;{verificacion.nombrePoder}&quot;) no coincide
+          con la identificación oficial (&quot;{verificacion.nombreId}&quot;). Verifícalo.
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -305,6 +375,8 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
             </ul>
           </div>
         )}
+
+        {documentos && documentos.length > 0 && <RepresentanteVerificacion documentos={documentos} />}
 
         {documentos === null ? (
           <p className="text-sm text-muted-foreground">Cargando…</p>
