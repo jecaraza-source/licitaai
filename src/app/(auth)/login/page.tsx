@@ -40,13 +40,15 @@ export default function LoginPage() {
     setLoading(true);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword(values);
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
       toast.error("No se pudo iniciar sesión", { description: error.message });
       return;
     }
 
+    await fetch("/api/empresa-perfil/reiniciar", { method: "POST" }).catch(() => {});
+    setLoading(false);
     router.push("/dashboard");
     router.refresh();
   }

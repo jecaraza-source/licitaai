@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { FileText, Trash2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -40,11 +41,88 @@ const TIPOS_DOCUMENTO = [
   "Otro",
 ];
 
+/**
+ * Recordatorio de vigencia por tipo de documento, para que no se suban
+ * documentos vencidos. Fuentes: reglas de vigencia de la opinión de
+ * cumplimiento SAT (30 días naturales, art. 32-D CFF), IMSS (15 días
+ * hábiles) e INFONAVIT (30 días naturales); práctica común en
+ * convocatorias para comprobante de domicilio y estado de cuenta.
+ */
+const VIGENCIAS: Record<string, string> = {
+  "Acta constitutiva": "sin vigencia, es permanente",
+  Reformas: "sin vigencia, es permanente",
+  "Poder del representante legal": "vigente mientras no se revoque",
+  "Constancia de Situación Fiscal": "recomendado no mayor a 30 días de emisión",
+  "Identificación oficial": "según el documento; INE: 10 años",
+  "Comprobante de domicilio": "no mayor a 3 meses de antigüedad",
+  "Datos bancarios": "no mayor a 3 meses de antigüedad",
+  "Opinión de cumplimiento fiscal (32-D)": "30 días naturales",
+  "Cumplimiento IMSS": "15 días hábiles",
+  "Cumplimiento INFONAVIT": "30 días naturales",
+  "Declaración de integridad": "se firma por cada procedimiento",
+  "Manifestación de no impedido": "se firma por cada procedimiento",
+  "Información de socios/accionistas": "actualizar si hay cambios societarios",
+  "Escrito de personalidad": "vigente mientras no se revoque el poder",
+  "Declaración de nacionalidad": "se firma por cada procedimiento",
+  "Estratificación MIPYME": "vigente para el ejercicio fiscal en curso",
+  "Documentación RUPC": "registro único; mantener datos actualizados",
+};
+
+// Debe reflejar los mismos tipos que REGLAS_VIGENCIA en el edge function
+// analizar-documento-corporativo: son los únicos donde una fecha de
+// emisión permite calcular una fecha de vigencia.
+const TIPOS_CON_VIGENCIA_CALCULABLE = new Set([
+  "Constancia de Situación Fiscal",
+  "Comprobante de domicilio",
+  "Datos bancarios",
+  "Opinión de cumplimiento fiscal (32-D)",
+  "Cumplimiento IMSS",
+  "Cumplimiento INFONAVIT",
+]);
+
+type EstadoVigencia = "vigente" | "por_vencer" | "vencido";
+
+function estadoVigencia(vigenciaHasta: string): EstadoVigencia {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const limite = new Date(`${vigenciaHasta}T00:00:00`);
+  const diasRestantes = Math.ceil((limite.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diasRestantes < 0) return "vencido";
+  if (diasRestantes <= 7) return "por_vencer";
+  return "vigente";
+}
+
+function VigenciaBadge({ doc }: { doc: DocumentoCorporativo }) {
+  if (!doc.vigencia_hasta) return null;
+
+  const estado = estadoVigencia(doc.vigencia_hasta);
+  const fecha = new Date(`${doc.vigencia_hasta}T00:00:00`).toLocaleDateString("es-MX");
+  const estilos: Record<EstadoVigencia, string> = {
+    vigente: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    por_vencer: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    vencido: "bg-destructive/10 text-destructive",
+  };
+  const etiquetas: Record<EstadoVigencia, string> = {
+    vigente: `Vigente hasta ${fecha}`,
+    por_vencer: `Vence pronto (${fecha})`,
+    vencido: `Vencido desde ${fecha}`,
+  };
+
+  return (
+    <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", estilos[estado])}>
+      {etiquetas[estado]}
+    </span>
+  );
+}
+
 export function DocumentosCorporativosCard({ empresaId }: { empresaId: string }) {
   const [documentos, setDocumentos] = useState<DocumentoCorporativo[] | null>(null);
   const [noAplican, setNoAplican] = useState<string[]>([]);
   const [tipoSeleccionado, setTipoSeleccionado] = useState(TIPOS_DOCUMENTO[0]);
   const [subiendo, setSubiendo] = useState(false);
+  const [analizandoIds, setAnalizandoIds] = useState<string[]>([]);
+  const [fechasManuales, setFechasManuales] = useState<Record<string, string>>({});
 
   function cargar() {
     fetch(`/api/empresa-perfil/${empresaId}/documentos`)
@@ -73,10 +151,36 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaId]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    maxFiles: 1,
-    onDrop: async ([file]) => {
-      if (!file) return;
+  const analizarVigencia = useCallback(
+    async (docId: string, fechaEmisionManual?: string) => {
+      setAnalizandoIds((prev) => [...prev, docId]);
+      try {
+        const res = await fetch(`/api/empresa-perfil/${empresaId}/documentos/${docId}/analizar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fecha_emision_manual: fechaEmisionManual ?? null }),
+        });
+        if (!res.ok) {
+          toast.error("No se pudo calcular la vigencia", {
+            description: fechaEmisionManual
+              ? undefined
+              : "No se detectó la fecha de emisión automáticamente. Captúrala manualmente.",
+          });
+          return;
+        }
+        cargar();
+      } catch {
+        toast.error("No se pudo calcular la vigencia", { description: "Error de red inesperado" });
+      } finally {
+        setAnalizandoIds((prev) => prev.filter((id) => id !== docId));
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [empresaId],
+  );
+
+  const subirDocumento = useCallback(
+    async (file: File) => {
       setSubiendo(true);
       const supabase = createClient();
       const {
@@ -104,14 +208,25 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tipo: tipoSeleccionado, nombre: file.name, storage_path: path }),
       });
+      const json = await res.json().catch(() => null);
       setSubiendo(false);
 
-      if (!res.ok) {
+      if (!res.ok || !json?.data?.id) {
         toast.error("No se pudo registrar el documento");
         return;
       }
       toast.success(`"${tipoSeleccionado}" guardado`);
       cargar();
+      analizarVigencia(json.data.id);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [empresaId, tipoSeleccionado, analizarVigencia],
+  );
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    maxFiles: 1,
+    onDrop: ([file]) => {
+      if (file) subirDocumento(file);
     },
   });
 
@@ -152,6 +267,11 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
                     />
                     <span className={cn("flex-1", marcadoNoAplica && !subido && "text-muted-foreground line-through")}>
                       {tipo}
+                      {VIGENCIAS[tipo] && (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          ({VIGENCIAS[tipo]})
+                        </span>
+                      )}
                     </span>
                     {!subido && (
                       <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
@@ -175,18 +295,55 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
           <p className="text-sm text-muted-foreground">Aún no hay documentos.</p>
         ) : (
           <ul className="flex flex-col divide-y">
-            {documentos.map((doc) => (
-              <li key={doc.id} className="flex items-center gap-2 py-2 text-sm">
-                <FileText className="size-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{doc.tipo}</p>
-                  <p className="truncate text-xs text-muted-foreground">{doc.nombre}</p>
-                </div>
-                <Button variant="ghost" size="icon-sm" onClick={() => eliminar(doc)}>
-                  <Trash2 className="text-destructive" />
-                </Button>
-              </li>
-            ))}
+            {documentos.map((doc) => {
+              const analizando = analizandoIds.includes(doc.id);
+              const puedeCalcularVigencia = TIPOS_CON_VIGENCIA_CALCULABLE.has(doc.tipo);
+              return (
+                <li key={doc.id} className="flex flex-col gap-1.5 py-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <FileText className="size-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{doc.tipo}</p>
+                      <p className="truncate text-xs text-muted-foreground">{doc.nombre}</p>
+                    </div>
+                    {analizando ? (
+                      <span className="shrink-0 text-xs text-muted-foreground">Calculando vigencia…</span>
+                    ) : (
+                      <VigenciaBadge doc={doc} />
+                    )}
+                    <Button variant="ghost" size="icon-sm" onClick={() => eliminar(doc)}>
+                      <Trash2 className="text-destructive" />
+                    </Button>
+                  </div>
+                  {puedeCalcularVigencia && (
+                    <div className="flex items-center gap-2 pl-6">
+                      <Label className="shrink-0 text-xs text-muted-foreground">
+                        Fecha de emisión
+                      </Label>
+                      <Input
+                        type="date"
+                        className="h-7 w-36 text-xs"
+                        value={fechasManuales[doc.id] ?? doc.fecha_emision ?? ""}
+                        onChange={(e) =>
+                          setFechasManuales((prev) => ({ ...prev, [doc.id]: e.target.value }))
+                        }
+                      />
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        disabled={analizando || !(fechasManuales[doc.id] ?? doc.fecha_emision)}
+                        onClick={() =>
+                          analizarVigencia(doc.id, fechasManuales[doc.id] ?? doc.fecha_emision ?? "")
+                        }
+                      >
+                        Guardar
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
 

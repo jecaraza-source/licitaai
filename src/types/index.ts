@@ -461,6 +461,7 @@ export interface DocumentoCorporativo {
   tipo: string;
   nombre: string;
   storage_path: string;
+  fecha_emision: string | null;
   vigencia_hasta: string | null;
   created_at: string;
 }
