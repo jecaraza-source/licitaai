@@ -1,4 +1,25 @@
 export type Rol = "ADMIN" | "MANAGER" | "ANALYST" | "VIEWER";
+export type RolJerarquico = "EJECUTOR" | "INTEGRADOR" | "SUPERVISOR";
+
+export interface StaffOrg {
+  id: string;
+  nombre: string;
+  email: string;
+  rol_jerarquico: RolJerarquico | null;
+  created_at: string;
+}
+
+export interface LicitacionJerarquia {
+  id: string | null;
+  licitacion_id: string;
+  ejecutor_id: string | null;
+  integrador_id: string | null;
+  supervisor_id: string | null;
+  ejecutor_autorizado_at: string | null;
+  integrador_autorizado_at: string | null;
+  supervisor_autorizado_at: string | null;
+  updated_at: string;
+}
 
 export type EstadoLicitacion =
   | "NUEVA"

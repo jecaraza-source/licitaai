@@ -57,31 +57,39 @@ export interface GateStatus {
   amarillosCriticos: number;
   pendientesLiberacion: number;
   itemsLiberacion: ChecklistLiberacionItem[];
+  jerarquiaAutorizada: boolean;
   bloqueado: boolean;
 }
 
 /**
  * Regla del proceso operativo (Paso 25 y 29): un procedimiento no puede
  * marcarse como enviado si tiene requisitos en rojo, requisitos críticos en
- * amarillo, o puntos del checklist final de liberación sin confirmar.
+ * amarillo, puntos del checklist final de liberación sin confirmar, o si el
+ * Supervisor asignado no ha dado su autorización final.
  */
 export async function getGateStatus(
   supabase: SupabaseClient,
   licitacionId: string,
 ): Promise<GateStatus> {
-  const [{ data: checklist }, { data: liberacion }, { data: licitacion }] = await Promise.all([
-    supabase.from("checklist_items").select("estado, critico").eq("licitacion_id", licitacionId),
-    supabase
-      .from("checklist_liberacion")
-      .select("items_json")
-      .eq("licitacion_id", licitacionId)
-      .maybeSingle(),
-    supabase
-      .from("licitaciones")
-      .select("es_investigacion_mercado")
-      .eq("id", licitacionId)
-      .maybeSingle(),
-  ]);
+  const [{ data: checklist }, { data: liberacion }, { data: licitacion }, { data: jerarquia }] =
+    await Promise.all([
+      supabase.from("checklist_items").select("estado, critico").eq("licitacion_id", licitacionId),
+      supabase
+        .from("checklist_liberacion")
+        .select("items_json")
+        .eq("licitacion_id", licitacionId)
+        .maybeSingle(),
+      supabase
+        .from("licitaciones")
+        .select("es_investigacion_mercado")
+        .eq("id", licitacionId)
+        .maybeSingle(),
+      supabase
+        .from("licitacion_jerarquia")
+        .select("supervisor_autorizado_at")
+        .eq("licitacion_id", licitacionId)
+        .maybeSingle(),
+    ]);
 
   const items = checklist ?? [];
   const rojos = items.filter((i) => i.estado === "ROJO").length;
@@ -92,12 +100,15 @@ export async function getGateStatus(
     licitacion?.es_investigacion_mercado ?? false,
   );
   const pendientesLiberacion = itemsLiberacion.filter((i) => !i.checked).length;
+  const jerarquiaAutorizada = !!jerarquia?.supervisor_autorizado_at;
 
   return {
     rojos,
     amarillosCriticos,
     pendientesLiberacion,
     itemsLiberacion,
-    bloqueado: rojos > 0 || amarillosCriticos > 0 || pendientesLiberacion > 0,
+    jerarquiaAutorizada,
+    bloqueado:
+      rojos > 0 || amarillosCriticos > 0 || pendientesLiberacion > 0 || !jerarquiaAutorizada,
   };
 }

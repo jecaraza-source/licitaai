@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { cn, sanitizeFilename } from "@/lib/utils";
 import { IndiceMaestroCard } from "@/components/licitaciones/indice-maestro-card";
+import { JerarquiaAutorizacionCard } from "@/components/licitaciones/jerarquia-autorizacion-card";
 import type { ChecklistLiberacionItem, EvidenciaEnvio } from "@/types";
 
 interface GateStatus {
@@ -20,6 +21,7 @@ interface GateStatus {
   amarillosCriticos: number;
   pendientesLiberacion: number;
   itemsLiberacion: ChecklistLiberacionItem[];
+  jerarquiaAutorizada: boolean;
   bloqueado: boolean;
 }
 
@@ -241,11 +243,14 @@ export function LiberacionTab({
             </p>
             <p className="text-sm text-muted-foreground">
               {gate.rojos} requisito(s) en rojo · {gate.amarillosCriticos} crítico(s) en amarillo ·{" "}
-              {gate.pendientesLiberacion} punto(s) de este checklist sin confirmar
+              {gate.pendientesLiberacion} punto(s) de este checklist sin confirmar ·{" "}
+              {gate.jerarquiaAutorizada ? "Supervisor autorizó" : "falta autorización del Supervisor"}
             </p>
           </div>
         </CardContent>
       </Card>
+
+      <JerarquiaAutorizacionCard licitacionId={licitacionId} onUpdated={cargar} />
 
       {(gate.rojos > 0 || gate.amarillosCriticos > 0) && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
