@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileStack, LayoutDashboard, PlusCircle, Settings } from "lucide-react";
+import { FileStack, LayoutDashboard, PlusCircle, Scale, Settings } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/licitaciones", label: "Licitaciones", icon: FileStack },
   { href: "/licitaciones/nueva", label: "Nueva licitación", icon: PlusCircle, requiereEscritura: true },
+  { href: "/referencias", label: "Referencias", icon: Scale },
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ];
 

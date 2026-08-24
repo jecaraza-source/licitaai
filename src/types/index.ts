@@ -419,6 +419,41 @@ export interface ResponsabilidadesProcedimiento {
   updated_at: string;
 }
 
+export type TipoReferenciaLegal = "LEY" | "REGLAMENTO" | "LINEAMIENTO" | "CODIGO";
+export type AmbitoReferenciaLegal = "FEDERAL" | "EDOMEX" | "CDMX" | "GENERAL";
+
+export interface ReferenciaLegal {
+  id: string;
+  nombre: string;
+  nombre_completo: string;
+  tipo: TipoReferenciaLegal;
+  ambito: AmbitoReferenciaLegal;
+  descripcion: string | null;
+  url_oficial: string | null;
+  orden: number;
+  con_contenido: boolean;
+}
+
+export interface ReferenciaLegalResultadoBusqueda {
+  chunk_id: string;
+  contenido: string;
+  articulo: string | null;
+  rank: number;
+  referencia_legal_id: string;
+  referencia_nombre: string;
+  referencia_nombre_completo: string;
+  referencia_documento_id: string;
+}
+
+export interface ReferenciaLegalFuente {
+  indice: number;
+  ley: string;
+  ley_completa: string;
+  articulo: string | null;
+  extracto: string;
+  url_oficial: string | null;
+}
+
 export interface DocumentoCorporativo {
   id: string;
   empresa_perfil_id: string;
