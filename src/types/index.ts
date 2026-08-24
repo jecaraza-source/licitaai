@@ -200,7 +200,10 @@ export interface AnalisisBases {
   garantias_json: GarantiaItem[];
   forma_presentacion: string | null;
   especificaciones_tecnicas_json: EspecificacionTecnica[];
-  notas_json: { confianza_por_seccion?: Record<string, NivelConfianza> };
+  notas_json: {
+    confianza_por_seccion?: Record<string, NivelConfianza>;
+    documento_analizado?: { id: string; nombre: string } | null;
+  };
   nivel_confianza: NivelConfianza | null;
   created_at: string;
 }

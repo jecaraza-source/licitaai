@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useDropzone } from "react-dropzone";
-import { ShieldAlert, Sparkles, UploadCloud } from "lucide-react";
+import { ShieldAlert, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,8 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn, sanitizeFilename } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
+import { CATEGORIA_LABELS, ESTADO_DOT, ESTADO_LABELS } from "@/lib/checklist-labels";
 import type { EstadoChecklistItem } from "@/types";
 
 interface Documento {
@@ -87,28 +86,6 @@ interface AuditoriaData {
   gate: GateInfo;
 }
 
-const CATEGORIA_LABELS: Record<string, string> = {
-  LEGAL: "Legal",
-  FISCAL: "Fiscal",
-  TECNICO: "Técnico",
-  ECONOMICO: "Económico",
-  ESPECIFICO: "Específico",
-};
-
-const ESTADO_LABELS: Record<EstadoChecklistItem, string> = {
-  VERDE: "Cumplido",
-  AMARILLO: "En proceso",
-  ROJO: "Riesgo",
-  GRIS: "No aplica",
-};
-
-const ESTADO_DOT: Record<EstadoChecklistItem, string> = {
-  VERDE: "bg-emerald-500",
-  AMARILLO: "bg-amber-500",
-  ROJO: "bg-destructive",
-  GRIS: "bg-muted-foreground/40",
-};
-
 const TIPO_FORMATO_LABELS: Record<string, string> = {
   A: "A — Obligatorio sin modificar",
   B: "B — Formato modelo",
@@ -124,71 +101,14 @@ function scoreColor(score: number) {
 
 function ChecklistRow({
   item,
-  licitacionId,
-  organizationId,
-  usuarios,
   onUpdated,
+  usuarios,
 }: {
   item: ChecklistItem;
-  licitacionId: string;
-  organizationId: string;
   usuarios: UsuarioOrg[];
   onUpdated: () => void;
 }) {
-  const [subiendo, setSubiendo] = useState(false);
   const [expandido, setExpandido] = useState(false);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    accept: { "application/pdf": [".pdf"] },
-    maxFiles: 1,
-    onDrop: async ([file]) => {
-      if (!file) return;
-      setSubiendo(true);
-      const supabase = createClient();
-      const path = `${organizationId}/${licitacionId}/${Date.now()}-${sanitizeFilename(file.name)}`;
-      const { error: uploadError } = await supabase.storage
-        .from("documentos-requeridos")
-        .upload(path, file);
-
-      if (uploadError) {
-        setSubiendo(false);
-        toast.error("No se pudo subir el documento", { description: uploadError.message });
-        return;
-      }
-
-      const { data: doc, error: insertError } = await supabase
-        .from("documentos")
-        .insert({
-          licitacion_id: licitacionId,
-          tipo_documento: item.categoria,
-          nombre: file.name,
-          storage_path: path,
-          tamanio_bytes: file.size,
-        })
-        .select()
-        .single();
-
-      if (insertError || !doc) {
-        setSubiendo(false);
-        toast.error("No se pudo registrar el documento");
-        return;
-      }
-
-      const res = await fetch(`/api/checklist-items/${item.id}/documento`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documento_id: doc.id }),
-      });
-      setSubiendo(false);
-
-      if (!res.ok) {
-        toast.error("No se pudo auditar el documento");
-        return;
-      }
-      toast.success("Documento auditado");
-      onUpdated();
-    },
-  });
 
   async function actualizar(campo: string, valor: unknown) {
     await fetch(`/api/checklist-items/${item.id}`, {
@@ -349,38 +269,17 @@ function ChecklistRow({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            ¿Dónde está / se cargó? {item.documentos?.nombre ?? "Sin documento cargado"} · ¿Coincide
-            con Compras MX? No aplica a este renglón — ver conciliación en Propuesta Económica.
+            Documento: {item.documentos?.nombre ?? "Sin documento cargado"} · Súbelo o reemplázalo
+            desde el tab Documentos. ¿Coincide con Compras MX? No aplica a este renglón — ver
+            conciliación en Propuesta Económica.
           </p>
-
-          <div
-            {...getRootProps()}
-            className={cn(
-              "flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs",
-              isDragActive ? "border-primary bg-primary/5" : "hover:bg-muted/40",
-            )}
-          >
-            <input {...getInputProps()} />
-            <UploadCloud className="size-3.5 text-muted-foreground" />
-            {subiendo
-              ? "Auditando…"
-              : item.documento_id
-                ? "Reemplazar documento"
-                : "Cargar documento"}
-          </div>
         </div>
       )}
     </div>
   );
 }
 
-export function AuditoriaTab({
-  licitacionId,
-  organizationId,
-}: {
-  licitacionId: string;
-  organizationId: string;
-}) {
+export function AuditoriaTab({ licitacionId }: { licitacionId: string }) {
   const [data, setData] = useState<AuditoriaData | null>(null);
   const [usuarios, setUsuarios] = useState<UsuarioOrg[]>([]);
   const [auditando, setAuditando] = useState(false);
@@ -537,14 +436,7 @@ export function AuditoriaTab({
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
               {items.map((item) => (
-                <ChecklistRow
-                  key={item.id}
-                  item={item}
-                  licitacionId={licitacionId}
-                  organizationId={organizationId}
-                  usuarios={usuarios}
-                  onUpdated={cargar}
-                />
+                <ChecklistRow key={item.id} item={item} usuarios={usuarios} onUpdated={cargar} />
               ))}
             </CardContent>
           </Card>

@@ -173,7 +173,7 @@ export default async function LicitacionDetallePage({
         </TabsContent>
 
         <TabsContent value="auditoria">
-          <AuditoriaTab licitacionId={licitacion.id} organizationId={licitacion.organization_id} />
+          <AuditoriaTab licitacionId={licitacion.id} />
         </TabsContent>
 
         <TabsContent value="liberacion">

@@ -3,14 +3,206 @@
 import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
-import { FileText, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
+import { FileText, ShieldCheck, Sparkles, Trash2, UploadCloud } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn, sanitizeFilename } from "@/lib/utils";
+import { CATEGORIA_LABELS, ESTADO_DOT, ESTADO_LABELS } from "@/lib/checklist-labels";
 import { PdfViewer } from "@/components/licitaciones/pdf-viewer";
 import { FirmaDigitalDialog } from "@/components/licitaciones/firma-digital-dialog";
-import type { Documento } from "@/types";
+import type { Documento, EstadoChecklistItem } from "@/types";
+
+interface RequisitoDocumento {
+  id: string;
+  nombre: string;
+  auditoria_json: {
+    valido: boolean;
+    observaciones: string[];
+    nivel_riesgo: EstadoChecklistItem;
+  } | null;
+}
+
+interface RequisitoChecklistItem {
+  id: string;
+  categoria: string;
+  descripcion: string;
+  critico: boolean;
+  estado: EstadoChecklistItem;
+  documento_id: string | null;
+  documentos: RequisitoDocumento | null;
+}
+
+function RequisitoRow({
+  item,
+  licitacionId,
+  organizationId,
+  onUpdated,
+}: {
+  item: RequisitoChecklistItem;
+  licitacionId: string;
+  organizationId: string;
+  onUpdated: () => void;
+}) {
+  const [analizando, setAnalizando] = useState(false);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { "application/pdf": [".pdf"] },
+    maxFiles: 1,
+    onDrop: async ([file]) => {
+      if (!file) return;
+      setAnalizando(true);
+      const supabase = createClient();
+      const path = `${organizationId}/${licitacionId}/${Date.now()}-${sanitizeFilename(file.name)}`;
+      const { error: uploadError } = await supabase.storage
+        .from("documentos-requeridos")
+        .upload(path, file);
+
+      if (uploadError) {
+        setAnalizando(false);
+        toast.error("No se pudo subir el documento", { description: uploadError.message });
+        return;
+      }
+
+      const { data: doc, error: insertError } = await supabase
+        .from("documentos")
+        .insert({
+          licitacion_id: licitacionId,
+          tipo_documento: item.categoria,
+          nombre: file.name,
+          storage_path: path,
+          tamanio_bytes: file.size,
+        })
+        .select()
+        .single();
+
+      if (insertError || !doc) {
+        setAnalizando(false);
+        toast.error("No se pudo registrar el documento");
+        return;
+      }
+
+      const res = await fetch(`/api/checklist-items/${item.id}/documento`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documento_id: doc.id }),
+      });
+      setAnalizando(false);
+
+      if (!res.ok) {
+        toast.error("No se pudo analizar el documento con IA");
+        return;
+      }
+      toast.success(`"${item.descripcion}" analizado con IA`);
+      onUpdated();
+    },
+  });
+
+  const observaciones = item.documentos?.auditoria_json?.observaciones ?? [];
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border p-3">
+      <div className="flex items-start gap-2">
+        <span className={cn("mt-1 size-2.5 shrink-0 rounded-full", ESTADO_DOT[item.estado])} />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">
+            {item.descripcion}
+            {item.critico && (
+              <span className="ml-2 inline-flex items-center rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
+                Crítico
+              </span>
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {item.documentos?.nombre ?? "Sin documento cargado"} · {ESTADO_LABELS[item.estado]}
+          </p>
+          {observaciones.length > 0 && (
+            <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
+              {observaciones.map((o, i) => (
+                <li key={i}>{o}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div
+        {...getRootProps()}
+        className={cn(
+          "flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs",
+          isDragActive ? "border-primary bg-primary/5" : "hover:bg-muted/40",
+        )}
+      >
+        <input {...getInputProps()} />
+        {analizando ? (
+          <Sparkles className="size-3.5 animate-pulse text-primary" />
+        ) : (
+          <UploadCloud className="size-3.5 text-muted-foreground" />
+        )}
+        {analizando
+          ? "Analizando con IA…"
+          : item.documento_id
+            ? "Reemplazar y volver a analizar"
+            : "Cargar y analizar con IA"}
+      </div>
+    </div>
+  );
+}
+
+function DocumentosRequeridosCard({
+  licitacionId,
+  organizationId,
+}: {
+  licitacionId: string;
+  organizationId: string;
+}) {
+  const [checklist, setChecklist] = useState<RequisitoChecklistItem[] | null>(null);
+
+  const cargar = useCallback(() => {
+    fetch(`/api/licitaciones/${licitacionId}/auditoria`)
+      .then((res) => res.json())
+      .then((json) => setChecklist(json.data?.checklist ?? []));
+  }, [licitacionId]);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  if (!checklist) {
+    return <Skeleton className="h-48 w-full" />;
+  }
+
+  const grupos = Object.entries(
+    checklist.reduce<Record<string, RequisitoChecklistItem[]>>((acc, item) => {
+      (acc[item.categoria] ??= []).push(item);
+      return acc;
+    }, {}),
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      {grupos.map(([categoria, items]) => (
+        <Card key={categoria}>
+          <CardHeader>
+            <CardTitle className="text-sm">{CATEGORIA_LABELS[categoria] ?? categoria}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            {items.map((item) => (
+              <RequisitoRow
+                key={item.id}
+                item={item}
+                licitacionId={licitacionId}
+                organizationId={organizationId}
+                onUpdated={cargar}
+              />
+            ))}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
 
 const ACCEPTED = {
   "application/pdf": [".pdf"],
@@ -193,20 +385,32 @@ export function DocumentosTab({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div
-        {...getRootProps()}
-        className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-10 text-center transition-colors",
-          isDragActive ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
-        )}
-      >
-        <input {...getInputProps()} />
-        <UploadCloud className="size-8 text-muted-foreground" />
-        <p className="text-sm font-medium">
-          {isDragActive ? "Suelta los archivos aquí" : "Arrastra archivos o haz clic para subir"}
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <h3 className="text-sm font-medium">Documentos requeridos</h3>
+        <p className="-mt-2 text-xs text-muted-foreground">
+          Sube cada documento en el requisito que le corresponde y se analizará con IA
+          automáticamente.
         </p>
-        <p className="text-xs text-muted-foreground">PDF, DOCX o XLSX — máximo 50MB</p>
+        <DocumentosRequeridosCard licitacionId={licitacionId} organizationId={organizationId} />
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h3 className="text-sm font-medium">Otros documentos</h3>
+        <div
+          {...getRootProps()}
+          className={cn(
+            "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-10 text-center transition-colors",
+            isDragActive ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
+          )}
+        >
+          <input {...getInputProps()} />
+          <UploadCloud className="size-8 text-muted-foreground" />
+          <p className="text-sm font-medium">
+            {isDragActive ? "Suelta los archivos aquí" : "Arrastra archivos o haz clic para subir"}
+          </p>
+          <p className="text-xs text-muted-foreground">PDF, DOCX o XLSX — máximo 50MB</p>
+        </div>
       </div>
 
       {uploads.length > 0 && (

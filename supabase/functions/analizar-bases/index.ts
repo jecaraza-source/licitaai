@@ -300,7 +300,7 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const { licitacion_id } = await req.json();
+    const { licitacion_id, documento_id } = await req.json();
     if (!licitacion_id) {
       return new Response(JSON.stringify({ error: "licitacion_id requerido" }), {
         status: 400,
@@ -315,15 +315,38 @@ Deno.serve(async (req) => {
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
     const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 
-    const { count: chunkCount } = await supabase
+    let documentoAnalizado: { id: string; nombre: string } | null = null;
+    if (documento_id) {
+      const { data: documento } = await supabase
+        .from("documentos")
+        .select("id, nombre")
+        .eq("id", documento_id)
+        .eq("licitacion_id", licitacion_id)
+        .single();
+      if (!documento) {
+        return new Response(JSON.stringify({ error: "Documento no encontrado" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      documentoAnalizado = documento;
+    }
+
+    let chunkCountQuery = supabase
       .from("document_chunks")
       .select("id, documentos!inner(licitacion_id)", { count: "exact", head: true })
       .eq("documentos.licitacion_id", licitacion_id);
+    if (documento_id) {
+      chunkCountQuery = chunkCountQuery.eq("documento_id", documento_id);
+    }
+    const { count: chunkCount } = await chunkCountQuery;
 
     if (!chunkCount) {
       return new Response(
         JSON.stringify({
-          error: "No hay documentos procesados para esta licitación. Sube y procesa un documento primero.",
+          error: documento_id
+            ? "Ese documento aún no ha sido procesado."
+            : "No hay documentos procesados para esta licitación. Sube y procesa un documento primero.",
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -338,6 +361,7 @@ Deno.serve(async (req) => {
         query_embedding: embedding,
         licitacion_id_param: licitacion_id,
         match_count: 8,
+        documento_id_param: documento_id ?? null,
       });
 
       if (searchError) throw new Error(`Error en búsqueda semántica: ${searchError.message}`);
@@ -380,7 +404,7 @@ Deno.serve(async (req) => {
       garantias_json: garantias.garantias ?? [],
       forma_presentacion: garantias.forma_presentacion ?? null,
       especificaciones_tecnicas_json: especificaciones.especificaciones_tecnicas ?? [],
-      notas_json: { confianza_por_seccion: confianzas },
+      notas_json: { confianza_por_seccion: confianzas, documento_analizado: documentoAnalizado },
       nivel_confianza: nivelGeneral,
     };
 

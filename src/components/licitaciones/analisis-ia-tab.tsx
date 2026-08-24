@@ -5,9 +5,24 @@ import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import type { AnalisisBases, FechasAnalisis, NivelConfianza } from "@/types";
+
+const TODOS_LOS_DOCUMENTOS = "__todos__";
+
+interface DocumentoProcesado {
+  id: string;
+  nombre: string;
+}
 
 const PROGRESS_STEPS = [
   "Buscando fragmentos relevantes en los documentos…",
@@ -64,6 +79,8 @@ const FECHA_LABELS: Record<string, string> = {
 
 export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
   const [analisis, setAnalisis] = useState<AnalisisBases | null | undefined>(undefined);
+  const [documentos, setDocumentos] = useState<DocumentoProcesado[]>([]);
+  const [documentoId, setDocumentoId] = useState(TODOS_LOS_DOCUMENTOS);
   const [analizando, setAnalizando] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const stepInterval = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -73,6 +90,15 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
       .then((res) => res.json())
       .then((json) => setAnalisis(json.data ?? null))
       .catch(() => setAnalisis(null));
+
+    const supabase = createClient();
+    supabase
+      .from("documentos")
+      .select("id, nombre")
+      .eq("licitacion_id", licitacionId)
+      .eq("procesado", true)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => setDocumentos(data ?? []));
   }, [licitacionId]);
 
   async function handleAnalizar() {
@@ -84,6 +110,10 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
 
     const res = await fetch(`/api/licitaciones/${licitacionId}/analizar-bases`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        documento_id: documentoId === TODOS_LOS_DOCUMENTOS ? undefined : documentoId,
+      }),
     });
     const json = await res.json();
 
@@ -113,20 +143,42 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
   }
 
   const confianzas = analisis?.notas_json?.confianza_por_seccion ?? {};
+  const documentoAnalizado = analisis?.notas_json?.documento_analizado;
 
   return (
     <div className="flex flex-col gap-6" id="analisis-ia-printable">
       <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
-        <Button onClick={handleAnalizar} disabled={analizando}>
-          <Sparkles />
-          {analisis ? "Re-analizar" : "Analizar bases con IA"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={documentoId} onValueChange={(v) => v && setDocumentoId(v)}>
+            <SelectTrigger className="w-64">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS_LOS_DOCUMENTOS}>Todos los documentos</SelectItem>
+              {documentos.map((doc) => (
+                <SelectItem key={doc.id} value={doc.id}>
+                  {doc.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={handleAnalizar} disabled={analizando}>
+            <Sparkles />
+            {analisis ? "Re-analizar" : "Analizar bases con IA"}
+          </Button>
+        </div>
         {analisis && (
           <Button variant="outline" onClick={handleExportar}>
             Exportar ficha como PDF
           </Button>
         )}
       </div>
+
+      {!analizando && analisis && (
+        <p className="-mt-4 text-xs text-muted-foreground print:hidden">
+          Basado en: {documentoAnalizado ? documentoAnalizado.nombre : "todos los documentos"}
+        </p>
+      )}
 
       {analizando && (
         <Card>

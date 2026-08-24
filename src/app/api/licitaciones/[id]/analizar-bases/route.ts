@@ -5,7 +5,7 @@ import { sendEmail } from "@/lib/resend";
 import { AnalisisCompletadoEmail } from "@/emails/analisis-completado";
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -20,6 +20,8 @@ export async function POST(
     return rateLimitResponse();
   }
 
+  const { documento_id } = await request.json().catch(() => ({ documento_id: undefined }));
+
   const { data: licitacion } = await supabase
     .from("licitaciones")
     .select("id, numero_expediente, titulo")
@@ -31,7 +33,7 @@ export async function POST(
   }
 
   const { data, error } = await supabase.functions.invoke("analizar-bases", {
-    body: { licitacion_id: id },
+    body: { licitacion_id: id, documento_id },
   });
 
   if (error) {

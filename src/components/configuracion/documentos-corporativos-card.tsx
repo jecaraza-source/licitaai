@@ -113,6 +113,28 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
           etc. (Paso 10). Se conservan aquí para reutilizarse en cualquier licitación.
         </p>
 
+        {documentos !== null && (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-xs font-medium text-muted-foreground">Documentos requeridos</p>
+            <ul className="flex flex-col gap-1">
+              {TIPOS_DOCUMENTO.filter((tipo) => tipo !== "Otro").map((tipo) => {
+                const subido = documentos.some((d) => d.tipo === tipo);
+                return (
+                  <li key={tipo} className="flex items-center gap-2 text-sm">
+                    <span
+                      className={cn(
+                        "size-2 shrink-0 rounded-full",
+                        subido ? "bg-emerald-500" : "bg-destructive",
+                      )}
+                    />
+                    {tipo}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
         {documentos === null ? (
           <p className="text-sm text-muted-foreground">Cargando…</p>
         ) : documentos.length === 0 ? (

@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { extraerColoresDominantes } from "@/lib/color-extraction";
-import { DocumentosCorporativosCard } from "@/components/configuracion/documentos-corporativos-card";
 import type { EmpresaPerfil } from "@/types";
 
 type FormState = {
@@ -123,7 +122,11 @@ function DynamicList({
   );
 }
 
-export function EmpresaPerfilForm() {
+export function EmpresaPerfilForm({
+  onEmpresaChange,
+}: {
+  onEmpresaChange?: (empresaId: string | null) => void;
+}) {
   const router = useRouter();
   const [empresas, setEmpresas] = useState<EmpresaPerfil[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -131,6 +134,7 @@ export function EmpresaPerfilForm() {
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [subiendoLogo, setSubiendoLogo] = useState(false);
+  const [modoFormulario, setModoFormulario] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -144,6 +148,7 @@ export function EmpresaPerfilForm() {
         const inicial = data.find((e) => e.id === activaId) ?? data[0] ?? null;
         setSelectedId(inicial?.id ?? null);
         setForm(inicial ? empresaToForm(inicial) : EMPTY);
+        setModoFormulario(!inicial);
       });
 
     const supabase = createClient();
@@ -158,10 +163,29 @@ export function EmpresaPerfilForm() {
     });
   }, []);
 
+  useEffect(() => {
+    onEmpresaChange?.(selectedId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
+
+  function handleNuevaEmpresa() {
+    setSelectedId(null);
+    setForm(EMPTY);
+    setModoFormulario(true);
+  }
+
+  function handleCancelar() {
+    const anterior = empresas.find((e) => e.id === selectedId) ?? empresas[0] ?? null;
+    if (anterior) {
+      setSelectedId(anterior.id);
+      setForm(empresaToForm(anterior));
+    }
+    setModoFormulario(false);
+  }
+
   function handleSelectEmpresa(value: string | null) {
     if (!value || value === NUEVA) {
-      setSelectedId(null);
-      setForm(EMPTY);
+      handleNuevaEmpresa();
       return;
     }
     const empresa = empresas.find((e) => e.id === value);
@@ -206,6 +230,7 @@ export function EmpresaPerfilForm() {
       return existe ? prev.map((e) => (e.id === guardada.id ? guardada : e)) : [...prev, guardada];
     });
     setSelectedId(guardada.id);
+    setModoFormulario(false);
 
     const nombre = guardada.razon_social?.trim() || "la empresa";
     toast.success(`Perfil de "${nombre}" guardado`);
@@ -252,6 +277,45 @@ export function EmpresaPerfilForm() {
 
   if (!form) {
     return <Skeleton className="h-96 w-full" />;
+  }
+
+  if (!modoFormulario && selectedId) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setModoFormulario(true)}
+          className="text-left text-lg font-medium hover:underline"
+        >
+          {form.razon_social.trim() || "Empresa sin nombre"}
+        </button>
+        <div className="flex items-center gap-2">
+          {empresas.length > 1 && (
+            <Select value={selectedId} onValueChange={handleSelectEmpresa}>
+              <SelectTrigger size="sm" className="w-56">
+                <SelectValue>
+                  {(value: string | null) =>
+                    empresas.find((e) => e.id === value)?.razon_social?.trim() ||
+                    "Empresa sin nombre"
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {empresas.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.razon_social?.trim() || "Empresa sin nombre"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button type="button" variant="outline" size="sm" onClick={handleNuevaEmpresa}>
+            <Plus className="size-3.5" />
+            Nueva empresa
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -363,13 +427,16 @@ export function EmpresaPerfilForm() {
         onChange={(items) => setForm({ ...form, clientes_referencia_json: items })}
       />
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {empresas.length > 0 && (
+          <Button type="button" variant="ghost" onClick={handleCancelar} disabled={guardando}>
+            Cancelar
+          </Button>
+        )}
         <Button onClick={handleGuardar} disabled={guardando}>
           {guardando ? "Guardando…" : "Guardar perfil"}
         </Button>
       </div>
-
-      {selectedId && <DocumentosCorporativosCard empresaId={selectedId} />}
     </div>
   );
 }
