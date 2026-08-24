@@ -45,7 +45,9 @@ export async function POST(
     return NextResponse.json({ error: "No hay propuesta técnica generada" }, { status: 404 });
   }
 
-  const perfil = await getEmpresaPerfilActiva(supabase, licitacion.organization_id, user.id);
+  const perfil = await getEmpresaPerfilActiva(supabase, licitacion.organization_id, user.id, {
+    fallbackToFirst: true,
+  });
 
   const secciones = ((propuesta.contenido_json as { secciones?: Seccion[] })?.secciones ??
     []) as Seccion[];

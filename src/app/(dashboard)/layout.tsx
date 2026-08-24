@@ -34,6 +34,16 @@ export default async function DashboardLayout({
     ? await getEmpresaPerfilActiva(supabase, perfil.organization_id, user.id)
     : null;
 
+  if (!empresaActiva && perfil?.organization_id) {
+    const { count } = await supabase
+      .from("empresa_perfil")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", perfil.organization_id);
+    if (count && count > 0) {
+      redirect("/seleccionar-empresa");
+    }
+  }
+
   const themeStyle = buildCompanyThemeStyle(
     empresaActiva?.color_primario,
     empresaActiva?.color_secundario,

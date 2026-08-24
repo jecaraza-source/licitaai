@@ -38,7 +38,9 @@ export async function POST(
     .eq("licitacion_id", id)
     .maybeSingle();
 
-  const perfil = await getEmpresaPerfilActiva(supabase, licitacion.organization_id, user.id);
+  const perfil = await getEmpresaPerfilActiva(supabase, licitacion.organization_id, user.id, {
+    fallbackToFirst: true,
+  });
 
   const preguntas = (junta?.preguntas_json ?? []) as Pregunta[];
 
