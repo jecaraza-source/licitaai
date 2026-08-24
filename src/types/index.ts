@@ -30,6 +30,7 @@ export type EstadoLicitacion =
   | "CERRADA";
 
 export type TipoLicitacion = "ADQUISICION" | "SERVICIOS" | "OBRA_PUBLICA";
+export type ModalidadProcedimiento = "ABIERTA" | "RESTRINGIDA" | "INVITACION_TRES";
 
 export type EstadoId = "FEDERAL" | "EDOMEX" | "CDMX";
 
@@ -61,6 +62,7 @@ export interface Licitacion {
   institucion: string;
   estado_licitacion: EstadoLicitacion;
   tipo: TipoLicitacion;
+  modalidad_procedimiento: ModalidadProcedimiento | null;
   monto_maximo: number | null;
   fecha_publicacion: string | null;
   fecha_junta_aclaraciones: string | null;

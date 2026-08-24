@@ -12,7 +12,7 @@ import { cn, sanitizeFilename } from "@/lib/utils";
 import { CATEGORIA_LABELS, ESTADO_DOT, ESTADO_LABELS } from "@/lib/checklist-labels";
 import { PdfViewer } from "@/components/licitaciones/pdf-viewer";
 import { FirmaDigitalDialog } from "@/components/licitaciones/firma-digital-dialog";
-import type { Documento, EstadoChecklistItem } from "@/types";
+import type { Documento, EstadoChecklistItem, ModalidadProcedimiento } from "@/types";
 
 interface RequisitoDocumento {
   id: string;
@@ -204,6 +204,22 @@ function DocumentosRequeridosCard({
   );
 }
 
+const DOCUMENTOS_CONVOCANTE = [
+  { tipo: "SOLICITUD_ESTUDIO_MERCADO", label: "Solicitud de Estudio de Mercado" },
+  { tipo: "INVITACION_PARTICIPAR", label: "Invitación a Participar" },
+];
+
+// En una licitación Abierta no hay invitación privada de por medio — la
+// convocatoria pública ya se cubre en "Otros documentos". Restringida e
+// Invitación a Tres sí requieren la invitación. Sin modalidad definida
+// (licitaciones antiguas) mostramos ambas por seguridad.
+function documentosConvocantePara(modalidad: ModalidadProcedimiento | null) {
+  if (modalidad === "ABIERTA") {
+    return DOCUMENTOS_CONVOCANTE.filter((d) => d.tipo !== "INVITACION_PARTICIPAR");
+  }
+  return DOCUMENTOS_CONVOCANTE;
+}
+
 const ACCEPTED = {
   "application/pdf": [".pdf"],
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
@@ -212,6 +228,127 @@ const ACCEPTED = {
 
 const MAX_SIZE = 50 * 1024 * 1024;
 const BUCKET = "documentos-originales";
+
+function DocumentoConvocanteRow({
+  tipo,
+  label,
+  documento,
+  licitacionId,
+  organizationId,
+  onOpen,
+}: {
+  tipo: string;
+  label: string;
+  documento: Documento | undefined;
+  licitacionId: string;
+  organizationId: string;
+  onOpen: (doc: Documento) => void;
+}) {
+  const [subiendo, setSubiendo] = useState(false);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { "application/pdf": [".pdf"] },
+    maxFiles: 1,
+    onDrop: async ([file]) => {
+      if (!file) return;
+      setSubiendo(true);
+      const supabase = createClient();
+      const path = `${organizationId}/${licitacionId}/${Date.now()}-${sanitizeFilename(file.name)}`;
+      const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file);
+
+      if (uploadError) {
+        setSubiendo(false);
+        toast.error("No se pudo subir el documento", { description: uploadError.message });
+        return;
+      }
+
+      const { error: insertError } = await supabase.from("documentos").insert({
+        licitacion_id: licitacionId,
+        tipo_documento: tipo,
+        nombre: file.name,
+        storage_path: path,
+        tamanio_bytes: file.size,
+      });
+      setSubiendo(false);
+
+      if (insertError) {
+        toast.error("No se pudo registrar el documento");
+        return;
+      }
+      toast.success(`"${label}" guardado`);
+    },
+  });
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border p-3">
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            "size-2.5 shrink-0 rounded-full",
+            documento ? "bg-emerald-500" : "bg-destructive",
+          )}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium">{label}</p>
+          {documento ? (
+            <button
+              type="button"
+              onClick={() => onOpen(documento)}
+              className="truncate text-xs text-muted-foreground hover:underline"
+            >
+              {documento.nombre}
+            </button>
+          ) : (
+            <p className="text-xs text-muted-foreground">Sin documento cargado</p>
+          )}
+        </div>
+      </div>
+      <div
+        {...getRootProps()}
+        className={cn(
+          "flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs",
+          isDragActive ? "border-primary bg-primary/5" : "hover:bg-muted/40",
+        )}
+      >
+        <input {...getInputProps()} />
+        <UploadCloud className="size-3.5 text-muted-foreground" />
+        {subiendo ? "Subiendo…" : documento ? "Reemplazar" : "Cargar documento"}
+      </div>
+    </div>
+  );
+}
+
+function DocumentosConvocanteCard({
+  documentos,
+  licitacionId,
+  organizationId,
+  modalidadProcedimiento,
+  onOpen,
+}: {
+  documentos: Documento[];
+  licitacionId: string;
+  organizationId: string;
+  modalidadProcedimiento: ModalidadProcedimiento | null;
+  onOpen: (doc: Documento) => void;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-3 pt-6">
+        {documentosConvocantePara(modalidadProcedimiento).map(({ tipo, label }) => (
+          <DocumentoConvocanteRow
+            key={tipo}
+            tipo={tipo}
+            label={label}
+            documento={documentos.find((d) => d.tipo_documento === tipo)}
+            licitacionId={licitacionId}
+            organizationId={organizationId}
+            onOpen={onOpen}
+          />
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
 
 function formatBytes(bytes: number | null) {
   if (!bytes) return "—";
@@ -231,10 +368,12 @@ export function DocumentosTab({
   licitacionId,
   organizationId,
   initialDocumentos,
+  modalidadProcedimiento,
 }: {
   licitacionId: string;
   organizationId: string;
   initialDocumentos: Documento[];
+  modalidadProcedimiento: ModalidadProcedimiento | null;
 }) {
   const [documentos, setDocumentos] = useState<Documento[]>(initialDocumentos);
   const [uploads, setUploads] = useState<UploadState[]>([]);
@@ -386,6 +525,21 @@ export function DocumentosTab({
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <h3 className="text-sm font-medium">Documentos de la convocante</h3>
+        <p className="-mt-2 text-xs text-muted-foreground">
+          Documentos que emite la dependencia: la solicitud de estudio de mercado (base para el
+          estudio de mercado en Partidas) y, en su caso, la invitación a participar.
+        </p>
+        <DocumentosConvocanteCard
+          documentos={documentos}
+          licitacionId={licitacionId}
+          organizationId={organizationId}
+          modalidadProcedimiento={modalidadProcedimiento}
+          onOpen={handleOpen}
+        />
+      </div>
+
       <div className="flex flex-col gap-3">
         <h3 className="text-sm font-medium">Documentos requeridos</h3>
         <p className="-mt-2 text-xs text-muted-foreground">

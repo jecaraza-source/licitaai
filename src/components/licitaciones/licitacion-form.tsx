@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import {
   ESTADOS_ID,
+  MODALIDADES_PROCEDIMIENTO,
   SISTEMAS,
   TIPOS_LICITACION,
   licitacionSchema,
@@ -29,6 +30,12 @@ const TIPO_LABELS: Record<string, string> = {
   ADQUISICION: "Adquisición",
   SERVICIOS: "Servicios",
   OBRA_PUBLICA: "Obra pública",
+};
+
+const MODALIDAD_LABELS: Record<string, string> = {
+  ABIERTA: "Abierta (licitación pública)",
+  RESTRINGIDA: "Restringida",
+  INVITACION_TRES: "Invitación a Cuando Menos Tres Personas",
 };
 
 const SISTEMA_POR_ESTADO: Record<string, (typeof SISTEMAS)[number]> = {
@@ -58,7 +65,12 @@ export function LicitacionForm() {
     formState: { errors },
   } = useForm<LicitacionFormValues, unknown, LicitacionInput>({
     resolver: zodResolver(licitacionSchema),
-    defaultValues: { estado_id: "FEDERAL", sistema: "COMPRANET", tipo: "ADQUISICION" },
+    defaultValues: {
+      estado_id: "FEDERAL",
+      sistema: "COMPRANET",
+      tipo: "ADQUISICION",
+      modalidad_procedimiento: "ABIERTA",
+    },
   });
 
   const estadoId = watch("estado_id");
@@ -140,6 +152,31 @@ export function LicitacionForm() {
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:col-span-2">
+          <Label>Modalidad del procedimiento</Label>
+          <Select
+            defaultValue="ABIERTA"
+            onValueChange={(v) =>
+              setValue("modalidad_procedimiento", v as LicitacionInput["modalidad_procedimiento"])
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MODALIDADES_PROCEDIMIENTO.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {MODALIDAD_LABELS[m]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Determina qué documentación de la convocante se pide en la pestaña Documentos
+            (invitación a participar, solicitud de estudio de mercado).
+          </p>
         </div>
 
         <div className="flex flex-col gap-2">

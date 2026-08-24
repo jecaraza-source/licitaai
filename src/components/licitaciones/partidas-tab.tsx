@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import type { EstudioMercado, NivelConfianza, Partida } from "@/types";
 
 type PartidaConEstudio = Partida & { estudio_mercado: EstudioMercado | null };
@@ -42,6 +43,7 @@ export function PartidasTab({ licitacionId }: { licitacionId: string }) {
   const [generandoTodas, setGenerandoTodas] = useState(false);
   const [generandoId, setGenerandoId] = useState<string | null>(null);
   const [detalle, setDetalle] = useState<PartidaConEstudio | null>(null);
+  const [solicitudNombre, setSolicitudNombre] = useState<string | null>(null);
 
   function cargar() {
     fetch(`/api/licitaciones/${licitacionId}/partidas`)
@@ -52,6 +54,13 @@ export function PartidasTab({ licitacionId }: { licitacionId: string }) {
 
   useEffect(() => {
     cargar();
+    createClient()
+      .from("documentos")
+      .select("nombre")
+      .eq("licitacion_id", licitacionId)
+      .eq("tipo_documento", "SOLICITUD_ESTUDIO_MERCADO")
+      .maybeSingle()
+      .then(({ data }) => setSolicitudNombre(data?.nombre ?? null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [licitacionId]);
 
@@ -104,6 +113,15 @@ export function PartidasTab({ licitacionId }: { licitacionId: string }) {
         <p className="text-sm text-muted-foreground">
           Partidas extraídas del análisis IA. Genera un estudio de mercado para estimar el
           precio de referencia.
+          {solicitudNombre ? (
+            <span className="block text-xs">
+              Basado en la solicitud de estudio de mercado: <strong>{solicitudNombre}</strong>
+            </span>
+          ) : (
+            <span className="block text-xs text-amber-600">
+              No has cargado la solicitud de estudio de mercado (pestaña Documentos).
+            </span>
+          )}
         </p>
         <div className="flex gap-2">
           <Button variant="outline" onClick={exportarExcel} disabled={partidas.length === 0}>

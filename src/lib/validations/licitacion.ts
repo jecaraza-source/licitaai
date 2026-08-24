@@ -11,6 +11,8 @@ export const ESTADOS_LICITACION = [
 
 export const TIPOS_LICITACION = ["ADQUISICION", "SERVICIOS", "OBRA_PUBLICA"] as const;
 
+export const MODALIDADES_PROCEDIMIENTO = ["ABIERTA", "RESTRINGIDA", "INVITACION_TRES"] as const;
+
 export const ESTADOS_ID = ["FEDERAL", "EDOMEX", "CDMX"] as const;
 
 export const SISTEMAS = ["COMPRANET", "EDCA", "SCA"] as const;
@@ -29,6 +31,7 @@ export const licitacionSchema = z.object({
   titulo: z.string().trim().min(1, "Requerido"),
   institucion: z.string().trim().min(1, "Requerido"),
   tipo: z.enum(TIPOS_LICITACION),
+  modalidad_procedimiento: z.enum(MODALIDADES_PROCEDIMIENTO),
   estado_id: z.enum(ESTADOS_ID),
   sistema: z.enum(SISTEMAS),
   monto_maximo: z

@@ -20,6 +20,12 @@ import { PropuestaEconomicaTab } from "@/components/licitaciones/propuesta-econo
 import { AuditoriaTab } from "@/components/licitaciones/auditoria-tab";
 import { LiberacionTab } from "@/components/licitaciones/liberacion-tab";
 import { SeguimientoTab } from "@/components/licitaciones/seguimiento-tab";
+const MODALIDAD_LABELS: Record<string, string> = {
+  ABIERTA: "Abierta",
+  RESTRINGIDA: "Restringida",
+  INVITACION_TRES: "Invitación a 3",
+};
+
 const TABS = [
   { value: "resumen", label: "Resumen" },
   { value: "documentos", label: "Documentos" },
@@ -104,6 +110,12 @@ export default async function LicitacionDetallePage({
             <Badge variant="outline">{licitacion.estado_id}</Badge>
             <Badge variant="outline">{licitacion.sistema}</Badge>
             <Badge variant="outline">{licitacion.tipo}</Badge>
+            {licitacion.modalidad_procedimiento && (
+              <Badge variant="outline">
+                {MODALIDAD_LABELS[licitacion.modalidad_procedimiento] ??
+                  licitacion.modalidad_procedimiento}
+              </Badge>
+            )}
             {licitacion.es_investigacion_mercado && (
               <Badge variant="outline">Investigación de mercado</Badge>
             )}
@@ -156,6 +168,7 @@ export default async function LicitacionDetallePage({
             licitacionId={licitacion.id}
             organizationId={licitacion.organization_id}
             initialDocumentos={documentos}
+            modalidadProcedimiento={licitacion.modalidad_procedimiento}
           />
         </TabsContent>
 
