@@ -18,9 +18,10 @@ test.describe("Análisis IA", () => {
     await page.waitForURL(/\/licitaciones\/[a-f0-9-]+$/);
 
     await page.getByRole("tab", { name: "Documentos" }).click();
+    // "Otros documentos" es el único slot que dispara el procesamiento
+    // (chunking/embeddings) que "Analizar bases con IA" necesita.
     await page
-      .locator('input[type="file"]')
-      .first()
+      .getByTestId("otros-documentos-input")
       .setInputFiles(path.join(__dirname, "fixtures", "documento-prueba.pdf"));
     await expect(page.getByText("documento-prueba.pdf")).toBeVisible({ timeout: 15_000 });
 

@@ -4,7 +4,8 @@ export type RolJerarquico = "EJECUTOR" | "INTEGRADOR" | "SUPERVISOR";
 export interface StaffOrg {
   id: string;
   nombre: string;
-  email: string;
+  // Solo presente cuando quien consulta es ADMIN — ver /api/organizacion/staff.
+  email?: string;
   rol_jerarquico: RolJerarquico | null;
   created_at: string;
 }

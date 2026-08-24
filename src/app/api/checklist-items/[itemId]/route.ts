@@ -20,7 +20,9 @@ export async function PATCH(
   const body = await request.json();
   const update: Record<string, unknown> = {};
   if (typeof body.estado === "string" && ESTADOS.includes(body.estado)) update.estado = body.estado;
-  if (typeof body.documento_id === "string") update.documento_id = body.documento_id;
+  if (typeof body.documento_id === "string" || body.documento_id === null) {
+    update.documento_id = body.documento_id;
+  }
   if (typeof body.critico === "boolean") update.critico = body.critico;
   if (typeof body.fuente === "string" || body.fuente === null) update.fuente = body.fuente;
   if (typeof body.responsable_id === "string" || body.responsable_id === null) {

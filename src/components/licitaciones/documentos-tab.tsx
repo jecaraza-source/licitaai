@@ -46,6 +46,37 @@ function RequisitoRow({
   onUpdated: () => void;
 }) {
   const [analizando, setAnalizando] = useState(false);
+  const [quitando, setQuitando] = useState(false);
+
+  async function quitarDocumento() {
+    if (!item.documento_id) return;
+    setQuitando(true);
+    const supabase = createClient();
+    const { data: doc } = await supabase
+      .from("documentos")
+      .select("storage_path")
+      .eq("id", item.documento_id)
+      .single();
+
+    if (doc?.storage_path) {
+      await supabase.storage.from("documentos-requeridos").remove([doc.storage_path]);
+    }
+    await supabase.from("documentos").delete().eq("id", item.documento_id);
+
+    const res = await fetch(`/api/checklist-items/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ documento_id: null, estado: "AMARILLO" }),
+    });
+    setQuitando(false);
+
+    if (!res.ok) {
+      toast.error("No se pudo quitar el documento");
+      return;
+    }
+    toast.success(`Documento de "${item.descripcion}" eliminado`);
+    onUpdated();
+  }
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { "application/pdf": [".pdf"] },
@@ -125,6 +156,17 @@ function RequisitoRow({
             </ul>
           )}
         </div>
+        {item.documento_id && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={quitando}
+            onClick={quitarDocumento}
+            aria-label={`Quitar documento de ${item.descripcion}`}
+          >
+            <Trash2 className="text-destructive" />
+          </Button>
+        )}
       </div>
 
       <div
@@ -245,6 +287,22 @@ function DocumentoConvocanteRow({
   onOpen: (doc: Documento) => void;
 }) {
   const [subiendo, setSubiendo] = useState(false);
+  const [quitando, setQuitando] = useState(false);
+
+  async function quitarDocumento() {
+    if (!documento) return;
+    setQuitando(true);
+    const supabase = createClient();
+    await supabase.storage.from(BUCKET).remove([documento.storage_path]);
+    const { error } = await supabase.from("documentos").delete().eq("id", documento.id);
+    setQuitando(false);
+
+    if (error) {
+      toast.error("No se pudo quitar el documento", { description: error.message });
+      return;
+    }
+    toast.success(`"${label}" eliminado`);
+  }
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { "application/pdf": [".pdf"] },
@@ -302,6 +360,17 @@ function DocumentoConvocanteRow({
             <p className="text-xs text-muted-foreground">Sin documento cargado</p>
           )}
         </div>
+        {documento && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={quitando}
+            onClick={quitarDocumento}
+            aria-label={`Quitar ${label}`}
+          >
+            <Trash2 className="text-destructive" />
+          </Button>
+        )}
       </div>
       <div
         {...getRootProps()}
@@ -540,7 +609,7 @@ export function DocumentosTab({
         />
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3" data-testid="documentos-requeridos-section">
         <h3 className="text-sm font-medium">Documentos requeridos</h3>
         <p className="-mt-2 text-xs text-muted-foreground">
           Sube cada documento en el requisito que le corresponde y se analizará con IA
@@ -558,7 +627,7 @@ export function DocumentosTab({
             isDragActive ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
           )}
         >
-          <input {...getInputProps()} />
+          <input {...getInputProps()} data-testid="otros-documentos-input" />
           <UploadCloud className="size-8 text-muted-foreground" />
           <p className="text-sm font-medium">
             {isDragActive ? "Suelta los archivos aquí" : "Arrastra archivos o haz clic para subir"}

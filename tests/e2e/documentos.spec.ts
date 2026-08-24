@@ -18,13 +18,18 @@ test.describe("Documentos", () => {
 
     await page.getByRole("tab", { name: "Documentos" }).click();
 
-    const fileInput = page.locator('input[type="file"]').first();
+    // "Otros documentos" — no un slot de "Documentos de la convocante" ni de
+    // "Documentos requeridos", que también viven en este tab.
+    const fileInput = page.getByTestId("otros-documentos-input");
     await fileInput.setInputFiles(path.join(__dirname, "fixtures", "documento-prueba.pdf"));
 
     await expect(page.getByText("documento-prueba.pdf")).toBeVisible({ timeout: 15_000 });
 
-    // Eliminar
-    await page.getByRole("button").filter({ has: page.locator("svg") }).last().click();
+    // Eliminar — el botón de basura dentro del renglón de este documento
+    // específico en la lista de "Otros documentos" (evita ambigüedad con los
+    // demás controles del tab).
+    const fila = page.locator("li").filter({ hasText: "documento-prueba.pdf" });
+    await fila.getByRole("button").last().click();
     await expect(page.getByText("Documento eliminado")).toBeVisible();
   });
 });

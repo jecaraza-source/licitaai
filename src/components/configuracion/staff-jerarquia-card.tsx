@@ -153,7 +153,9 @@ export function StaffJerarquiaCard() {
                 <li key={s.id} className="flex items-center gap-2 py-2 text-sm">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{s.nombre}</p>
-                    <p className="truncate text-xs text-muted-foreground">{s.email}</p>
+                    {s.email && (
+                      <p className="truncate text-xs text-muted-foreground">{s.email}</p>
+                    )}
                   </div>
                   {puedeInvitar ? (
                     <Select

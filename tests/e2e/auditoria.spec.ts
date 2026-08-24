@@ -20,15 +20,22 @@ test.describe("Auditoría", () => {
     await page.getByRole("tab", { name: "Auditoría" }).click();
     const scoreInicial = await page.getByText(/^\d+$/).first().textContent();
 
-    // Expande el primer requisito del checklist y carga un documento.
-    await page.locator("button").filter({ hasText: /RFC|Constancia/i }).first().click();
-    await page
+    // La carga de documentos del checklist vive en el tab Documentos
+    // ("Documentos requeridos"), no en Auditoría — Auditoría solo la refleja.
+    await page.getByRole("tab", { name: "Documentos" }).click();
+    const seccionRequeridos = page.getByTestId("documentos-requeridos-section");
+    const primerRenglon = seccionRequeridos
+      .locator("div.rounded-lg.border")
+      .filter({ hasText: /RFC|Constancia/i })
+      .first();
+    await primerRenglon
       .locator('input[type="file"]')
-      .first()
       .setInputFiles(path.join(__dirname, "fixtures", "documento-prueba.pdf"));
 
-    await expect(page.getByText("Documento auditado")).toBeVisible({ timeout: 40_000 });
+    await expect(page.getByText(/analizado con IA/i)).toBeVisible({ timeout: 40_000 });
+    await expect(primerRenglon.getByText("documento-prueba.pdf")).toBeVisible();
 
+    await page.getByRole("tab", { name: "Auditoría" }).click();
     const scoreFinal = await page.getByText(/^\d+$/).first().textContent();
     expect(scoreFinal).not.toBe(scoreInicial);
   });

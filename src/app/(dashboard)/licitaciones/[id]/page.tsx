@@ -212,36 +212,6 @@ export default async function LicitacionDetallePage({
         <TabsContent value="seguimiento">
           <SeguimientoTab licitacionId={licitacion.id} organizationId={licitacion.organization_id} />
         </TabsContent>
-
-        {TABS.filter(
-          (t) =>
-            ![
-              "resumen",
-              "documentos",
-              "analisis",
-              "viabilidad",
-              "partidas",
-              "junta",
-              "propuesta-tecnica",
-              "propuesta-economica",
-              "auditoria",
-              "liberacion",
-              "seguimiento",
-            ].includes(t.value),
-        ).map((tab) => (
-          <TabsContent key={tab.value} value={tab.value}>
-            <Card>
-              <CardHeader>
-                <CardTitle>Próximamente</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {tab.label} se construye en un sprint posterior.
-                </p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        ))}
       </Tabs>
     </div>
   );

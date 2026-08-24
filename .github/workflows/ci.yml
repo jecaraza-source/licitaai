@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Only lints and builds here. Vercel's native GitHub integration already
+# deploys every push/PR on its own (preview for PRs, production for main) —
+# a separate `vercel deploy` job here would double-deploy on every push.
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+  # Cada spec se salta solo si faltan las credenciales (ver tests/e2e/helpers.ts),
+  # así que este job no falla por falta de secrets — simplemente no cubre nada
+  # hasta que TEST_USER_EMAIL/TEST_USER_PASSWORD (y opcionalmente
+  # TEST_VIEWER_EMAIL/TEST_VIEWER_PASSWORD) se agreguen como secrets del repo.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: lint-and-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+        env:
+          CI: true
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+          TEST_VIEWER_EMAIL: ${{ secrets.TEST_VIEWER_EMAIL }}
+          TEST_VIEWER_PASSWORD: ${{ secrets.TEST_VIEWER_PASSWORD }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
