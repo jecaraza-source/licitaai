@@ -21,20 +21,33 @@ export function PreguntasIaCard() {
     setRespuesta(null);
     setFuentes([]);
 
-    const res = await fetch("/api/referencias-legales/preguntar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pregunta }),
-    });
-    const json = await res.json();
-    setPreguntando(false);
+    try {
+      const res = await fetch("/api/referencias-legales/preguntar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pregunta }),
+      });
 
-    if (!res.ok) {
-      toast.error("No se pudo obtener respuesta", { description: json.error });
-      return;
+      let json: { data?: { respuesta: string; fuentes?: ReferenciaLegalFuente[] }; error?: string };
+      try {
+        json = await res.json();
+      } catch {
+        throw new Error(`El servidor respondió sin datos válidos (HTTP ${res.status})`);
+      }
+
+      if (!res.ok) {
+        toast.error("No se pudo obtener respuesta", { description: json.error });
+        return;
+      }
+      setRespuesta(json.data?.respuesta ?? "");
+      setFuentes(json.data?.fuentes ?? []);
+    } catch (error) {
+      toast.error("No se pudo obtener respuesta", {
+        description: error instanceof Error ? error.message : "Error de red inesperado",
+      });
+    } finally {
+      setPreguntando(false);
     }
-    setRespuesta(json.data.respuesta);
-    setFuentes(json.data.fuentes ?? []);
   }
 
   return (
