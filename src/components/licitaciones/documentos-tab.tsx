@@ -544,6 +544,21 @@ export function DocumentosTab({
 
   useEffect(() => {
     const supabase = createClient();
+
+    // Este componente se desmonta y remonta cada vez que se cambia de
+    // pestaña (Base UI no mantiene montado el TabsContent inactivo), así
+    // que initialDocumentos queda como una foto congelada del primer
+    // render del servidor. Sin este refetch, al volver a la pestaña se
+    // perdían los documentos subidos después de esa foto inicial.
+    supabase
+      .from("documentos")
+      .select("*")
+      .eq("licitacion_id", licitacionId)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data) setDocumentos(data);
+      });
+
     const channel = supabase
       .channel(`documentos-${licitacionId}`)
       .on(

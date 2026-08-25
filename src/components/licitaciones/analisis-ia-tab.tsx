@@ -123,6 +123,40 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
       .eq("procesado", true)
       .order("created_at", { ascending: false })
       .then(({ data }) => setDocumentos(data ?? []));
+
+    // Un documento subido en la pestaña Documentos puede tardar unos
+    // segundos en procesarse (chunking + embeddings). Esta suscripción
+    // hace que aparezca aquí en cuanto termina, sin tener que salir y
+    // volver a entrar a la pestaña.
+    const channel = supabase
+      .channel(`documentos-procesados-${licitacionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "documentos",
+          filter: `licitacion_id=eq.${licitacionId}`,
+        },
+        (payload) => {
+          if (payload.eventType === "DELETE") {
+            const eliminado = payload.old as { id: string };
+            setDocumentos((prev) => prev.filter((d) => d.id !== eliminado.id));
+            return;
+          }
+          const doc = payload.new as { id: string; nombre: string; procesado: boolean };
+          setDocumentos((prev) => {
+            if (!doc.procesado) return prev.filter((d) => d.id !== doc.id);
+            if (prev.some((d) => d.id === doc.id)) return prev;
+            return [{ id: doc.id, nombre: doc.nombre }, ...prev];
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [licitacionId]);
 
   async function handleAnalizar() {
