@@ -214,6 +214,7 @@ export interface FechasAnalisis {
 export interface AnalisisBases {
   id: string;
   licitacion_id: string;
+  documento_id: string | null;
   objeto_contrato: string | null;
   tipo_procedimiento: string | null;
   monto_maximo_estimado: number | null;

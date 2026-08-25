@@ -409,6 +409,7 @@ Deno.serve(async (req) => {
 
     const analisisRow = {
       licitacion_id,
+      documento_id: documento_id ?? null,
       objeto_contrato: generales.objeto_contrato ?? null,
       tipo_procedimiento: generales.tipo_procedimiento ?? null,
       monto_maximo_estimado: generales.monto_maximo_estimado ?? null,
@@ -424,7 +425,15 @@ Deno.serve(async (req) => {
       nivel_confianza: nivelGeneral,
     };
 
-    await supabase.from("analisis_bases").delete().eq("licitacion_id", licitacion_id);
+    // Solo se reemplaza el análisis guardado para este mismo documento (o el
+    // de "todos los documentos" si no se eligió uno específico) — analizar
+    // un documento ya no borra el análisis guardado de los demás.
+    let borrarAnterior = supabase.from("analisis_bases").delete().eq("licitacion_id", licitacion_id);
+    borrarAnterior = documento_id
+      ? borrarAnterior.eq("documento_id", documento_id)
+      : borrarAnterior.is("documento_id", null);
+    await borrarAnterior;
+
     const { data: analisis, error: insertError } = await supabase
       .from("analisis_bases")
       .insert(analisisRow)

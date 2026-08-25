@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -14,11 +14,12 @@ export async function GET(
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
-  const { data, error } = await supabase
-    .from("analisis_bases")
-    .select("*")
-    .eq("licitacion_id", id)
-    .maybeSingle();
+  const documentoId = request.nextUrl.searchParams.get("documento_id");
+
+  let query = supabase.from("analisis_bases").select("*").eq("licitacion_id", id);
+  query = documentoId ? query.eq("documento_id", documentoId) : query.is("documento_id", null);
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

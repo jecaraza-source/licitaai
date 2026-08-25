@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Info, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -107,14 +115,35 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
   const [documentoId, setDocumentoId] = useState(TODOS_LOS_DOCUMENTOS);
   const [analizando, setAnalizando] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const [confirmandoSobreescritura, setConfirmandoSobreescritura] = useState(false);
   const stepInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    fetch(`/api/licitaciones/${licitacionId}/analisis`)
-      .then((res) => res.json())
-      .then((json) => setAnalisis(json.data ?? null))
-      .catch(() => setAnalisis(null));
+  const cargarAnalisis = useCallback(
+    (docId: string) => {
+      setAnalisis(undefined);
+      const query = docId === TODOS_LOS_DOCUMENTOS ? "" : `?documento_id=${docId}`;
+      return fetch(`/api/licitaciones/${licitacionId}/analisis${query}`)
+        .then((res) => res.json())
+        .then((json) => setAnalisis(json.data ?? null))
+        .catch(() => setAnalisis(null));
+    },
+    [licitacionId],
+  );
 
+  // Cada documento (o "todos los documentos") tiene su propio análisis
+  // guardado — al cambiar la selección, traemos el que ya exista para
+  // mostrarlo de inmediato en vez de dejar la pantalla vacía hasta que el
+  // usuario pida analizar de nuevo.
+  useEffect(() => {
+    // cargarAnalisis pone analisis en undefined (loading) antes del fetch,
+    // igual al patrón que documenta react.dev para resetear estado derivado
+    // de un id que cambia — necesario aquí para no mostrar el análisis del
+    // documento anterior mientras carga el nuevo.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    cargarAnalisis(documentoId);
+  }, [documentoId, cargarAnalisis]);
+
+  useEffect(() => {
     const supabase = createClient();
     supabase
       .from("documentos")
@@ -160,6 +189,7 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
   }, [licitacionId]);
 
   async function handleAnalizar() {
+    setConfirmandoSobreescritura(false);
     setAnalizando(true);
     setStepIndex(0);
     stepInterval.current = setInterval(() => {
@@ -233,7 +263,10 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={handleAnalizar} disabled={analizando}>
+          <Button
+            onClick={() => (analisis ? setConfirmandoSobreescritura(true) : handleAnalizar())}
+            disabled={analizando}
+          >
             <Sparkles />
             {analisis ? "Re-analizar" : "Analizar bases con IA"}
           </Button>
@@ -414,6 +447,28 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
           </div>
         </div>
       )}
+
+      <Dialog open={confirmandoSobreescritura} onOpenChange={setConfirmandoSobreescritura}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Sobrescribir el análisis guardado?</DialogTitle>
+            <DialogDescription>
+              Ya existe un análisis guardado para{" "}
+              {documentoId === TODOS_LOS_DOCUMENTOS
+                ? "todos los documentos"
+                : `"${documentos.find((d) => d.id === documentoId)?.nombre ?? "este documento"}"`}
+              . Al re-analizar se reemplazará con el resultado nuevo y no podrás recuperar el
+              anterior.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmandoSobreescritura(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAnalizar}>Sobrescribir y analizar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
