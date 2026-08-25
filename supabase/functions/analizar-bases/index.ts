@@ -292,7 +292,21 @@ async function analizarSeccion(anthropic: Anthropic, seccion: Seccion, contexto:
   const toolUse = response.content.find(
     (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
   );
-  return toolUse?.input ?? null;
+  let input = toolUse?.input ?? null;
+
+  // El SDK normalmente ya entrega `input` como objeto parseado, pero en
+  // algunas respuestas (JSON truncado o mal formado por el modelo) puede
+  // llegar como el texto crudo. Si pasa, lo parseamos aquí para no guardar
+  // un string donde el resto del código espera un objeto/arreglo.
+  if (typeof input === "string") {
+    try {
+      input = JSON.parse(input);
+    } catch {
+      return null;
+    }
+  }
+
+  return input;
 }
 
 Deno.serve(async (req) => {
@@ -391,6 +405,8 @@ Deno.serve(async (req) => {
         : 1;
     const nivelGeneral = RANGO_A_NIVEL[rangoMinimo] ?? "BAJO";
 
+    const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+
     const analisisRow = {
       licitacion_id,
       objeto_contrato: generales.objeto_contrato ?? null,
@@ -398,12 +414,12 @@ Deno.serve(async (req) => {
       monto_maximo_estimado: generales.monto_maximo_estimado ?? null,
       moneda: generales.moneda ?? "MXN",
       fechas_json: fechas,
-      requisitos_legales_json: documentacion.requisitos_legales ?? [],
-      documentacion_requerida_json: documentacion.documentacion_requerida ?? [],
-      criterios_evaluacion_json: criterios.criterios_evaluacion ?? [],
-      garantias_json: garantias.garantias ?? [],
+      requisitos_legales_json: asArray(documentacion.requisitos_legales),
+      documentacion_requerida_json: asArray(documentacion.documentacion_requerida),
+      criterios_evaluacion_json: asArray(criterios.criterios_evaluacion),
+      garantias_json: asArray(garantias.garantias),
       forma_presentacion: garantias.forma_presentacion ?? null,
-      especificaciones_tecnicas_json: especificaciones.especificaciones_tecnicas ?? [],
+      especificaciones_tecnicas_json: asArray(especificaciones.especificaciones_tecnicas),
       notas_json: { confianza_por_seccion: confianzas, documento_analizado: documentoAnalizado },
       nivel_confianza: nivelGeneral,
     };
@@ -417,7 +433,7 @@ Deno.serve(async (req) => {
 
     if (insertError) throw new Error(`Error guardando análisis: ${insertError.message}`);
 
-    const documentacionRequerida = (documentacion.documentacion_requerida ?? []) as Array<{
+    const documentacionRequerida = asArray(documentacion.documentacion_requerida) as Array<{
       descripcion: string;
       categoria: string;
       fundamento_legal: string | null;
@@ -443,7 +459,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const partidas = (partidasResult.partidas ?? []) as Array<{
+    const partidas = asArray(partidasResult.partidas) as Array<{
       numero: string;
       descripcion: string;
       unidad: string | null;
@@ -463,7 +479,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const especificacionesTecnicas = (especificaciones.especificaciones_tecnicas ?? []) as Array<{
+    const especificacionesTecnicas = asArray(especificaciones.especificaciones_tecnicas) as Array<{
       especificacion: string;
       cantidad: string | null;
       obligatorio: boolean;

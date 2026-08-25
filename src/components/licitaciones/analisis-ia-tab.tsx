@@ -144,9 +144,13 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
 
   const confianzas = analisis?.notas_json?.confianza_por_seccion ?? {};
   const documentoAnalizado = analisis?.notas_json?.documento_analizado;
-  const documentacionRequerida = analisis?.documentacion_requerida_json ?? [];
-  const criteriosEvaluacion = analisis?.criterios_evaluacion_json ?? [];
-  const garantias = analisis?.garantias_json ?? [];
+  const documentacionRequerida = Array.isArray(analisis?.documentacion_requerida_json)
+    ? analisis.documentacion_requerida_json
+    : [];
+  const criteriosEvaluacion = Array.isArray(analisis?.criterios_evaluacion_json)
+    ? analisis.criterios_evaluacion_json
+    : [];
+  const garantias = Array.isArray(analisis?.garantias_json) ? analisis.garantias_json : [];
 
   return (
     <div className="flex flex-col gap-6" id="analisis-ia-printable">
