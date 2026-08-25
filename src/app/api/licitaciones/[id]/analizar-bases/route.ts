@@ -54,5 +54,5 @@ export async function POST(
     }).catch(() => {});
   }
 
-  return NextResponse.json({ data });
+  return NextResponse.json({ data: data?.data ?? null });
 }

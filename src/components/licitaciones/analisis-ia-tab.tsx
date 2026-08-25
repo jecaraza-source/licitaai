@@ -144,6 +144,9 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
 
   const confianzas = analisis?.notas_json?.confianza_por_seccion ?? {};
   const documentoAnalizado = analisis?.notas_json?.documento_analizado;
+  const documentacionRequerida = analisis?.documentacion_requerida_json ?? [];
+  const criteriosEvaluacion = analisis?.criterios_evaluacion_json ?? [];
+  const garantias = analisis?.garantias_json ?? [];
 
   return (
     <div className="flex flex-col gap-6" id="analisis-ia-printable">
@@ -233,7 +236,7 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
                   {Object.entries(FECHA_LABELS).map(([key, label]) => (
                     <div key={key}>
                       <dt className="text-xs text-muted-foreground">{label}</dt>
-                      <dd>{formatFecha(analisis.fechas_json[key as keyof FechasAnalisis])}</dd>
+                      <dd>{formatFecha(analisis.fechas_json?.[key as keyof FechasAnalisis])}</dd>
                     </div>
                   ))}
                 </dl>
@@ -247,11 +250,11 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
               <ConfianzaBadge nivel={confianzas.documentacion} />
             </CardHeader>
             <CardContent>
-              {analisis.documentacion_requerida_json.length === 0 ? (
+              {documentacionRequerida.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No se detectaron requisitos.</p>
               ) : (
                 <ul className="flex flex-col divide-y text-sm">
-                  {analisis.documentacion_requerida_json.map((item, i) => (
+                  {documentacionRequerida.map((item, i) => (
                     <li key={i} className="flex flex-col gap-0.5 py-2">
                       <span className="font-medium">
                         {item.descripcion}{" "}
@@ -278,11 +281,11 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
                 <ConfianzaBadge nivel={confianzas.criterios} />
               </CardHeader>
               <CardContent>
-                {analisis.criterios_evaluacion_json.length === 0 ? (
+                {criteriosEvaluacion.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No se detectaron criterios.</p>
                 ) : (
                   <ul className="flex flex-col divide-y text-sm">
-                    {analisis.criterios_evaluacion_json.map((c, i) => (
+                    {criteriosEvaluacion.map((c, i) => (
                       <li key={i} className="flex items-center justify-between py-2">
                         <span>{c.criterio}</span>
                         <span className="font-medium">
@@ -301,10 +304,10 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
                 <ConfianzaBadge nivel={confianzas.garantias} />
               </CardHeader>
               <CardContent className="flex flex-col gap-2 text-sm">
-                {analisis.garantias_json.length === 0 ? (
+                {garantias.length === 0 ? (
                   <p className="text-muted-foreground">No se detectaron garantías.</p>
                 ) : (
-                  analisis.garantias_json.map((g, i) => (
+                  garantias.map((g, i) => (
                     <p key={i}>
                       <span className="font-medium">{g.tipo}</span>
                       {g.monto_o_porcentaje ? ` — ${g.monto_o_porcentaje}` : ""}
