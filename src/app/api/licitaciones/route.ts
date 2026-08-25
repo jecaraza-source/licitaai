@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { licitacionSchema } from "@/lib/validations/licitacion";
+import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
+import { TIPOS_DOCUMENTO_CORPORATIVO } from "@/lib/documentos-corporativos";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -41,7 +43,49 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ data, count, page, pageSize });
+  const licitacionIds = (data ?? []).map((l) => l.id);
+
+  const [{ data: checklistItems }, { data: perfil }] = await Promise.all([
+    licitacionIds.length > 0
+      ? supabase
+          .from("checklist_items")
+          .select("licitacion_id, requerido, estado")
+          .in("licitacion_id", licitacionIds)
+      : Promise.resolve({ data: [] as { licitacion_id: string; requerido: boolean; estado: string }[] }),
+    supabase.from("users").select("organization_id").eq("id", user.id).single(),
+  ]);
+
+  const dataConScore = (data ?? []).map((licitacion) => {
+    const requeridos = (checklistItems ?? []).filter(
+      (i) => i.licitacion_id === licitacion.id && i.requerido,
+    );
+    const completos = requeridos.filter((i) => i.estado === "VERDE" || i.estado === "GRIS");
+    const checklist_score =
+      requeridos.length > 0 ? Math.round((completos.length / requeridos.length) * 100) : 0;
+    return { ...licitacion, checklist_score };
+  });
+
+  let empresaScore: number | null = null;
+  if (perfil?.organization_id) {
+    const empresaActiva = await getEmpresaPerfilActiva(supabase, perfil.organization_id, user.id);
+    if (empresaActiva) {
+      const { data: docsCorporativos } = await supabase
+        .from("documentos_corporativos")
+        .select("tipo")
+        .eq("empresa_perfil_id", empresaActiva.id);
+
+      const tiposRequeridos = TIPOS_DOCUMENTO_CORPORATIVO.filter((t) => t !== "Otro");
+      const cubiertos = new Set([
+        ...(docsCorporativos ?? []).map((d) => d.tipo),
+        ...(empresaActiva.documentos_no_aplican ?? []),
+      ]);
+      const completos = tiposRequeridos.filter((t) => cubiertos.has(t)).length;
+      empresaScore =
+        tiposRequeridos.length > 0 ? Math.round((completos / tiposRequeridos.length) * 100) : 100;
+    }
+  }
+
+  return NextResponse.json({ data: dataConScore, count, page, pageSize, empresaScore });
 }
 
 export async function POST(request: NextRequest) {

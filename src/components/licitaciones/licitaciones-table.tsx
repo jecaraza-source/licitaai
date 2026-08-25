@@ -26,9 +26,34 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EstadoBadge } from "@/components/licitaciones/estado-badge";
 import { ESTADOS_ID, ESTADOS_LICITACION, TIPOS_LICITACION } from "@/lib/validations/licitacion";
+import { cn } from "@/lib/utils";
 import type { Licitacion } from "@/types";
+
+interface LicitacionConScore extends Licitacion {
+  checklist_score: number;
+}
+
+function scoreDotColor(score: number) {
+  if (score >= 80) return "bg-emerald-500";
+  if (score >= 50) return "bg-amber-500";
+  return "bg-destructive";
+}
+
+function ScoreDot({ score, label }: { score: number; label: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={<span className={cn("size-2.5 shrink-0 rounded-full", scoreDotColor(score))} />}
+      />
+      <TooltipContent>
+        {label}: {score}%
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 const TIPO_LABELS: Record<string, string> = {
   ADQUISICION: "Adquisición",
@@ -51,7 +76,7 @@ function formatFecha(fecha: string | null) {
 const ALL = "__all__";
 
 export function LicitacionesTable() {
-  const [rows, setRows] = useState<Licitacion[]>([]);
+  const [rows, setRows] = useState<LicitacionConScore[]>([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -59,6 +84,7 @@ export function LicitacionesTable() {
   const [estadoLicitacion, setEstadoLicitacion] = useState<string>(ALL);
   const [tipo, setTipo] = useState<string>(ALL);
   const [estadoId, setEstadoId] = useState<string>(ALL);
+  const [empresaScore, setEmpresaScore] = useState<number>(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -74,6 +100,7 @@ export function LicitacionesTable() {
       .then((json) => {
         setRows(json.data ?? []);
         setCount(json.count ?? 0);
+        setEmpresaScore(json.empresaScore ?? 0);
         setLoading(false);
       })
       .catch((err) => {
@@ -84,7 +111,7 @@ export function LicitacionesTable() {
     return () => controller.abort();
   }, [page, search, estadoLicitacion, tipo, estadoId]);
 
-  const columns = useMemo<ColumnDef<Licitacion>[]>(
+  const columns = useMemo<ColumnDef<LicitacionConScore>[]>(
     () => [
       {
         header: "Expediente",
@@ -120,8 +147,18 @@ export function LicitacionesTable() {
         accessorKey: "fecha_entrega_propuesta",
         cell: ({ row }) => formatFecha(row.original.fecha_entrega_propuesta),
       },
+      {
+        header: "Documentación",
+        id: "documentacion",
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1.5">
+            <ScoreDot score={row.original.checklist_score} label="Requisitos de la licitación" />
+            <ScoreDot score={empresaScore} label="Documentos corporativos de la empresa" />
+          </div>
+        ),
+      },
     ],
-    [],
+    [empresaScore],
   );
 
   const table = useReactTable({

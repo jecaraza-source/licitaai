@@ -18,28 +18,10 @@ import {
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { cn, sanitizeFilename } from "@/lib/utils";
+import { TIPOS_DOCUMENTO_CORPORATIVO } from "@/lib/documentos-corporativos";
 import type { DocumentoCorporativo } from "@/types";
 
-const TIPOS_DOCUMENTO = [
-  "Acta constitutiva",
-  "Reformas",
-  "Poder del representante legal",
-  "Constancia de Situación Fiscal",
-  "Identificación oficial",
-  "Comprobante de domicilio",
-  "Datos bancarios",
-  "Opinión de cumplimiento fiscal (32-D)",
-  "Cumplimiento IMSS",
-  "Cumplimiento INFONAVIT",
-  "Declaración de integridad",
-  "Manifestación de no impedido",
-  "Información de socios/accionistas",
-  "Escrito de personalidad",
-  "Declaración de nacionalidad",
-  "Estratificación MIPYME",
-  "Documentación RUPC",
-  "Otro",
-];
+const TIPOS_DOCUMENTO = TIPOS_DOCUMENTO_CORPORATIVO;
 
 /**
  * Recordatorio de vigencia por tipo de documento, para que no se suban
