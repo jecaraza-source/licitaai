@@ -128,6 +128,14 @@ function RequisitoRow({
         return;
       }
 
+      if (file.name.toLowerCase().endsWith(".pdf")) {
+        fetch(`/api/licitaciones/${licitacionId}/procesar-documento`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ documento_id: doc.id }),
+        }).catch(() => {});
+      }
+
       const res = await fetch(`/api/checklist-items/${item.id}/documento`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -348,19 +356,32 @@ function DocumentoConvocanteRow({
         return;
       }
 
-      const { error: insertError } = await supabase.from("documentos").insert({
-        licitacion_id: licitacionId,
-        tipo_documento: tipo,
-        nombre: file.name,
-        storage_path: path,
-        tamanio_bytes: file.size,
-      });
+      const { data: doc, error: insertError } = await supabase
+        .from("documentos")
+        .insert({
+          licitacion_id: licitacionId,
+          tipo_documento: tipo,
+          nombre: file.name,
+          storage_path: path,
+          tamanio_bytes: file.size,
+        })
+        .select()
+        .single();
       setSubiendo(false);
 
-      if (insertError) {
+      if (insertError || !doc) {
         toast.error("No se pudo registrar el documento");
         return;
       }
+
+      if (file.name.toLowerCase().endsWith(".pdf")) {
+        fetch(`/api/licitaciones/${licitacionId}/procesar-documento`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ documento_id: doc.id }),
+        }).catch(() => {});
+      }
+
       toast.success(`"${label}" guardado`);
     },
   });

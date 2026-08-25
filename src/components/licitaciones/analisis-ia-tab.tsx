@@ -158,7 +158,13 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <Select value={documentoId} onValueChange={(v) => v && setDocumentoId(v)}>
             <SelectTrigger className="w-64">
-              <SelectValue />
+              <SelectValue>
+                {(v: string) =>
+                  v === TODOS_LOS_DOCUMENTOS
+                    ? "Todos los documentos"
+                    : (documentos.find((doc) => doc.id === v)?.nombre ?? v)
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={TODOS_LOS_DOCUMENTOS}>Todos los documentos</SelectItem>
