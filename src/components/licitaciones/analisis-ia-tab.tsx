@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { Info, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import type { AnalisisBases, FechasAnalisis, NivelConfianza } from "@/types";
@@ -39,17 +40,40 @@ const NIVEL_STYLES: Record<NivelConfianza, string> = {
   BAJO: "bg-destructive/10 text-destructive",
 };
 
+const NIVEL_TEXT_STYLES: Record<NivelConfianza, string> = {
+  ALTO: "text-primary",
+  MEDIO: "text-accent-foreground",
+  BAJO: "text-destructive",
+};
+
+const NIVEL_DESCRIPCIONES: Record<NivelConfianza, string> = {
+  ALTO:
+    "La IA encontró esta información de forma explícita en los documentos analizados. Puedes usarla con confianza, pero siempre corrobora los datos críticos (montos, fechas) antes de enviarlos.",
+  MEDIO:
+    "La información se infirió de texto parcial, ambiguo o disperso en varios fragmentos. Verifícala contra el documento original antes de usarla.",
+  BAJO:
+    "La IA no encontró información suficiente o clara para esta sección. Revisa manualmente los documentos originales — puede faltar información o estar en un anexo que aún no has subido.",
+};
+
 function ConfianzaBadge({ nivel }: { nivel: NivelConfianza | undefined }) {
   if (!nivel) return null;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-        NIVEL_STYLES[nivel],
-      )}
-    >
-      Confianza: {nivel}
-    </span>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+              NIVEL_STYLES[nivel],
+            )}
+          >
+            Confianza: {nivel}
+            <Info className="size-3" />
+          </span>
+        }
+      />
+      <TooltipContent className="max-w-64">{NIVEL_DESCRIPCIONES[nivel]}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -214,6 +238,27 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
 
       {!analizando && analisis && (
         <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-1.5 rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground print:hidden">
+            <p className="font-medium text-foreground">
+              ¿Qué significa el nivel de confianza de cada sección?
+            </p>
+            <p>
+              <span className={cn("font-medium", NIVEL_TEXT_STYLES.ALTO)}>ALTO</span>
+              {" — "}
+              {NIVEL_DESCRIPCIONES.ALTO}
+            </p>
+            <p>
+              <span className={cn("font-medium", NIVEL_TEXT_STYLES.MEDIO)}>MEDIO</span>
+              {" — "}
+              {NIVEL_DESCRIPCIONES.MEDIO}
+            </p>
+            <p>
+              <span className={cn("font-medium", NIVEL_TEXT_STYLES.BAJO)}>BAJO</span>
+              {" — "}
+              {NIVEL_DESCRIPCIONES.BAJO}
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
