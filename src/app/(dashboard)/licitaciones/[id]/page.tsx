@@ -169,6 +169,7 @@ export default async function LicitacionDetallePage({
             organizationId={licitacion.organization_id}
             initialDocumentos={documentos}
             modalidadProcedimiento={licitacion.modalidad_procedimiento}
+            initialDocumentosConvocanteNoAplica={licitacion.documentos_convocante_no_aplica ?? []}
           />
         </TabsContent>
 

@@ -7,6 +7,7 @@ import { FileText, ShieldCheck, Sparkles, Trash2, UploadCloud } from "lucide-rea
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, sanitizeFilename } from "@/lib/utils";
 import { CATEGORIA_LABELS, ESTADO_DOT, ESTADO_LABELS } from "@/lib/checklist-labels";
@@ -47,6 +48,19 @@ function RequisitoRow({
 }) {
   const [analizando, setAnalizando] = useState(false);
   const [quitando, setQuitando] = useState(false);
+
+  async function toggleNoAplica(noAplica: boolean) {
+    const res = await fetch(`/api/checklist-items/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estado: noAplica ? "GRIS" : "AMARILLO" }),
+    });
+    if (!res.ok) {
+      toast.error("No se pudo actualizar");
+      return;
+    }
+    onUpdated();
+  }
 
   async function quitarDocumento() {
     if (!item.documento_id) return;
@@ -156,7 +170,7 @@ function RequisitoRow({
             </ul>
           )}
         </div>
-        {item.documento_id && (
+        {item.documento_id ? (
           <Button
             variant="ghost"
             size="icon-sm"
@@ -166,28 +180,38 @@ function RequisitoRow({
           >
             <Trash2 className="text-destructive" />
           </Button>
+        ) : (
+          <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+            <Checkbox
+              checked={item.estado === "GRIS"}
+              onCheckedChange={(checked) => toggleNoAplica(checked === true)}
+            />
+            No aplica
+          </label>
         )}
       </div>
 
-      <div
-        {...getRootProps()}
-        className={cn(
-          "flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs",
-          isDragActive ? "border-primary bg-primary/5" : "hover:bg-muted/40",
-        )}
-      >
-        <input {...getInputProps()} />
-        {analizando ? (
-          <Sparkles className="size-3.5 animate-pulse text-primary" />
-        ) : (
-          <UploadCloud className="size-3.5 text-muted-foreground" />
-        )}
-        {analizando
-          ? "Analizando con IA…"
-          : item.documento_id
-            ? "Reemplazar y volver a analizar"
-            : "Cargar y analizar con IA"}
-      </div>
+      {item.estado !== "GRIS" && (
+        <div
+          {...getRootProps()}
+          className={cn(
+            "flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs",
+            isDragActive ? "border-primary bg-primary/5" : "hover:bg-muted/40",
+          )}
+        >
+          <input {...getInputProps()} />
+          {analizando ? (
+            <Sparkles className="size-3.5 animate-pulse text-primary" />
+          ) : (
+            <UploadCloud className="size-3.5 text-muted-foreground" />
+          )}
+          {analizando
+            ? "Analizando con IA…"
+            : item.documento_id
+              ? "Reemplazar y volver a analizar"
+              : "Cargar y analizar con IA"}
+        </div>
+      )}
     </div>
   );
 }
@@ -278,6 +302,8 @@ function DocumentoConvocanteRow({
   licitacionId,
   organizationId,
   onOpen,
+  noAplica,
+  onToggleNoAplica,
 }: {
   tipo: string;
   label: string;
@@ -285,6 +311,8 @@ function DocumentoConvocanteRow({
   licitacionId: string;
   organizationId: string;
   onOpen: (doc: Documento) => void;
+  noAplica: boolean;
+  onToggleNoAplica: (noAplica: boolean) => void;
 }) {
   const [subiendo, setSubiendo] = useState(false);
   const [quitando, setQuitando] = useState(false);
@@ -343,11 +371,13 @@ function DocumentoConvocanteRow({
         <span
           className={cn(
             "size-2.5 shrink-0 rounded-full",
-            documento ? "bg-emerald-500" : "bg-destructive",
+            documento ? "bg-emerald-500" : noAplica ? "bg-muted-foreground/40" : "bg-destructive",
           )}
         />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">{label}</p>
+          <p className={cn("text-sm font-medium", noAplica && !documento && "text-muted-foreground line-through")}>
+            {label}
+          </p>
           {documento ? (
             <button
               type="button"
@@ -360,7 +390,7 @@ function DocumentoConvocanteRow({
             <p className="text-xs text-muted-foreground">Sin documento cargado</p>
           )}
         </div>
-        {documento && (
+        {documento ? (
           <Button
             variant="ghost"
             size="icon-sm"
@@ -370,19 +400,29 @@ function DocumentoConvocanteRow({
           >
             <Trash2 className="text-destructive" />
           </Button>
+        ) : (
+          <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+            <Checkbox
+              checked={noAplica}
+              onCheckedChange={(checked) => onToggleNoAplica(checked === true)}
+            />
+            No aplica
+          </label>
         )}
       </div>
-      <div
-        {...getRootProps()}
-        className={cn(
-          "flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs",
-          isDragActive ? "border-primary bg-primary/5" : "hover:bg-muted/40",
-        )}
-      >
-        <input {...getInputProps()} />
-        <UploadCloud className="size-3.5 text-muted-foreground" />
-        {subiendo ? "Subiendo…" : documento ? "Reemplazar" : "Cargar documento"}
-      </div>
+      {!noAplica && (
+        <div
+          {...getRootProps()}
+          className={cn(
+            "flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs",
+            isDragActive ? "border-primary bg-primary/5" : "hover:bg-muted/40",
+          )}
+        >
+          <input {...getInputProps()} />
+          <UploadCloud className="size-3.5 text-muted-foreground" />
+          {subiendo ? "Subiendo…" : documento ? "Reemplazar" : "Cargar documento"}
+        </div>
+      )}
     </div>
   );
 }
@@ -393,12 +433,16 @@ function DocumentosConvocanteCard({
   organizationId,
   modalidadProcedimiento,
   onOpen,
+  noAplican,
+  onToggleNoAplica,
 }: {
   documentos: Documento[];
   licitacionId: string;
   organizationId: string;
   modalidadProcedimiento: ModalidadProcedimiento | null;
   onOpen: (doc: Documento) => void;
+  noAplican: string[];
+  onToggleNoAplica: (tipo: string, noAplica: boolean) => void;
 }) {
   return (
     <Card>
@@ -412,6 +456,8 @@ function DocumentosConvocanteCard({
             licitacionId={licitacionId}
             organizationId={organizationId}
             onOpen={onOpen}
+            noAplica={noAplican.includes(tipo)}
+            onToggleNoAplica={(noAplica) => onToggleNoAplica(tipo, noAplica)}
           />
         ))}
       </CardContent>
@@ -438,17 +484,42 @@ export function DocumentosTab({
   organizationId,
   initialDocumentos,
   modalidadProcedimiento,
+  initialDocumentosConvocanteNoAplica,
 }: {
   licitacionId: string;
   organizationId: string;
   initialDocumentos: Documento[];
   modalidadProcedimiento: ModalidadProcedimiento | null;
+  initialDocumentosConvocanteNoAplica: string[];
 }) {
   const [documentos, setDocumentos] = useState<Documento[]>(initialDocumentos);
   const [uploads, setUploads] = useState<UploadState[]>([]);
   const [viewerDoc, setViewerDoc] = useState<Documento | null>(null);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [firmandoDoc, setFirmandoDoc] = useState<string | null>(null);
+  const [convocanteNoAplican, setConvocanteNoAplican] = useState<string[]>(
+    initialDocumentosConvocanteNoAplica,
+  );
+
+  const toggleConvocanteNoAplica = useCallback(
+    async (tipo: string, noAplica: boolean) => {
+      setConvocanteNoAplican((prev) =>
+        noAplica ? [...new Set([...prev, tipo])] : prev.filter((t) => t !== tipo),
+      );
+      const res = await fetch(`/api/licitaciones/${licitacionId}/documentos-convocante-no-aplica`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo, no_aplica: noAplica }),
+      });
+      if (!res.ok) {
+        toast.error("No se pudo actualizar");
+        setConvocanteNoAplican((prev) =>
+          noAplica ? prev.filter((t) => t !== tipo) : [...new Set([...prev, tipo])],
+        );
+      }
+    },
+    [licitacionId],
+  );
 
   useEffect(() => {
     const supabase = createClient();
@@ -606,6 +677,8 @@ export function DocumentosTab({
           organizationId={organizationId}
           modalidadProcedimiento={modalidadProcedimiento}
           onOpen={handleOpen}
+          noAplican={convocanteNoAplican}
+          onToggleNoAplica={toggleConvocanteNoAplica}
         />
       </div>
 
