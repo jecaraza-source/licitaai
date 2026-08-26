@@ -10,7 +10,8 @@ import pdfParse from "npm:pdf-parse@^1.1.1";
 import { RecursiveCharacterTextSplitter } from "npm:@langchain/textsplitters@^0.1";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
-import { authenticate, requireDocumentoById } from "../_shared/auth.ts";
+import { authenticate, jsonError, requireDocumentoById } from "../_shared/auth.ts";
+import { contenidoCoincideConNombre } from "../_shared/file-validation.ts";
 
 const CHARS_POR_CHUNK = 4000; // ~1000 tokens en español/inglés
 const OVERLAP_CHARS = 800; // ~200 tokens
@@ -72,8 +73,6 @@ Deno.serve(async (req) => {
     if (documento instanceof Response) return documento;
 
     const supabase = ctx.service;
-    const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
-    const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 
     const { data: archivo, error: downloadError } = await supabase.storage
       .from("documentos-originales")
@@ -85,6 +84,21 @@ Deno.serve(async (req) => {
 
     const arrayBuffer = await archivo.arrayBuffer();
     const buffer = new Uint8Array(arrayBuffer);
+
+    // El allowlist de Storage solo valida el Content-Type declarado al
+    // subir; esto valida el CONTENIDO real antes de tratarlo como PDF o
+    // enviarlo a Claude Vision. Se hace antes de construir los clientes de
+    // IA para no gastar nada en un archivo que se va a rechazar.
+    if (!contenidoCoincideConNombre(buffer, documento.nombre)) {
+      await supabase
+        .from("documentos")
+        .update({ procesado: false })
+        .eq("id", documento_id);
+      return jsonError(422, "El contenido del archivo no corresponde a su nombre/extensión");
+    }
+
+    const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
+    const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 
     let texto = "";
     let escaneado = false;

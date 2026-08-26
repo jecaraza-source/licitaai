@@ -330,6 +330,7 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
 
       if (insertError || !doc) {
         setSubiendoActa(false);
+        await supabase.storage.from("documentos-originales").remove([path]);
         toast.error("No se pudo registrar el acta");
         return;
       }

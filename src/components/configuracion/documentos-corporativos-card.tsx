@@ -304,6 +304,7 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
       setSubiendo(false);
 
       if (!res.ok || !json?.data?.id) {
+        await supabase.storage.from("documentos-corporativos").remove([path]);
         toast.error("No se pudo registrar el documento");
         return;
       }
@@ -316,6 +317,7 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { "application/pdf": [".pdf"], "image/jpeg": [".jpg", ".jpeg"], "image/png": [".png"] },
     maxFiles: 1,
     onDrop: ([file]) => {
       if (file) subirDocumento(file);

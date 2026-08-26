@@ -124,6 +124,7 @@ function RequisitoRow({
 
       if (insertError || !doc) {
         setAnalizando(false);
+        await supabase.storage.from("documentos-requeridos").remove([path]);
         toast.error("No se pudo registrar el documento");
         return;
       }
@@ -370,6 +371,7 @@ function DocumentoConvocanteRow({
       setSubiendo(false);
 
       if (insertError || !doc) {
+        await supabase.storage.from(BUCKET).remove([path]);
         toast.error("No se pudo registrar el documento");
         return;
       }
@@ -627,6 +629,7 @@ export function DocumentosTab({
           .single();
 
         if (insertError) {
+          await supabase.storage.from(BUCKET).remove([path]);
           toast.error(`No se pudo registrar "${file.name}"`, { description: insertError.message });
           setUploads((prev) =>
             prev.map((u) => (u.name === file.name ? { ...u, status: "error" } : u)),

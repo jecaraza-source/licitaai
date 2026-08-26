@@ -5,7 +5,8 @@
 import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
-import { authenticate, requireDocumentoCorporativo } from "../_shared/auth.ts";
+import { authenticate, jsonError, requireDocumentoCorporativo } from "../_shared/auth.ts";
+import { contenidoCoincideConNombre } from "../_shared/file-validation.ts";
 
 const SYSTEM_PROMPT = `Eres un asistente que extrae datos de documentos oficiales mexicanos
 (actas, poderes, constancias fiscales, opiniones de cumplimiento, identificaciones, etc.).
@@ -285,14 +286,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
-
     const { data: archivo, error: downloadError } = await supabase.storage
       .from("documentos-corporativos")
       .download(documento.storage_path);
     if (downloadError || !archivo) throw new Error("No se pudo descargar el documento");
 
-    const base64 = uint8ArrayToBase64(new Uint8Array(await archivo.arrayBuffer()));
+    const fileBytes = new Uint8Array(await archivo.arrayBuffer());
+
+    // El allowlist de Storage solo valida el Content-Type declarado al
+    // subir; esto valida el CONTENIDO real antes de enviarlo a Claude. Se
+    // hace antes de construir el cliente de Anthropic para no gastar nada
+    // en un archivo que se va a rechazar.
+    if (!contenidoCoincideConNombre(fileBytes, documento.nombre)) {
+      return jsonError(422, "El contenido del archivo no corresponde a su nombre/extensión");
+    }
+
+    const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
+    const base64 = uint8ArrayToBase64(fileBytes);
     const mediaType = documento.nombre.toLowerCase().endsWith(".pdf")
       ? "application/pdf"
       : "image/jpeg";

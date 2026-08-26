@@ -85,6 +85,7 @@ function EvidenciaEnvioCard({
       setSubiendo(false);
 
       if (insertError || !doc) {
+        await supabase.storage.from("documentos-originales").remove([path]);
         toast.error("No se pudo registrar el archivo");
         return;
       }

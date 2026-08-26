@@ -114,6 +114,7 @@ function FormalizacionCard({
 
     if (insertError || !doc) {
       setSubiendo(null);
+      await supabase.storage.from("documentos-originales").remove([path]);
       toast.error("No se pudo registrar el archivo");
       return;
     }
@@ -338,6 +339,7 @@ export function SeguimientoTab({
         .single();
       if (insertError || !doc) {
         setAnalizando(false);
+        await supabase.storage.from("documentos-originales").remove([path]);
         toast.error("No se pudo registrar el acta");
         return;
       }
