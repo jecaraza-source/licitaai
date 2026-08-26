@@ -1,37 +1,26 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ itemId: string }> },
-) {
-  const { itemId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-  if (!(await checkRateLimit(supabase, "checklist-items-documento", 20))) {
-    return rateLimitResponse();
-  }
+const paramsSchema = z.object({ itemId: z.string().uuid("itemId debe ser un UUID válido") });
+const bodySchema = z.object({ documento_id: z.string().uuid("documento_id debe ser un UUID válido") });
 
-  const { documento_id } = await request.json();
-  if (!documento_id) {
-    return NextResponse.json({ error: "documento_id requerido" }, { status: 400 });
-  }
+export const POST = apiRoute(
+  { paramsSchema, bodySchema, rateLimit: { ruta: "checklist-items-documento", max: 20 } },
+  async ({ ctx, params, body }) => {
+    requireWriteRole(ctx);
 
-  await supabase.from("checklist_items").update({ documento_id }).eq("id", itemId);
+    const { error: updateError } = await ctx.supabase
+      .from("checklist_items")
+      .update({ documento_id: body.documento_id })
+      .eq("id", params.itemId);
+    if (updateError) throw ApiError.internal();
 
-  const { data, error } = await supabase.functions.invoke("auditar-documento", {
-    body: { documento_id, checklist_item_id: itemId },
-  });
+    const { data, error } = await ctx.supabase.functions.invoke("auditar-documento", {
+      body: { documento_id: body.documento_id, checklist_item_id: params.itemId },
+    });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+    if (error) throw ApiError.upstream();
 
-  return NextResponse.json({ data });
-}
+    return { data };
+  },
+);

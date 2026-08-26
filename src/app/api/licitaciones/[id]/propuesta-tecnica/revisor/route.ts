@@ -1,73 +1,55 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+const bodySchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("asignar"), revisor_id: z.string().uuid("revisor_id debe ser un UUID válido") }),
+  z.object({ action: z.literal("confirmar") }),
+]);
 
-  const { data: actual } = await supabase
+export const POST = apiRoute({ paramsSchema, bodySchema }, async ({ ctx, params, body }) => {
+  requireWriteRole(ctx);
+
+  const { data: actual } = await ctx.supabase
     .from("propuestas")
     .select("id, created_by, revisor_id")
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .eq("tipo", "TECNICA")
     .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (!actual) {
-    return NextResponse.json({ error: "No hay propuesta técnica generada" }, { status: 404 });
-  }
-
-  const body = await request.json();
+  if (!actual) throw ApiError.notFound("No hay propuesta técnica generada");
 
   if (body.action === "asignar") {
-    if (!body.revisor_id) {
-      return NextResponse.json({ error: "revisor_id requerido" }, { status: 400 });
-    }
     if (body.revisor_id === actual.created_by) {
-      return NextResponse.json(
-        { error: "El revisor debe ser distinto de quien elaboró la propuesta (doble check, Paso 17)" },
-        { status: 400 },
+      throw ApiError.validation(
+        "El revisor debe ser distinto de quien elaboró la propuesta (doble check, Paso 17)",
       );
     }
-    const { data, error } = await supabase
+    const { data, error } = await ctx.supabase
       .from("propuestas")
       .update({ revisor_id: body.revisor_id, revisado_at: null })
       .eq("id", actual.id)
       .select()
       .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ data });
+    if (error) throw ApiError.internal();
+    return { data };
   }
 
-  if (body.action === "confirmar") {
-    if (!actual.revisor_id) {
-      return NextResponse.json({ error: "Asigna primero un revisor" }, { status: 400 });
-    }
-    if (actual.revisor_id !== user.id) {
-      return NextResponse.json(
-        { error: "Solo el revisor asignado puede confirmar la revisión" },
-        { status: 403 },
-      );
-    }
-    const { data, error } = await supabase
-      .from("propuestas")
-      .update({ revisado_at: new Date().toISOString() })
-      .eq("id", actual.id)
-      .select()
-      .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ data });
+  // action === "confirmar"
+  if (!actual.revisor_id) {
+    throw ApiError.validation("Asigna primero un revisor");
   }
-
-  return NextResponse.json({ error: "action inválida" }, { status: 400 });
-}
+  if (actual.revisor_id !== ctx.userId) {
+    throw ApiError.forbidden("Solo el revisor asignado puede confirmar la revisión");
+  }
+  const { data, error } = await ctx.supabase
+    .from("propuestas")
+    .update({ revisado_at: new Date().toISOString() })
+    .eq("id", actual.id)
+    .select()
+    .single();
+  if (error) throw ApiError.internal();
+  return { data };
+});

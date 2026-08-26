@@ -1,64 +1,42 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+const postBodySchema = z.object({
+  requisito: z.string().trim().min(1, "requisito requerido").max(2000),
+  obligatorio: z.boolean().optional().default(true),
+});
 
-  const { data, error } = await supabase
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data, error } = await ctx.supabase
     .from("requisitos_tecnicos")
     .select("*, documentos(id, nombre)")
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .order("orden");
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
-}
+  if (error) throw ApiError.internal();
+  return { data };
+});
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+export const POST = apiRoute({ paramsSchema, bodySchema: postBodySchema }, async ({ ctx, params, body }) => {
+  requireWriteRole(ctx);
 
-  const body = await request.json();
-  const requisito = typeof body.requisito === "string" ? body.requisito.trim() : "";
-  if (!requisito) {
-    return NextResponse.json({ error: "requisito requerido" }, { status: 400 });
-  }
-
-  const { count } = await supabase
+  const { count } = await ctx.supabase
     .from("requisitos_tecnicos")
     .select("id", { count: "exact", head: true })
-    .eq("licitacion_id", id);
+    .eq("licitacion_id", params.id);
 
-  const { data, error } = await supabase
+  const { data, error } = await ctx.supabase
     .from("requisitos_tecnicos")
     .insert({
-      licitacion_id: id,
+      licitacion_id: params.id,
       orden: count ?? 0,
-      requisito,
-      obligatorio: body.obligatorio !== false,
+      requisito: body.requisito,
+      obligatorio: body.obligatorio,
     })
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data }, { status: 201 });
-}
+  if (error) throw ApiError.internal();
+  return { data, status: 201 };
+});

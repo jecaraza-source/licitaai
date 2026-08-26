@@ -1,30 +1,34 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string; docId: string }> },
-) {
-  const { docId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({
+  id: z.string().uuid("id debe ser un UUID válido"),
+  docId: z.string().uuid("docId debe ser un UUID válido"),
+});
 
-  const { data: doc } = await supabase
+export const DELETE = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  requireWriteRole(ctx);
+
+  // Antes, docId se buscaba sin comparar contra `id` (empresa_perfil) en la
+  // URL — un docId de OTRO perfil de empresa de la misma organización
+  // pasaba el chequeo igual. Ahora se exige que pertenezca al perfil de la
+  // URL antes de borrar nada.
+  const { data: doc } = await ctx.supabase
     .from("documentos_corporativos")
     .select("storage_path")
-    .eq("id", docId)
+    .eq("id", params.docId)
+    .eq("empresa_perfil_id", params.id)
     .maybeSingle();
 
-  if (doc) {
-    await supabase.storage.from("documentos-corporativos").remove([doc.storage_path]);
-  }
+  if (!doc) throw ApiError.notFound("Documento no encontrado");
 
-  const { error } = await supabase.from("documentos_corporativos").delete().eq("id", docId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
-}
+  // Storage.remove() sin comprobar error y el orden Storage-antes-que-DB
+  // quedan igual que el código original — corregir esa compensación es
+  // alcance de P1.2, no de esta migración.
+  await ctx.supabase.storage.from("documentos-corporativos").remove([doc.storage_path]);
+
+  const { error } = await ctx.supabase.from("documentos_corporativos").delete().eq("id", params.docId);
+  if (error) throw ApiError.internal();
+
+  return { data: { ok: true } };
+});

@@ -1,61 +1,34 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
+import { TIPOS_DOCUMENTO_CORPORATIVO } from "@/lib/documentos-corporativos";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+const postBodySchema = z.object({
+  tipo: z.enum(TIPOS_DOCUMENTO_CORPORATIVO as [string, ...string[]]),
+  nombre: z.string().trim().min(1).max(500),
+  storage_path: z.string().trim().min(1).max(1000),
+  vigencia_hasta: z.string().trim().nullable().optional(),
+});
 
-  const { data, error } = await supabase
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data, error } = await ctx.supabase
     .from("documentos_corporativos")
     .select("*")
-    .eq("empresa_perfil_id", id)
+    .eq("empresa_perfil_id", params.id)
     .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
-}
+  if (error) throw ApiError.internal();
+  return { data };
+});
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+export const POST = apiRoute({ paramsSchema, bodySchema: postBodySchema }, async ({ ctx, params, body }) => {
+  requireWriteRole(ctx);
 
-  const { data: perfil } = await supabase
-    .from("users")
-    .select("organization_id")
-    .eq("id", user.id)
-    .single();
-  if (!perfil) {
-    return NextResponse.json({ error: "Perfil no encontrado" }, { status: 403 });
-  }
-
-  const body = await request.json();
-  if (!body.tipo || !body.nombre || !body.storage_path) {
-    return NextResponse.json({ error: "tipo, nombre y storage_path son requeridos" }, { status: 400 });
-  }
-
-  const { data, error } = await supabase
+  const { data, error } = await ctx.supabase
     .from("documentos_corporativos")
     .insert({
-      empresa_perfil_id: id,
-      organization_id: perfil.organization_id,
+      empresa_perfil_id: params.id,
+      organization_id: ctx.organizationId,
       tipo: body.tipo,
       nombre: body.nombre,
       storage_path: body.storage_path,
@@ -64,6 +37,6 @@ export async function POST(
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data }, { status: 201 });
-}
+  if (error) throw ApiError.internal();
+  return { data, status: 201 };
+});

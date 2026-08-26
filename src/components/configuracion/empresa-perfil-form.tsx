@@ -256,8 +256,8 @@ export function EmpresaPerfilForm({
     fetch("/api/empresa-perfil")
       .then((res) => res.json())
       .then((json) => {
-        const data = (json.data as EmpresaPerfil[]) ?? [];
-        const activaId = (json.activaId as string | null) ?? null;
+        const data = (json.data?.data as EmpresaPerfil[]) ?? [];
+        const activaId = (json.data?.activaId as string | null) ?? null;
         setEmpresas(data);
 
         const inicial = data.find((e) => e.id === activaId) ?? data[0] ?? null;
@@ -341,7 +341,7 @@ export function EmpresaPerfilForm({
     setGuardando(false);
 
     if (!res.ok) {
-      toast.error("No se pudo guardar el perfil");
+      toast.error("No se pudo guardar el perfil", { description: json.error?.message });
       return;
     }
 

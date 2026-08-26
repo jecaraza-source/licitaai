@@ -175,8 +175,8 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
     fetch("/api/empresa-perfil")
       .then((res) => res.json())
       .then((json) => {
-        const data = (json.data as EmpresaPerfil[]) ?? [];
-        const activaId = (json.activaId as string | null) ?? null;
+        const data = (json.data?.data as EmpresaPerfil[]) ?? [];
+        const activaId = (json.data?.activaId as string | null) ?? null;
         const activa = data.find((e) => e.id === activaId) ?? data[0] ?? null;
         setEmpresaNombre(activa?.razon_social?.trim() || null);
       });

@@ -1,5 +1,5 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 import type { AsignacionResponsabilidad, FuncionProcedimiento } from "@/types";
 
 const FUNCIONES: FuncionProcedimiento[] = [
@@ -13,6 +13,23 @@ const FUNCIONES: FuncionProcedimiento[] = [
   "REVISOR",
 ];
 
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+// Antes, asignaciones_json se pasaba directo a buildAsignaciones() sin
+// verificar que fuera un array — un valor no-array (objeto, string) hacía
+// que `.map()` dentro de buildAsignaciones lanzara un TypeError no
+// controlado (500 genérico de Next en vez de un 400 claro).
+const putBodySchema = z.object({
+  asignaciones_json: z
+    .array(
+      z.object({
+        funcion: z.enum(FUNCIONES as [FuncionProcedimiento, ...FuncionProcedimiento[]]),
+        usuario_id: z.string().uuid().nullable(),
+      }),
+    )
+    .optional()
+    .default([]),
+});
+
 function buildAsignaciones(
   existentes: AsignacionResponsabilidad[] = [],
 ): AsignacionResponsabilidad[] {
@@ -20,55 +37,29 @@ function buildAsignaciones(
   return FUNCIONES.map((funcion) => ({ funcion, usuario_id: previas.get(funcion) ?? null }));
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const { data: existente } = await supabase
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data: existente, error } = await ctx.supabase
     .from("responsabilidades_procedimiento")
     .select("asignaciones_json")
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .maybeSingle();
 
-  return NextResponse.json({
-    data: { asignaciones_json: buildAsignaciones(existente?.asignaciones_json ?? []) },
-  });
-}
+  if (error) throw ApiError.internal();
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+  return { data: { asignaciones_json: buildAsignaciones(existente?.asignaciones_json ?? []) } };
+});
 
-  const { asignaciones_json } = await request.json();
-  const asignaciones = buildAsignaciones(asignaciones_json ?? []);
+export const PUT = apiRoute({ paramsSchema, bodySchema: putBodySchema }, async ({ ctx, params, body }) => {
+  requireWriteRole(ctx);
 
-  const { data, error } = await supabase
+  const asignaciones = buildAsignaciones(body.asignaciones_json);
+
+  const { data, error } = await ctx.supabase
     .from("responsabilidades_procedimiento")
-    .upsert(
-      { licitacion_id: id, asignaciones_json: asignaciones },
-      { onConflict: "licitacion_id" },
-    )
+    .upsert({ licitacion_id: params.id, asignaciones_json: asignaciones }, { onConflict: "licitacion_id" })
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
-}
+  if (error) throw ApiError.internal();
+  return { data };
+});
