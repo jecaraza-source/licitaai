@@ -34,7 +34,7 @@ export function ChatDocumento({ licitacionId }: { licitacionId: string }) {
     setLoading(false);
 
     if (!res.ok) {
-      toast.error("No se pudo obtener respuesta", { description: json.error });
+      toast.error("No se pudo obtener respuesta", { description: json.error?.message ?? json.error });
       return;
     }
 

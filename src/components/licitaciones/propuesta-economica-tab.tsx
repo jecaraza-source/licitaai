@@ -139,7 +139,7 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
     const json = await res.json();
     setAnalizando(false);
     if (!res.ok) {
-      toast.error("No se pudo analizar la competitividad", { description: json.error });
+      toast.error("No se pudo analizar la competitividad", { description: json.error?.message ?? json.error });
       return;
     }
     setDictamen(json.data.dictamen);

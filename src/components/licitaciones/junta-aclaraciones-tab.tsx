@@ -200,7 +200,7 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
     setGenerando(false);
 
     if (!res.ok) {
-      toast.error("No se pudieron generar las preguntas", { description: json.error });
+      toast.error("No se pudieron generar las preguntas", { description: json.error?.message ?? json.error });
       return;
     }
 
@@ -344,7 +344,7 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
       setSubiendoActa(false);
 
       if (!res.ok) {
-        toast.error("No se pudieron extraer las respuestas", { description: json.error });
+        toast.error("No se pudieron extraer las respuestas", { description: json.error?.message ?? json.error });
         return;
       }
 

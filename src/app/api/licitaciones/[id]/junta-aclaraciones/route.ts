@@ -1,69 +1,52 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+const putBodySchema = z.object({
+  preguntas_json: z.array(z.unknown()).optional(),
+  estado: z.string().trim().min(1).optional(),
+});
 
-  const { data, error } = await supabase
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data, error } = await ctx.supabase
     .from("junta_aclaraciones")
     .select("*")
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .maybeSingle();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
-}
+  if (error) throw ApiError.internal();
+  return { data };
+});
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+export const PUT = apiRoute({ paramsSchema, bodySchema: putBodySchema }, async ({ ctx, params, body }) => {
+  requireWriteRole(ctx);
 
-  const body = await request.json();
   const update: Record<string, unknown> = {};
-  if (Array.isArray(body.preguntas_json)) update.preguntas_json = body.preguntas_json;
-  if (typeof body.estado === "string") update.estado = body.estado;
+  if (body.preguntas_json !== undefined) update.preguntas_json = body.preguntas_json;
+  if (body.estado !== undefined) update.estado = body.estado;
 
-  const { data: existente } = await supabase
+  const { data: existente } = await ctx.supabase
     .from("junta_aclaraciones")
     .select("id")
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .maybeSingle();
 
   let result;
   if (existente) {
-    result = await supabase
+    result = await ctx.supabase
       .from("junta_aclaraciones")
       .update(update)
       .eq("id", existente.id)
       .select()
       .single();
   } else {
-    result = await supabase
+    result = await ctx.supabase
       .from("junta_aclaraciones")
-      .insert({ licitacion_id: id, ...update })
+      .insert({ licitacion_id: params.id, ...update })
       .select()
       .single();
   }
 
-  if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
-  return NextResponse.json({ data: result.data });
-}
+  if (result.error) throw ApiError.internal();
+  return { data: result.data };
+});

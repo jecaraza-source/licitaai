@@ -120,7 +120,7 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
     setGenerando(false);
 
     if (!res.ok) {
-      toast.error("No se pudo generar la propuesta técnica", { description: json.error });
+      toast.error("No se pudo generar la propuesta técnica", { description: json.error?.message ?? json.error });
       return;
     }
 

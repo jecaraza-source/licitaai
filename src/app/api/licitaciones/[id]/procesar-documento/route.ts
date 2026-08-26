@@ -1,46 +1,31 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-  if (!(await checkRateLimit(supabase, "procesar-documento", 20))) {
-    return rateLimitResponse();
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+const bodySchema = z.object({
+  documento_id: z.string().uuid("documento_id debe ser un UUID válido"),
+});
 
-  const { documento_id } = await request.json();
-  if (!documento_id) {
-    return NextResponse.json({ error: "documento_id requerido" }, { status: 400 });
-  }
+export const POST = apiRoute(
+  { paramsSchema, bodySchema, rateLimit: { ruta: "procesar-documento", max: 20 } },
+  async ({ ctx, params, body }) => {
+    requireWriteRole(ctx);
 
-  const { data: documento } = await supabase
-    .from("documentos")
-    .select("id, licitacion_id")
-    .eq("id", documento_id)
-    .eq("licitacion_id", id)
-    .single();
+    const { data: documento } = await ctx.supabase
+      .from("documentos")
+      .select("id, licitacion_id")
+      .eq("id", body.documento_id)
+      .eq("licitacion_id", params.id)
+      .maybeSingle();
 
-  if (!documento) {
-    return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
-  }
+    if (!documento) throw ApiError.notFound("Documento no encontrado");
 
-  const { data, error } = await supabase.functions.invoke("procesar-documento", {
-    body: { documento_id },
-  });
+    const { data, error } = await ctx.supabase.functions.invoke("procesar-documento", {
+      body: { documento_id: body.documento_id },
+    });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+    if (error) throw ApiError.upstream();
 
-  return NextResponse.json({ data });
-}
+    return { data };
+  },
+);
