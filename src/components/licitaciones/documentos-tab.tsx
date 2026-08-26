@@ -517,7 +517,7 @@ export function DocumentosTab({
   const [uploads, setUploads] = useState<UploadState[]>([]);
   const [viewerDoc, setViewerDoc] = useState<Documento | null>(null);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
-  const [firmandoDoc, setFirmandoDoc] = useState<string | null>(null);
+  const [firmandoDoc, setFirmandoDoc] = useState<Documento | null>(null);
   const [convocanteNoAplican, setConvocanteNoAplican] = useState<string[]>(
     initialDocumentosConvocanteNoAplica,
   );
@@ -793,7 +793,7 @@ export function DocumentosTab({
                     </p>
                   </button>
                   {doc.nombre.toLowerCase().endsWith(".pdf") && (
-                    <Button variant="ghost" size="icon-sm" onClick={() => setFirmandoDoc(doc.id)}>
+                    <Button variant="ghost" size="icon-sm" onClick={() => setFirmandoDoc(doc)}>
                       <ShieldCheck className="text-muted-foreground" />
                     </Button>
                   )}
@@ -809,7 +809,8 @@ export function DocumentosTab({
 
       {firmandoDoc && (
         <FirmaDigitalDialog
-          documentoId={firmandoDoc}
+          documentoId={firmandoDoc.id}
+          storagePath={firmandoDoc.storage_path}
           open={!!firmandoDoc}
           onOpenChange={(open) => !open && setFirmandoDoc(null)}
           onFirmado={() => {

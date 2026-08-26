@@ -12,8 +12,11 @@ export async function POST(request: NextRequest) {
   }
 
   const { cer_base64 } = await request.json();
-  if (!cer_base64) {
+  if (typeof cer_base64 !== "string" || cer_base64.length === 0) {
     return NextResponse.json({ error: "cer_base64 requerido" }, { status: 400 });
+  }
+  if (cer_base64.length > 32 * 1024) {
+    return NextResponse.json({ error: "Certificado demasiado grande" }, { status: 400 });
   }
 
   try {
