@@ -2,12 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/resend";
 import { LicitacionPorVencerEmail } from "@/emails/licitacion-por-vencer";
+import { estaAutorizadoCron } from "@/lib/cron-auth";
 
 // Ejecutado por Vercel Cron (ver vercel.json). Usa el service role porque
 // corre sin sesión de usuario y necesita leer/escribir entre organizaciones.
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!estaAutorizadoCron(request.headers.get("authorization"), process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

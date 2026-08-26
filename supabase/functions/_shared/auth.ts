@@ -59,6 +59,15 @@ interface AuthenticateOptions {
    * VIEWER con 403 antes de hacer cualquier trabajo. */
   requiereEscritura?: boolean;
   maxPorMinuto?: number;
+  /** true si la función llama a un modelo de IA — aplica un tope diario de
+   * tokens por organización (check_ai_budget, ver
+   * supabase/migrations/20260826230000_p0_ai_usage_budget.sql) antes de
+   * dejar pasar la solicitud. */
+  requiereIA?: boolean;
+  /** Tope diario de tokens (input+output) por organización cuando
+   * requiereIA es true. Por defecto 3,000,000 — ajustable vía la env var
+   * AI_DAILY_TOKEN_CAP para no requerir una nueva migración por cliente. */
+  limiteDiarioIA?: number;
 }
 
 /**
@@ -125,6 +134,23 @@ export async function authenticate(
   });
   if (rlError || !dentroDelLimite) {
     return jsonError(429, "Límite de solicitudes excedido, intenta de nuevo en un minuto");
+  }
+
+  if (opts.requiereIA) {
+    const limite = opts.limiteDiarioIA ?? Number(Deno.env.get("AI_DAILY_TOKEN_CAP") ?? "3000000");
+    // check_ai_budget es SECURITY DEFINER, keyed por auth.uid() → organización
+    // — igual que check_rate_limit, se llama vía asUser para que no pueda
+    // evadirse invocando la función directamente con otro organization_id.
+    const { data: dentroDelPresupuesto, error: presupuestoError } = await asUser.rpc(
+      "check_ai_budget",
+      { p_limite_diario: limite },
+    );
+    if (presupuestoError || !dentroDelPresupuesto) {
+      return jsonError(
+        429,
+        "Se alcanzó el límite diario de uso de IA para tu organización. Intenta de nuevo mañana.",
+      );
+    }
   }
 
   return {
@@ -261,4 +287,25 @@ export async function requireEmpresaPerfil(
     return jsonError(404, "Perfil de empresa no encontrado");
   }
   return data;
+}
+
+/** Registra tokens consumidos por una llamada a IA (P0.6), vía la función
+ * SECURITY DEFINER registrar_uso_ia — se llama con ctx.asUser (no
+ * ctx.service) porque esa función deriva organization_id/user_id de
+ * auth.uid(), que solo resuelve con el JWT del llamante. No lanza: un fallo
+ * al registrar el uso no debe tumbar la respuesta ya generada, solo se
+ * registra en consola para investigar aparte. */
+export async function registrarUsoIA(
+  ctx: AuthContext,
+  params: { funcion: string; modelo: string; inputTokens: number; outputTokens: number },
+): Promise<void> {
+  const { error } = await ctx.asUser.rpc("registrar_uso_ia", {
+    p_funcion: params.funcion,
+    p_modelo: params.modelo,
+    p_input_tokens: Math.max(0, Math.round(params.inputTokens) || 0),
+    p_output_tokens: Math.max(0, Math.round(params.outputTokens) || 0),
+  });
+  if (error) {
+    console.error(`No se pudo registrar uso de IA (${params.funcion}):`, error.message);
+  }
 }

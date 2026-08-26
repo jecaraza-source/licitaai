@@ -4,12 +4,19 @@ import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
 import { getEmpresaPerfilActiva } from "../_shared/empresa-perfil.ts";
-import { authenticate, requireChecklistItem, requireDocumentoById } from "../_shared/auth.ts";
+import {
+  authenticate,
+  registrarUsoIA,
+  requireChecklistItem,
+  requireDocumentoById,
+} from "../_shared/auth.ts";
+import { conGuardia } from "../_shared/ai-guard.ts";
+import { bloqueDocumentoParaClaude } from "../_shared/anthropic-content-block.ts";
 
-const SYSTEM_PROMPT = `Eres un auditor experto en documentación legal y fiscal para licitaciones
+const SYSTEM_PROMPT = conGuardia(`Eres un auditor experto en documentación legal y fiscal para licitaciones
 públicas mexicanas. Verifica el documento adjunto contra el requisito esperado y los datos
 de la empresa. Sé estricto: si algo no se puede confirmar en el documento, repórtalo como
-observación en vez de asumirlo válido. Usa siempre la herramienta proporcionada.`;
+observación en vez de asumirlo válido. Usa siempre la herramienta proporcionada.`);
 
 const TOOL_SCHEMA = {
   type: "object" as const,
@@ -56,7 +63,12 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const ctx = await authenticate(req, { ruta: "auditar-documento", requiereEscritura: true, maxPorMinuto: 20 });
+    const ctx = await authenticate(req, {
+      ruta: "auditar-documento",
+      requiereEscritura: true,
+      maxPorMinuto: 20,
+      requiereIA: true,
+    });
     if (ctx instanceof Response) return ctx;
 
     const { documento_id, checklist_item_id } = await req.json();
@@ -128,13 +140,20 @@ RFC: ${empresa?.rfc ?? "N/D"}
           {
             role: "user",
             content: [
-              { type: "document", source: { type: "base64", media_type: mediaType, data: base64 } },
+              bloqueDocumentoParaClaude(mediaType, base64),
               { type: "text", text: contexto },
             ],
           },
         ],
       }),
     );
+
+    await registrarUsoIA(ctx, {
+      funcion: "auditar-documento",
+      modelo: "claude-sonnet-5",
+      inputTokens: response.usage?.input_tokens ?? 0,
+      outputTokens: response.usage?.output_tokens ?? 0,
+    });
 
     const toolUse = response.content.find(
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",

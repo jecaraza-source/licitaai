@@ -5,10 +5,12 @@
 import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
-import { authenticate, jsonError, requireDocumentoCorporativo } from "../_shared/auth.ts";
+import { authenticate, jsonError, registrarUsoIA, requireDocumentoCorporativo } from "../_shared/auth.ts";
 import { contenidoCoincideConNombre } from "../_shared/file-validation.ts";
+import { conGuardia } from "../_shared/ai-guard.ts";
+import { bloqueDocumentoParaClaude } from "../_shared/anthropic-content-block.ts";
 
-const SYSTEM_PROMPT = `Eres un asistente que extrae datos de documentos oficiales mexicanos
+const SYSTEM_PROMPT = conGuardia(`Eres un asistente que extrae datos de documentos oficiales mexicanos
 (actas, poderes, constancias fiscales, opiniones de cumplimiento, identificaciones, etc.).
 Busca la fecha de emisión o expedición del documento. Si el documento indica explícitamente
 una fecha de vigencia, vencimiento o "válido hasta", repórtala también. También busca el RFC
@@ -23,7 +25,7 @@ los campos adicionales solicitados en la herramienta: son datos que de otra form
 transcriben a mano y son propensos a error (números de escritura, notaría, folios de
 registro, domicilios completos). Si no puedes determinar un dato con certeza, repórtalo
 como null en vez de adivinar — nunca inventes un número de escritura, notaría o folio. Usa
-siempre la herramienta proporcionada.`;
+siempre la herramienta proporcionada.`);
 
 const TOOL_SCHEMA_BASE_PROPERTIES = {
   fecha_emision: {
@@ -255,7 +257,12 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const ctx = await authenticate(req, { ruta: "analizar-documento-corporativo", requiereEscritura: true, maxPorMinuto: 20 });
+    const ctx = await authenticate(req, {
+      ruta: "analizar-documento-corporativo",
+      requiereEscritura: true,
+      maxPorMinuto: 20,
+      requiereIA: true,
+    });
     if (ctx instanceof Response) return ctx;
 
     const { documento_id, fecha_emision_manual } = await req.json();
@@ -324,13 +331,20 @@ Deno.serve(async (req) => {
           {
             role: "user",
             content: [
-              { type: "document", source: { type: "base64", media_type: mediaType, data: base64 } },
+              bloqueDocumentoParaClaude(mediaType, base64),
               { type: "text", text: `Tipo de documento: ${documento.tipo}` },
             ],
           },
         ],
       }),
     );
+
+    await registrarUsoIA(ctx, {
+      funcion: "analizar-documento-corporativo",
+      modelo: "claude-sonnet-5",
+      inputTokens: response.usage?.input_tokens ?? 0,
+      outputTokens: response.usage?.output_tokens ?? 0,
+    });
 
     const toolUse = response.content.find(
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
