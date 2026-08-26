@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Sparkles, Info } from "lucide-react";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import { descargarWorkbook } from "@/lib/exportar-excel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -87,20 +88,29 @@ export function PartidasTab({ licitacionId }: { licitacionId: string }) {
     cargar();
   }
 
-  function exportarExcel() {
+  async function exportarExcel() {
     if (!partidas) return;
-    const rows = partidas.map((p) => ({
-      Número: p.numero,
-      Descripción: p.descripcion,
-      Unidad: p.unidad ?? "",
-      Cantidad: p.cantidad ?? "",
-      "P.U. Referencia": p.estudio_mercado?.precio_recomendado ?? p.precio_unitario_referencia ?? "",
-      Confianza: p.estudio_mercado?.nivel_confianza ?? "",
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Partidas");
-    XLSX.writeFile(wb, "partidas.xlsx");
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Partidas");
+    sheet.columns = [
+      { header: "Número", key: "numero" },
+      { header: "Descripción", key: "descripcion" },
+      { header: "Unidad", key: "unidad" },
+      { header: "Cantidad", key: "cantidad" },
+      { header: "P.U. Referencia", key: "puReferencia" },
+      { header: "Confianza", key: "confianza" },
+    ];
+    for (const p of partidas) {
+      sheet.addRow({
+        numero: p.numero,
+        descripcion: p.descripcion,
+        unidad: p.unidad ?? "",
+        cantidad: p.cantidad ?? "",
+        puReferencia: p.estudio_mercado?.precio_recomendado ?? p.precio_unitario_referencia ?? "",
+        confianza: p.estudio_mercado?.nivel_confianza ?? "",
+      });
+    }
+    await descargarWorkbook(workbook, "partidas.xlsx");
   }
 
   if (partidas === null) {
