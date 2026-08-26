@@ -42,12 +42,16 @@ export default function RegisterPage() {
     setLoading(true);
     const supabase = createClient();
 
-    const { data: organizationId, error: orgError } = await supabase.rpc(
+    // create_organization_for_signup crea la organización y devuelve un
+    // ticket de un solo uso — el organization_id/rol reales se resuelven
+    // server-side en handle_new_user() a partir de ese ticket, nunca desde
+    // datos que este cliente pudiera manipular en la llamada a signUp().
+    const { data: signupTicket, error: orgError } = await supabase.rpc(
       "create_organization_for_signup",
       { p_nombre: values.organizacion },
     );
 
-    if (orgError || !organizationId) {
+    if (orgError || !signupTicket) {
       setLoading(false);
       toast.error("No se pudo crear la organización", { description: orgError?.message });
       return;
@@ -59,8 +63,7 @@ export default function RegisterPage() {
       options: {
         data: {
           nombre: values.nombre,
-          organization_id: organizationId,
-          rol: "ADMIN",
+          signup_ticket: signupTicket,
         },
       },
     });
