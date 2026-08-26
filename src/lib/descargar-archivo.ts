@@ -4,7 +4,8 @@ export async function descargarBlob(url: string, nombreArchivo: string, opciones
   const res = await fetch(url, opciones);
   if (!res.ok) {
     const json = await res.json().catch(() => ({}));
-    toast.error("No se pudo generar el documento", { description: json.faltantes?.join(", ") });
+    const faltantes = json.error?.details?.faltantes ?? json.faltantes;
+    toast.error("No se pudo generar el documento", { description: faltantes?.join(", ") });
     return;
   }
   const blob = await res.blob();

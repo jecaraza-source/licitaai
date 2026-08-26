@@ -80,7 +80,7 @@ export function PartidasTab({ licitacionId }: { licitacionId: string }) {
     setGenerandoTodas(false);
 
     if (!res.ok) {
-      toast.error("No se pudo generar el estudio de mercado", { description: json.error });
+      toast.error("No se pudo generar el estudio de mercado", { description: json.error?.message ?? json.error });
       return;
     }
 

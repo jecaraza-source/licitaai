@@ -98,9 +98,9 @@ export function LicitacionesTable() {
     fetch(`/api/licitaciones?${params.toString()}`, { signal: controller.signal })
       .then((res) => res.json())
       .then((json) => {
-        setRows(json.data ?? []);
-        setCount(json.count ?? 0);
-        setEmpresaScore(json.empresaScore ?? 0);
+        setRows(json.data?.data ?? []);
+        setCount(json.data?.count ?? 0);
+        setEmpresaScore(json.data?.empresaScore ?? 0);
         setLoading(false);
       })
       .catch((err) => {

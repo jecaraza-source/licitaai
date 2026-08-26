@@ -1,42 +1,27 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { z } from "zod";
+import { apiRoute, ApiError } from "@/lib/api";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-  if (!(await checkRateLimit(supabase, "estudio-mercado"))) {
-    return rateLimitResponse();
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+const bodySchema = z.object({ partida_id: z.string().uuid().optional() });
 
-  const { data: licitacion } = await supabase
-    .from("licitaciones")
-    .select("id")
-    .eq("id", id)
-    .single();
-  if (!licitacion) {
-    return NextResponse.json({ error: "Licitación no encontrada" }, { status: 404 });
-  }
+export const POST = apiRoute(
+  { paramsSchema, bodySchema, rateLimit: { ruta: "estudio-mercado" } },
+  async ({ ctx, params, body }) => {
+    const { data: licitacion, error: licitacionError } = await ctx.supabase
+      .from("licitaciones")
+      .select("id")
+      .eq("id", params.id)
+      .maybeSingle();
 
-  const body = await request.json().catch(() => ({}));
-  const partida_id = typeof body.partida_id === "string" ? body.partida_id : undefined;
+    if (licitacionError) throw ApiError.internal();
+    if (!licitacion) throw ApiError.notFound("Licitación no encontrada");
 
-  const { data, error } = await supabase.functions.invoke("generar-estudio-mercado", {
-    body: { licitacion_id: id, partida_id },
-  });
+    const { data, error } = await ctx.supabase.functions.invoke("generar-estudio-mercado", {
+      body: { licitacion_id: params.id, partida_id: body.partida_id },
+    });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+    if (error) throw ApiError.upstream();
 
-  return NextResponse.json({ data });
-}
+    return { data };
+  },
+);

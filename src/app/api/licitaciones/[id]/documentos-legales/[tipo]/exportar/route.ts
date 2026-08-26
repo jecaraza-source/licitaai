@@ -1,57 +1,39 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
+import { NextResponse } from "next/server";
 import { Packer } from "docx";
-import { createClient } from "@/lib/supabase/server";
+import { apiRoute, ApiError } from "@/lib/api";
 import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
 import { sanitizeFilename } from "@/lib/utils";
-import {
-  camposFaltantes,
-  generarDocumentoLegal,
-  TIPOS_DOCUMENTO_LEGAL,
-  type TipoDocumentoLegal,
-} from "@/lib/documentos-legales";
+import { camposFaltantes, generarDocumentoLegal, TIPOS_DOCUMENTO_LEGAL } from "@/lib/documentos-legales";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string; tipo: string }> },
-) {
-  const { id, tipo } = await params;
-  if (!TIPOS_DOCUMENTO_LEGAL.includes(tipo as TipoDocumentoLegal)) {
-    return NextResponse.json({ error: "Tipo de documento no válido" }, { status: 400 });
-  }
-  const tipoLegal = tipo as TipoDocumentoLegal;
+const paramsSchema = z.object({
+  id: z.string().uuid("id debe ser un UUID válido"),
+  tipo: z.enum(TIPOS_DOCUMENTO_LEGAL),
+});
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const { data: licitacion } = await supabase
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data: licitacion, error } = await ctx.supabase
     .from("licitaciones")
     .select(
       "numero_expediente, titulo, institucion, modalidad_procedimiento, organization_id, convocante_representante_nombre, convocante_representante_cargo",
     )
-    .eq("id", id)
-    .single();
-  if (!licitacion) {
-    return NextResponse.json({ error: "Licitación no encontrada" }, { status: 404 });
-  }
+    .eq("id", params.id)
+    .maybeSingle();
 
-  const empresa = await getEmpresaPerfilActiva(supabase, licitacion.organization_id, user.id, {
+  if (error || !licitacion) throw ApiError.notFound("Licitación no encontrada");
+
+  const empresa = await getEmpresaPerfilActiva(ctx.supabase, licitacion.organization_id, ctx.userId, {
     fallbackToFirst: true,
   });
 
-  const faltantes = camposFaltantes(tipoLegal, empresa, licitacion);
+  const faltantes = camposFaltantes(params.tipo, empresa, licitacion);
   if (!empresa || faltantes.length > 0) {
-    return NextResponse.json(
-      { error: "Faltan datos legales de la empresa para generar este documento", faltantes },
-      { status: 400 },
-    );
+    throw ApiError.validation("Faltan datos legales de la empresa para generar este documento", {
+      faltantes,
+    });
   }
 
-  const documento = generarDocumentoLegal(tipoLegal, {
+  const documento = generarDocumentoLegal(params.tipo, {
     empresa,
     licitacion: {
       numero_expediente: licitacion.numero_expediente,
@@ -68,7 +50,7 @@ export async function GET(
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; filename="${tipoLegal}-${sanitizeFilename(licitacion.numero_expediente)}.docx"`,
+      "Content-Disposition": `attachment; filename="${params.tipo}-${sanitizeFilename(licitacion.numero_expediente)}.docx"`,
     },
   });
-}
+});

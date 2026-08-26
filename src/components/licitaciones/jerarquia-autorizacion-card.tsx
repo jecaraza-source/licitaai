@@ -45,8 +45,9 @@ export function JerarquiaAutorizacionCard({
     fetch(`/api/licitaciones/${licitacionId}/jerarquia`)
       .then((res) => res.json())
       .then((json) => {
-        setJerarquia(json.data);
-        setUserId(json.userId ?? null);
+        const { userId: idUsuario, ...jerarquiaData } = json.data ?? {};
+        setJerarquia(jerarquiaData as LicitacionJerarquia);
+        setUserId(idUsuario ?? null);
       });
   }
 
@@ -66,7 +67,7 @@ export function JerarquiaAutorizacionCard({
     });
     const json = await res.json();
     if (!res.ok) {
-      toast.error("No se pudo asignar", { description: json.error });
+      toast.error("No se pudo asignar", { description: json.error?.message ?? json.error });
       return;
     }
     setJerarquia(json.data);
@@ -83,7 +84,7 @@ export function JerarquiaAutorizacionCard({
     const json = await res.json();
     setProcesando(null);
     if (!res.ok) {
-      toast.error("No se pudo autorizar", { description: json.error });
+      toast.error("No se pudo autorizar", { description: json.error?.message ?? json.error });
       return;
     }
     setJerarquia(json.data);

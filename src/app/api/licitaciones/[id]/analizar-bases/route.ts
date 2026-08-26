@@ -1,58 +1,45 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { z } from "zod";
+import { apiRoute, ApiError } from "@/lib/api";
 import { sendEmail } from "@/lib/resend";
 import { AnalisisCompletadoEmail } from "@/emails/analisis-completado";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-  if (!(await checkRateLimit(supabase, "analizar-bases"))) {
-    return rateLimitResponse();
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+const bodySchema = z.object({ documento_id: z.string().uuid().optional() });
 
-  const { documento_id } = await request.json().catch(() => ({ documento_id: undefined }));
+export const POST = apiRoute(
+  { paramsSchema, bodySchema, rateLimit: { ruta: "analizar-bases" } },
+  async ({ ctx, params, body }) => {
+    const { data: licitacion, error: licitacionError } = await ctx.supabase
+      .from("licitaciones")
+      .select("id, numero_expediente, titulo")
+      .eq("id", params.id)
+      .maybeSingle();
 
-  const { data: licitacion } = await supabase
-    .from("licitaciones")
-    .select("id, numero_expediente, titulo")
-    .eq("id", id)
-    .single();
+    if (licitacionError) throw ApiError.internal();
+    if (!licitacion) throw ApiError.notFound("Licitación no encontrada");
 
-  if (!licitacion) {
-    return NextResponse.json({ error: "Licitación no encontrada" }, { status: 404 });
-  }
+    const { data, error } = await ctx.supabase.functions.invoke("analizar-bases", {
+      body: { licitacion_id: params.id, documento_id: body.documento_id },
+    });
 
-  const { data, error } = await supabase.functions.invoke("analizar-bases", {
-    body: { licitacion_id: id, documento_id },
-  });
+    if (error) throw ApiError.upstream();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+    if (ctx.email) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      // Fire-and-forget: un fallo al enviar la notificación no debe tumbar
+      // una respuesta cuyo análisis ya se generó correctamente.
+      sendEmail({
+        to: ctx.email,
+        subject: `Análisis completado — ${licitacion.numero_expediente}`,
+        react: AnalisisCompletadoEmail({
+          titulo: licitacion.titulo,
+          numeroExpediente: licitacion.numero_expediente,
+          nivelConfianza: data?.data?.nivel_confianza ?? "N/D",
+          url: `${appUrl}/licitaciones/${params.id}`,
+        }),
+      }).catch(() => {});
+    }
 
-  if (user.email) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-    sendEmail({
-      to: user.email,
-      subject: `Análisis completado — ${licitacion.numero_expediente}`,
-      react: AnalisisCompletadoEmail({
-        titulo: licitacion.titulo,
-        numeroExpediente: licitacion.numero_expediente,
-        nivelConfianza: data?.data?.nivel_confianza ?? "N/D",
-        url: `${appUrl}/licitaciones/${id}`,
-      }),
-    }).catch(() => {});
-  }
-
-  return NextResponse.json({ data: data?.data ?? null });
-}
+    return { data: data?.data ?? null };
+  },
+);

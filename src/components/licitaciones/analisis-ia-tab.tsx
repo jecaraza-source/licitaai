@@ -209,7 +209,7 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
     setAnalizando(false);
 
     if (!res.ok) {
-      toast.error("No se pudo analizar las bases", { description: json.error });
+      toast.error("No se pudo analizar las bases", { description: json.error?.message ?? json.error });
       return;
     }
 

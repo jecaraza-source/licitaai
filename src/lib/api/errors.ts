@@ -71,8 +71,8 @@ export class ApiError extends Error {
     return new ApiError("VALIDATION_ERROR", message, details);
   }
 
-  static conflict(message: string): ApiError {
-    return new ApiError("CONFLICT", message);
+  static conflict(message: string, details?: unknown): ApiError {
+    return new ApiError("CONFLICT", message, details);
   }
 
   static unprocessableContent(message: string): ApiError {

@@ -1,36 +1,29 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError } from "@/lib/api";
+
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
 
 const CATEGORIAS = ["LEGAL", "FISCAL", "TECNICO", "ECONOMICO", "ESPECIFICO"] as const;
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const [{ data: checklist, error: checklistError }, { data: ultimoReporte, error: reporteError }] =
+    await Promise.all([
+      ctx.supabase
+        .from("checklist_items")
+        .select("*, documentos(id, nombre, auditoria_json), responsable:users(id, nombre)")
+        .eq("licitacion_id", params.id)
+        .order("categoria"),
+      ctx.supabase
+        .from("actividad_log")
+        .select("metadata_json, created_at")
+        .eq("licitacion_id", params.id)
+        .eq("accion", "auditoria_expediente")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-  const [{ data: checklist }, { data: ultimoReporte }] = await Promise.all([
-    supabase
-      .from("checklist_items")
-      .select("*, documentos(id, nombre, auditoria_json), responsable:users(id, nombre)")
-      .eq("licitacion_id", id)
-      .order("categoria"),
-    supabase
-      .from("actividad_log")
-      .select("metadata_json, created_at")
-      .eq("licitacion_id", id)
-      .eq("accion", "auditoria_expediente")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  if (checklistError || reporteError) throw ApiError.internal();
 
   const items = checklist ?? [];
 
@@ -52,7 +45,7 @@ export async function GET(
   const rojos = items.filter((i) => i.estado === "ROJO");
   const amarillosCriticos = items.filter((i) => i.estado === "AMARILLO" && i.critico);
 
-  return NextResponse.json({
+  return {
     data: {
       score,
       porCategoria,
@@ -64,5 +57,5 @@ export async function GET(
         bloqueado: rojos.length > 0 || amarillosCriticos.length > 0,
       },
     },
-  });
-}
+  };
+});

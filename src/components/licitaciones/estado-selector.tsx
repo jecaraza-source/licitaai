@@ -47,13 +47,14 @@ export function EstadoSelector({
     if (!res.ok) {
       setEstado(anterior);
       const json = await res.json().catch(() => null);
-      if (res.status === 409 && json?.gate) {
-        const { rojos, amarillosCriticos, pendientesLiberacion } = json.gate;
+      const gate = json?.error?.details?.gate ?? json?.gate;
+      if (res.status === 409 && gate) {
+        const { rojos, amarillosCriticos, pendientesLiberacion } = gate;
         toast.error("No se puede marcar como enviada", {
           description: `Faltan: ${rojos} requisito(s) en rojo, ${amarillosCriticos} crítico(s) en amarillo, ${pendientesLiberacion} punto(s) del checklist de liberación. Revisa las pestañas Auditoría y Liberación.`,
         });
       } else {
-        toast.error("No se pudo cambiar el estado", { description: json?.error });
+        toast.error("No se pudo cambiar el estado", { description: json?.error?.message ?? json?.error });
       }
       return;
     }

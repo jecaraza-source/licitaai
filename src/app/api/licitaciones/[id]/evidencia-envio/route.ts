@@ -1,26 +1,20 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+const bodySchema = z.object({
+  documento_id: z.string().uuid().nullable().optional(),
+  notas: z.string().trim().max(2000).nullable().optional(),
+});
 
-  const { data, error } = await supabase
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data, error } = await ctx.supabase
     .from("evidencia_envio")
     .select("*, documentos(id, nombre), registrado_por_usuario:users!registrado_por(id, nombre)")
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .order("created_at", { ascending: false });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) throw ApiError.internal();
 
   const normalizado = (data ?? []).map((row) => ({
     ...row,
@@ -28,42 +22,31 @@ export async function GET(
     registrado_por_nombre: row.registrado_por_usuario?.nombre ?? null,
   }));
 
-  return NextResponse.json({ data: normalizado });
-}
+  return { data: normalizado };
+});
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+export const POST = apiRoute({ paramsSchema, bodySchema }, async ({ ctx, params, body }) => {
+  requireWriteRole(ctx);
 
-  const body = await request.json();
-  const { data, error } = await supabase
+  const { data, error } = await ctx.supabase
     .from("evidencia_envio")
     .insert({
-      licitacion_id: id,
-      documento_id: typeof body.documento_id === "string" ? body.documento_id : null,
-      notas: typeof body.notas === "string" ? body.notas : null,
-      registrado_por: user.id,
+      licitacion_id: params.id,
+      documento_id: body.documento_id ?? null,
+      notas: body.notas ?? null,
+      registrado_por: ctx.userId,
     })
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) throw ApiError.internal();
 
-  await supabase.from("actividad_log").insert({
-    licitacion_id: id,
-    user_id: user.id,
+  await ctx.supabase.from("actividad_log").insert({
+    licitacion_id: params.id,
+    user_id: ctx.userId,
     accion: "evidencia_envio_registrada",
     metadata_json: { evidencia_id: data.id },
   });
 
-  return NextResponse.json({ data }, { status: 201 });
-}
+  return { data, status: 201 };
+});

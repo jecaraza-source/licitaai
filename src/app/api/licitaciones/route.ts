@@ -1,58 +1,67 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { licitacionSchema } from "@/lib/validations/licitacion";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
+import {
+  licitacionSchema,
+  ESTADOS_LICITACION,
+  TIPOS_LICITACION,
+  ESTADOS_ID,
+} from "@/lib/validations/licitacion";
 import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
 import { TIPOS_DOCUMENTO_CORPORATIVO } from "@/lib/documentos-corporativos";
 
-export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+// El escapado evita que un `search` con `,`/`(`/`)` altere la expresión de
+// filtro combinado que PostgREST recibe en `.or()` — antes, esos caracteres
+// se interpolaban sin escapar y podían cambiar qué condiciones se evalúan.
+function escaparValorOr(valor: string): string {
+  return valor.replace(/\\/g, "\\\\").replace(/,/g, "\\,").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
 
-  const searchParams = request.nextUrl.searchParams;
-  const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
-  const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") ?? "20")));
-  const estado_licitacion = searchParams.get("estado_licitacion");
-  const tipo = searchParams.get("tipo");
-  const estado_id = searchParams.get("estado_id");
-  const search = searchParams.get("search")?.trim();
+const listQuerySchema = z.object({
+  page: z.coerce.number().int().optional().default(1).transform((v) => Math.max(1, v)),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .optional()
+    .default(20)
+    .transform((v) => Math.min(100, Math.max(1, v))),
+  estado_licitacion: z.enum(ESTADOS_LICITACION).optional(),
+  tipo: z.enum(TIPOS_LICITACION).optional(),
+  estado_id: z.enum(ESTADOS_ID).optional(),
+  search: z.string().trim().max(200).optional(),
+});
 
-  let query = supabase
+export const GET = apiRoute({ querySchema: listQuerySchema }, async ({ ctx, query }) => {
+  const { page, pageSize, estado_licitacion, tipo, estado_id, search } = query;
+
+  let dbQuery = ctx.supabase
     .from("licitaciones")
     .select("*, analisis_bases(objeto_contrato)", { count: "exact" })
     .order("created_at", { ascending: false });
 
-  if (estado_licitacion) query = query.eq("estado_licitacion", estado_licitacion);
-  if (tipo) query = query.eq("tipo", tipo);
-  if (estado_id) query = query.eq("estado_id", estado_id);
+  if (estado_licitacion) dbQuery = dbQuery.eq("estado_licitacion", estado_licitacion);
+  if (tipo) dbQuery = dbQuery.eq("tipo", tipo);
+  if (estado_id) dbQuery = dbQuery.eq("estado_id", estado_id);
   if (search) {
-    query = query.or(
-      `numero_expediente.ilike.%${search}%,titulo.ilike.%${search}%,institucion.ilike.%${search}%`,
-    );
+    const s = escaparValorOr(search);
+    dbQuery = dbQuery.or(`numero_expediente.ilike.%${s}%,titulo.ilike.%${s}%,institucion.ilike.%${s}%`);
   }
 
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
-  const { data, error, count } = await query.range(from, to);
+  const { data, error, count } = await dbQuery.range(from, to);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (error) throw ApiError.internal();
 
   const licitacionIds = (data ?? []).map((l) => l.id);
 
   const [{ data: checklistItems }, { data: perfil }] = await Promise.all([
     licitacionIds.length > 0
-      ? supabase
+      ? ctx.supabase
           .from("checklist_items")
           .select("licitacion_id, requerido, estado")
           .in("licitacion_id", licitacionIds)
       : Promise.resolve({ data: [] as { licitacion_id: string; requerido: boolean; estado: string }[] }),
-    supabase.from("users").select("organization_id").eq("id", user.id).single(),
+    ctx.supabase.from("users").select("organization_id").eq("id", ctx.userId).single(),
   ]);
 
   const dataConScore = (data ?? []).map((licitacion) => {
@@ -67,9 +76,9 @@ export async function GET(request: NextRequest) {
 
   let empresaScore: number | null = null;
   if (perfil?.organization_id) {
-    const empresaActiva = await getEmpresaPerfilActiva(supabase, perfil.organization_id, user.id);
+    const empresaActiva = await getEmpresaPerfilActiva(ctx.supabase, perfil.organization_id, ctx.userId);
     if (empresaActiva) {
-      const { data: docsCorporativos } = await supabase
+      const { data: docsCorporativos } = await ctx.supabase
         .from("documentos_corporativos")
         .select("tipo")
         .eq("empresa_perfil_id", empresaActiva.id);
@@ -85,65 +94,41 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ data: dataConScore, count, page, pageSize, empresaScore });
-}
+  return { data: { data: dataConScore, count, page, pageSize, empresaScore } };
+});
 
-export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+export const POST = apiRoute({ bodySchema: licitacionSchema }, async ({ ctx, body }) => {
+  requireWriteRole(ctx);
 
-  const { data: perfil } = await supabase
-    .from("users")
-    .select("organization_id")
-    .eq("id", user.id)
-    .single();
-
-  if (!perfil) {
-    return NextResponse.json({ error: "Perfil no encontrado" }, { status: 403 });
-  }
-
-  const json = await request.json();
-  const parsed = licitacionSchema.safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  }
-
-  const { data, error } = await supabase
+  const { data, error } = await ctx.supabase
     .from("licitaciones")
-    .insert({
-      ...parsed.data,
-      organization_id: perfil.organization_id,
-      created_by: user.id,
-    })
+    .insert({ ...body, organization_id: ctx.organizationId, created_by: ctx.userId })
     .select()
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (error) throw ApiError.internal();
 
-  const { data: plantillas } = await supabase
+  // Fallos aquí (plantillas de checklist, log de actividad) no revierten la
+  // creación de la licitación — mismo comportamiento "best effort" que
+  // tenía el código original; restructurar esto en una operación atómica es
+  // alcance de P1.2, no de esta migración.
+  const { data: plantillas } = await ctx.supabase
     .from("checklist_templates")
     .select("categoria, descripcion, fundamento_legal, vigencia_requerida, formato_aceptado, requerido")
     .eq("estado_id", data.estado_id);
 
   if (plantillas && plantillas.length > 0) {
-    await supabase.from("checklist_items").insert(
+    await ctx.supabase.from("checklist_items").insert(
       plantillas.map((p) => ({ ...p, licitacion_id: data.id })),
     );
   }
 
-  await supabase.from("actividad_log").insert({
+  await ctx.supabase.from("actividad_log").insert({
     licitacion_id: data.id,
-    user_id: user.id,
+    user_id: ctx.userId,
     accion: "creacion",
     metadata_json: { titulo: data.titulo },
   });
 
-  return NextResponse.json({ data }, { status: 201 });
-}
+  return { data };
+});
