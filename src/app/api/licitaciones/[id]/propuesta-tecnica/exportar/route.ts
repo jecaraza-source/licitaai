@@ -11,10 +11,11 @@ interface Seccion {
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const comoAnexoA = request.nextUrl.searchParams.get("anexoA") === "1";
   const supabase = await createClient();
   const {
     data: { user },
@@ -66,7 +67,9 @@ export async function POST(
           new Paragraph({
             heading: HeadingLevel.HEADING_1,
             alignment: AlignmentType.CENTER,
-            children: [new TextRun("Propuesta Técnica")],
+            children: [
+              new TextRun(comoAnexoA ? 'ANEXO "A" ESPECIFICACIONES TÉCNICAS' : "Propuesta Técnica"),
+            ],
           }),
           new Paragraph({
             children: [
@@ -91,7 +94,7 @@ export async function POST(
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; filename="propuesta-tecnica-${sanitizeFilename(licitacion.numero_expediente)}.docx"`,
+      "Content-Disposition": `attachment; filename="${comoAnexoA ? "LEG09-anexo-a" : "propuesta-tecnica"}-${sanitizeFilename(licitacion.numero_expediente)}.docx"`,
     },
   });
 }

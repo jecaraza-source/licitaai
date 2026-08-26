@@ -15,46 +15,154 @@ y la razón social (o nombre de la persona) a quien pertenece el documento, para
 verificar que corresponde a la empresa correcta. Además, si el documento es una identificación
 oficial, extrae el nombre completo del titular; si es un poder notarial o escrito de
 personalidad, extrae el nombre completo de la persona apoderada o reconocida como
-representante legal (no el del notario ni el de quien otorga el poder). Si no puedes
-determinar un dato con certeza, repórtalo como null en vez de adivinar. Usa siempre la
-herramienta proporcionada.`;
+representante legal (no el del notario ni el de quien otorga el poder). Si el tipo de
+documento lo amerita (acta constitutiva, poder, comprobante de domicilio, declaración de
+nacionalidad, estratificación MIPYME o información de socios/accionistas), extrae también
+los campos adicionales solicitados en la herramienta: son datos que de otra forma se
+transcriben a mano y son propensos a error (números de escritura, notaría, folios de
+registro, domicilios completos). Si no puedes determinar un dato con certeza, repórtalo
+como null en vez de adivinar — nunca inventes un número de escritura, notaría o folio. Usa
+siempre la herramienta proporcionada.`;
 
-const TOOL_SCHEMA = {
-  type: "object" as const,
-  properties: {
-    fecha_emision: {
-      type: ["string", "null"],
-      description: "Fecha de emisión/expedición del documento en formato YYYY-MM-DD, o null",
-    },
-    fecha_vigencia_indicada: {
-      type: ["string", "null"],
-      description:
-        "Fecha de vigencia o vencimiento indicada explícitamente en el documento (YYYY-MM-DD), o null si el documento no la indica",
-    },
-    rfc_detectado: {
-      type: ["string", "null"],
-      description: "RFC de la empresa o persona a quien pertenece el documento, o null si no aparece",
-    },
-    razon_social_detectada: {
-      type: ["string", "null"],
-      description:
-        "Razón social o nombre completo de la empresa/persona a quien pertenece el documento, o null si no aparece",
-    },
-    nombre_persona_detectado: {
-      type: ["string", "null"],
-      description:
-        "Nombre completo del titular (si es una identificación oficial) o del apoderado/representante legal nombrado (si es un poder o escrito de personalidad). Null si no aplica o no se detecta.",
-    },
+const TOOL_SCHEMA_BASE_PROPERTIES = {
+  fecha_emision: {
+    type: ["string", "null"],
+    description: "Fecha de emisión/expedición del documento en formato YYYY-MM-DD, o null",
   },
-  required: [
-    "fecha_emision",
-    "fecha_vigencia_indicada",
-    "rfc_detectado",
-    "razon_social_detectada",
-    "nombre_persona_detectado",
-  ],
-  additionalProperties: false,
+  fecha_vigencia_indicada: {
+    type: ["string", "null"],
+    description:
+      "Fecha de vigencia o vencimiento indicada explícitamente en el documento (YYYY-MM-DD), o null si el documento no la indica",
+  },
+  rfc_detectado: {
+    type: ["string", "null"],
+    description: "RFC de la empresa o persona a quien pertenece el documento, o null si no aparece",
+  },
+  razon_social_detectada: {
+    type: ["string", "null"],
+    description:
+      "Razón social o nombre completo de la empresa/persona a quien pertenece el documento, o null si no aparece",
+  },
+  nombre_persona_detectado: {
+    type: ["string", "null"],
+    description:
+      "Nombre completo del titular (si es una identificación oficial) o del apoderado/representante legal nombrado (si es un poder o escrito de personalidad). Null si no aplica o no se detecta.",
+  },
 };
+const TOOL_SCHEMA_BASE_REQUIRED = Object.keys(TOOL_SCHEMA_BASE_PROPERTIES);
+
+// Campos legales adicionales por tipo de documento, con nombres de clave
+// idénticos a las columnas de empresa_perfil que llenan (para que el
+// prellenado en Configuración sea un merge directo por nombre de campo).
+const CAMPOS_ACTA = {
+  objeto_social: {
+    type: ["string", "null"],
+    description: "Objeto social de la empresa según el acta constitutiva, o null",
+  },
+  acta_escritura_numero: {
+    type: ["string", "null"],
+    description: "Número de la escritura pública del acta constitutiva, o null",
+  },
+  acta_escritura_fecha: {
+    type: ["string", "null"],
+    description: "Fecha de la escritura pública del acta constitutiva en formato YYYY-MM-DD, o null",
+  },
+  acta_notario: {
+    type: ["string", "null"],
+    description: "Nombre completo del notario público que dio fe del acta constitutiva, o null",
+  },
+  acta_notaria_numero: {
+    type: ["string", "null"],
+    description: "Número de la notaría del notario que dio fe del acta constitutiva, o null",
+  },
+  acta_notaria_estado: {
+    type: ["string", "null"],
+    description: "Estado (entidad federativa) donde se ubica la notaría del acta constitutiva, o null",
+  },
+  acta_registro_publico: {
+    type: ["string", "null"],
+    description: "Folio y datos de inscripción del acta en el Registro Público de Comercio, o null",
+  },
+};
+
+const CAMPOS_REPRESENTANTE = {
+  representante_legal_escritura_numero: {
+    type: ["string", "null"],
+    description: "Número de la escritura pública del poder o escrito de personalidad, o null",
+  },
+  representante_legal_escritura_fecha: {
+    type: ["string", "null"],
+    description: "Fecha de la escritura pública del poder en formato YYYY-MM-DD, o null",
+  },
+  representante_legal_notario: {
+    type: ["string", "null"],
+    description: "Nombre completo del notario público que dio fe del poder, o null",
+  },
+  representante_legal_notaria_numero: {
+    type: ["string", "null"],
+    description: "Número de la notaría del notario que dio fe del poder, o null",
+  },
+  representante_legal_notaria_estado: {
+    type: ["string", "null"],
+    description: "Estado (entidad federativa) donde se ubica la notaría del poder, o null",
+  },
+  representante_legal_registro_publico: {
+    type: ["string", "null"],
+    description: "Folio y datos de inscripción del poder en el Registro Público de Comercio, si aplica, o null",
+  },
+};
+
+const CAMPOS_DOMICILIO = {
+  domicilio_fiscal: {
+    type: ["string", "null"],
+    description:
+      "Domicilio completo (calle, número, colonia, municipio/alcaldía, estado, código postal) que aparece en el documento, o null",
+  },
+};
+
+const CAMPOS_NACIONALIDAD = {
+  nacionalidad: {
+    type: ["string", "null"],
+    description: "Nacionalidad declarada de la empresa o persona, o null",
+  },
+};
+
+const CAMPOS_MIPYME = {
+  estratificacion_mipyme: {
+    type: ["string", "null"],
+    description: "Estratificación MIPYME declarada (Microempresa, Pequeña empresa o Mediana empresa), o null",
+  },
+};
+
+const CAMPOS_SOCIOS = {
+  socios_accionistas_json: {
+    type: ["array", "null"],
+    items: { type: "string" },
+    description:
+      "Lista de socios o accionistas con control sobre la sociedad, uno por elemento con su porcentaje de participación (ej. 'Juan Pérez López - 50%'), o null si no se detecta",
+  },
+};
+
+const CAMPOS_EXTRA_POR_TIPO: Record<string, Record<string, unknown>> = {
+  "Acta constitutiva": CAMPOS_ACTA,
+  Reformas: CAMPOS_ACTA,
+  "Poder del representante legal": CAMPOS_REPRESENTANTE,
+  "Escrito de personalidad": CAMPOS_REPRESENTANTE,
+  "Comprobante de domicilio": CAMPOS_DOMICILIO,
+  "Declaración de nacionalidad": CAMPOS_NACIONALIDAD,
+  "Estratificación MIPYME": CAMPOS_MIPYME,
+  "Información de socios/accionistas": CAMPOS_SOCIOS,
+};
+
+function construirToolSchema(tipo: string) {
+  const extra = CAMPOS_EXTRA_POR_TIPO[tipo] ?? {};
+  return {
+    type: "object" as const,
+    properties: { ...TOOL_SCHEMA_BASE_PROPERTIES, ...extra },
+    required: [...TOOL_SCHEMA_BASE_REQUIRED, ...Object.keys(extra)],
+    additionalProperties: false,
+  };
+}
 
 // Reglas de vigencia por tipo de documento (deben reflejar las mismas
 // mostradas en documentos-corporativos-card.tsx). Solo se listan los tipos
@@ -208,8 +316,8 @@ Deno.serve(async (req) => {
         tools: [
           {
             name: "reportar_fechas",
-            description: "Reporta las fechas detectadas en el documento",
-            input_schema: TOOL_SCHEMA,
+            description: "Reporta las fechas y datos detectados en el documento",
+            input_schema: construirToolSchema(documento.tipo),
           },
         ],
         tool_choice: { type: "tool", name: "reportar_fechas" },
@@ -235,13 +343,24 @@ Deno.serve(async (req) => {
           rfc_detectado: string | null;
           razon_social_detectada: string | null;
           nombre_persona_detectado: string | null;
-        }
+        } & Record<string, unknown>
       | undefined;
     if (!datos) throw new Error("No se pudieron extraer datos del documento");
 
     const vigenciaHasta =
       datos.fecha_vigencia_indicada ?? calcularVigenciaHasta(documento.tipo, datos.fecha_emision);
     const coincide = coincideEmpresa(empresa, datos.rfc_detectado, datos.razon_social_detectada);
+
+    // Solo se guardan las claves extra propias del tipo de documento, y solo
+    // las que la IA sí pudo detectar (no se pisan datos con null).
+    const camposExtra = CAMPOS_EXTRA_POR_TIPO[documento.tipo] ?? {};
+    const datosExtraidos: Record<string, unknown> = {};
+    for (const campo of Object.keys(camposExtra)) {
+      const valor = datos[campo];
+      if (valor !== null && valor !== undefined && !(Array.isArray(valor) && valor.length === 0)) {
+        datosExtraidos[campo] = valor;
+      }
+    }
 
     await supabase
       .from("documentos_corporativos")
@@ -250,6 +369,7 @@ Deno.serve(async (req) => {
         vigencia_hasta: vigenciaHasta,
         coincide_empresa: coincide,
         nombre_persona_detectado: datos.nombre_persona_detectado,
+        datos_extraidos_json: datosExtraidos,
       })
       .eq("id", documento_id);
 
@@ -261,6 +381,7 @@ Deno.serve(async (req) => {
           vigencia_hasta: vigenciaHasta,
           coincide_empresa: coincide,
           nombre_persona_detectado: datos.nombre_persona_detectado,
+          datos_extraidos_json: datosExtraidos,
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },

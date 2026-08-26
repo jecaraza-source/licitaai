@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
-import { BadgeCheck, FileText, TriangleAlert, Trash2, UploadCloud } from "lucide-react";
+import { BadgeCheck, FileText, Sparkles, TriangleAlert, Trash2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -60,6 +60,21 @@ const TIPOS_CON_VIGENCIA_CALCULABLE = new Set([
   "Opinión de cumplimiento fiscal (32-D)",
   "Cumplimiento IMSS",
   "Cumplimiento INFONAVIT",
+]);
+
+// Debe reflejar los mismos tipos que CAMPOS_EXTRA_POR_TIPO en el edge
+// function analizar-documento-corporativo: son los únicos donde la IA
+// extrae datos legales estructurados (además de fecha/vigencia) que luego
+// se pueden usar para prellenar Configuración > Datos legales.
+const TIPOS_CON_DATOS_LEGALES_EXTRAIBLES = new Set([
+  "Acta constitutiva",
+  "Reformas",
+  "Poder del representante legal",
+  "Escrito de personalidad",
+  "Comprobante de domicilio",
+  "Declaración de nacionalidad",
+  "Estratificación MIPYME",
+  "Información de socios/accionistas",
 ]);
 
 type EstadoVigencia = "vigente" | "por_vencer" | "vencido";
@@ -237,6 +252,14 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
             description: "El RFC o razón social detectados no corresponden a esta empresa. Verifícalo.",
           });
         }
+        if (!fechaEmisionManual) {
+          const camposExtraidos = Object.keys(json?.data?.datos_extraidos_json ?? {});
+          if (camposExtraidos.length > 0) {
+            toast.success(`Se extrajeron ${camposExtraidos.length} dato(s) legales del documento`, {
+              description: 'Revísalos y aplícalos en "Datos legales" con el botón de prellenado.',
+            });
+          }
+        }
         cargar();
       } catch {
         toast.error("No se pudo calcular la vigencia", { description: "Error de red inesperado" });
@@ -369,6 +392,8 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
             {documentos.map((doc) => {
               const analizando = analizandoIds.includes(doc.id);
               const puedeCalcularVigencia = TIPOS_CON_VIGENCIA_CALCULABLE.has(doc.tipo);
+              const puedeExtraerDatosLegales = TIPOS_CON_DATOS_LEGALES_EXTRAIBLES.has(doc.tipo);
+              const yaExtrajoDatos = Object.keys(doc.datos_extraidos_json ?? {}).length > 0;
               return (
                 <li key={doc.id} className="flex flex-col gap-1.5 py-2 text-sm">
                   <div className="flex items-center gap-2">
@@ -413,6 +438,25 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
                       >
                         Guardar
                       </Button>
+                    </div>
+                  )}
+                  {puedeExtraerDatosLegales && (
+                    <div className="flex items-center gap-2 pl-6">
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        disabled={analizando}
+                        onClick={() => analizarVigencia(doc.id)}
+                      >
+                        <Sparkles className="size-3.5" />
+                        {yaExtrajoDatos ? "Volver a extraer datos con IA" : "Extraer datos con IA"}
+                      </Button>
+                      {yaExtrajoDatos && (
+                        <span className="text-xs text-muted-foreground">
+                          {Object.keys(doc.datos_extraidos_json).length} dato(s) listos para prellenar
+                        </span>
+                      )}
                     </div>
                   )}
                 </li>

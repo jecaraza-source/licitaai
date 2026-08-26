@@ -78,6 +78,8 @@ export interface Licitacion {
   created_at: string;
   es_investigacion_mercado: boolean;
   analisis_bases?: { objeto_contrato: string | null }[] | null;
+  convocante_representante_nombre: string | null;
+  convocante_representante_cargo: string | null;
 }
 
 export interface FirmaDigital {
@@ -378,6 +380,36 @@ export interface EmpresaPerfil {
   color_primario: string | null;
   color_secundario: string | null;
   documentos_no_aplican: string[];
+  objeto_social: string | null;
+  acta_escritura_numero: string | null;
+  acta_escritura_fecha: string | null;
+  acta_notario: string | null;
+  acta_notaria_numero: string | null;
+  acta_notaria_estado: string | null;
+  acta_registro_publico: string | null;
+  representante_legal_nombre: string | null;
+  representante_legal_escritura_numero: string | null;
+  representante_legal_escritura_fecha: string | null;
+  representante_legal_notario: string | null;
+  representante_legal_notaria_numero: string | null;
+  representante_legal_notaria_estado: string | null;
+  representante_legal_registro_publico: string | null;
+  domicilio_fiscal: string | null;
+  domicilio_notificaciones: string | null;
+  correo_notificaciones: string | null;
+  nacionalidad: string;
+  normas_oficiales_aplican: boolean;
+  normas_oficiales_detalle: string | null;
+  cuenta_personal_discapacidad: boolean;
+  estratificacion_mipyme: string | null;
+  socios_accionistas_json: string[];
+  garantia_tecnica_meses: number | null;
+  garantia_tecnica_detalle: string | null;
+  soporte_tecnico_contacto: string | null;
+  tiempo_inicio_servicio_dias: number | null;
+  personal_tecnico_json: string[];
+  infraestructura_equipo_json: string[];
+  licencias_permisos_json: string[];
   updated_at: string;
 }
 
@@ -466,5 +498,6 @@ export interface DocumentoCorporativo {
   vigencia_hasta: string | null;
   coincide_empresa: boolean | null;
   nombre_persona_detectado: string | null;
+  datos_extraidos_json: Record<string, unknown>;
   created_at: string;
 }

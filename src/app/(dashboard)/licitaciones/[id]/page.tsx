@@ -17,6 +17,8 @@ import { ViabilidadTab } from "@/components/licitaciones/viabilidad-tab";
 import { ResponsabilidadesCard } from "@/components/licitaciones/responsabilidades-card";
 import { PropuestaTecnicaTab } from "@/components/licitaciones/propuesta-tecnica-tab";
 import { PropuestaEconomicaTab } from "@/components/licitaciones/propuesta-economica-tab";
+import { DocumentosLegalesTab } from "@/components/licitaciones/documentos-legales-tab";
+import { DocumentosTecnicosTab } from "@/components/licitaciones/documentos-tecnicos-tab";
 import { AuditoriaTab } from "@/components/licitaciones/auditoria-tab";
 import { LiberacionTab } from "@/components/licitaciones/liberacion-tab";
 import { SeguimientoTab } from "@/components/licitaciones/seguimiento-tab";
@@ -34,6 +36,8 @@ const TABS = [
   { value: "partidas", label: "Partidas" },
   { value: "propuesta-tecnica", label: "Propuesta Técnica" },
   { value: "propuesta-economica", label: "Propuesta Económica" },
+  { value: "documentos-legales", label: "Documentos Legales" },
+  { value: "documentos-tecnicos", label: "Documentos Técnicos" },
   { value: "auditoria", label: "Auditoría" },
   { value: "liberacion", label: "Liberación" },
   { value: "junta", label: "Junta de Aclaraciones" },
@@ -196,6 +200,14 @@ export default async function LicitacionDetallePage({
 
         <TabsContent value="propuesta-economica">
           <PropuestaEconomicaTab licitacionId={licitacion.id} />
+        </TabsContent>
+
+        <TabsContent value="documentos-legales">
+          <DocumentosLegalesTab licitacionId={licitacion.id} />
+        </TabsContent>
+
+        <TabsContent value="documentos-tecnicos">
+          <DocumentosTecnicosTab licitacionId={licitacion.id} />
         </TabsContent>
 
         <TabsContent value="auditoria">
