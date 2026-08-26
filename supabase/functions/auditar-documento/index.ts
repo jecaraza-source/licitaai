@@ -1,10 +1,10 @@
 // LicitaAI — Sprint 6: auditar-documento
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
 import { getEmpresaPerfilActiva } from "../_shared/empresa-perfil.ts";
+import { authenticate, requireChecklistItem, requireDocumentoById } from "../_shared/auth.ts";
 
 const SYSTEM_PROMPT = `Eres un auditor experto en documentación legal y fiscal para licitaciones
 públicas mexicanas. Verifica el documento adjunto contra el requisito esperado y los datos
@@ -56,41 +56,33 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
+    const ctx = await authenticate(req, { ruta: "auditar-documento", requiereEscritura: true, maxPorMinuto: 20 });
+    if (ctx instanceof Response) return ctx;
+
     const { documento_id, checklist_item_id } = await req.json();
-    if (!documento_id) {
-      return new Response(JSON.stringify({ error: "documento_id requerido" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const documento = await requireDocumentoById(ctx, documento_id);
+    if (documento instanceof Response) return documento;
+
+    let checklistItem: { descripcion: string; categoria: string; fundamento_legal: string | null; vigencia_requerida: string | null } | null = null;
+    if (checklist_item_id) {
+      const item = await requireChecklistItem(ctx, checklist_item_id, documento.licitacion_id);
+      if (item instanceof Response) return item;
+      const { data } = await ctx.service
+        .from("checklist_items")
+        .select("descripcion, categoria, fundamento_legal, vigencia_requerida")
+        .eq("id", item.id)
+        .single();
+      checklistItem = data;
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supabase = ctx.service;
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
 
-    const { data: documento, error: docError } = await supabase
-      .from("documentos")
-      .select("id, nombre, storage_path, licitacion_id")
-      .eq("id", documento_id)
+    const { data: licitacion } = await supabase
+      .from("licitaciones")
+      .select("fecha_entrega_propuesta, organization_id, created_by")
+      .eq("id", documento.licitacion_id)
       .single();
-    if (docError || !documento) throw new Error("Documento no encontrado");
-
-    const [{ data: licitacion }, { data: checklistItem }] = await Promise.all([
-      supabase
-        .from("licitaciones")
-        .select("fecha_entrega_propuesta, organization_id, created_by")
-        .eq("id", documento.licitacion_id)
-        .single(),
-      checklist_item_id
-        ? supabase
-            .from("checklist_items")
-            .select("descripcion, categoria, fundamento_legal, vigencia_requerida")
-            .eq("id", checklist_item_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-    ]);
 
     const empresa = await getEmpresaPerfilActiva(
       supabase,

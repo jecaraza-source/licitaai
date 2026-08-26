@@ -1,10 +1,10 @@
 // LicitaAI — Sprint 5: generar-propuesta-tecnica
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
 import { getEmpresaPerfilActiva } from "../_shared/empresa-perfil.ts";
+import { authenticate, requireLicitacion } from "../_shared/auth.ts";
 
 const SECCIONES_BASE = [
   { id: "portada", titulo: "Portada" },
@@ -77,18 +77,14 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const { licitacion_id } = await req.json();
-    if (!licitacion_id) {
-      return new Response(JSON.stringify({ error: "licitacion_id requerido" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const ctx = await authenticate(req, { ruta: "generar-propuesta-tecnica", requiereEscritura: true, maxPorMinuto: 5 });
+    if (ctx instanceof Response) return ctx;
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const { licitacion_id } = await req.json();
+    const licitacionCheck = await requireLicitacion(ctx, licitacion_id);
+    if (licitacionCheck instanceof Response) return licitacionCheck;
+
+    const supabase = ctx.service;
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
 
     const { data: licitacion, error: licError } = await supabase

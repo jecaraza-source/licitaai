@@ -4,13 +4,13 @@
 // para PDFs escaneados), lo divide en chunks y genera embeddings para
 // búsqueda semántica (RAG).
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import OpenAI from "npm:openai@^6";
 import pdfParse from "npm:pdf-parse@^1.1.1";
 import { RecursiveCharacterTextSplitter } from "npm:@langchain/textsplitters@^0.1";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
+import { authenticate, requireDocumentoById } from "../_shared/auth.ts";
 
 const CHARS_POR_CHUNK = 4000; // ~1000 tokens en español/inglés
 const OVERLAP_CHARS = 800; // ~200 tokens
@@ -64,30 +64,16 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const { documento_id } = await req.json();
-    if (!documento_id) {
-      return new Response(JSON.stringify({ error: "documento_id requerido" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const ctx = await authenticate(req, { ruta: "procesar-documento", requiereEscritura: true, maxPorMinuto: 20 });
+    if (ctx instanceof Response) return ctx;
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const { documento_id } = await req.json();
+    const documento = await requireDocumentoById(ctx, documento_id);
+    if (documento instanceof Response) return documento;
+
+    const supabase = ctx.service;
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
     const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
-
-    const { data: documento, error: docError } = await supabase
-      .from("documentos")
-      .select("id, storage_path, nombre, licitacion_id")
-      .eq("id", documento_id)
-      .single();
-
-    if (docError || !documento) {
-      throw new Error(`Documento no encontrado: ${docError?.message}`);
-    }
 
     const { data: archivo, error: downloadError } = await supabase.storage
       .from("documentos-originales")

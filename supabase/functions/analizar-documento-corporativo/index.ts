@@ -2,10 +2,10 @@
 // cuando el tipo de documento tiene una regla de vigencia conocida,
 // calcula hasta cuándo sigue siendo válido.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
+import { authenticate, requireDocumentoCorporativo } from "../_shared/auth.ts";
 
 const SYSTEM_PROMPT = `Eres un asistente que extrae datos de documentos oficiales mexicanos
 (actas, poderes, constancias fiscales, opiniones de cumplimiento, identificaciones, etc.).
@@ -254,25 +254,14 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
+    const ctx = await authenticate(req, { ruta: "analizar-documento-corporativo", requiereEscritura: true, maxPorMinuto: 20 });
+    if (ctx instanceof Response) return ctx;
+
     const { documento_id, fecha_emision_manual } = await req.json();
-    if (!documento_id) {
-      return new Response(JSON.stringify({ error: "documento_id requerido" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const documento = await requireDocumentoCorporativo(ctx, documento_id);
+    if (documento instanceof Response) return documento;
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
-    const { data: documento, error: docError } = await supabase
-      .from("documentos_corporativos")
-      .select("id, tipo, nombre, storage_path, empresa_perfil_id")
-      .eq("id", documento_id)
-      .single();
-    if (docError || !documento) throw new Error("Documento no encontrado");
+    const supabase = ctx.service;
 
     const { data: empresa } = await supabase
       .from("empresa_perfil")

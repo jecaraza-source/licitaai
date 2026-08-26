@@ -6,10 +6,10 @@
 // herramienta nativa de búsqueda web de Claude para investigar precios de
 // referencia reales, y una segunda llamada para estructurar los resultados.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
+import { authenticate, jsonError, requireLicitacion } from "../_shared/auth.ts";
 
 const SYSTEM_PROMPT_INVESTIGACION = `Eres un analista de mercado especializado en compras gubernamentales mexicanas.
 Investiga precios de referencia reales para la partida indicada usando búsqueda web.
@@ -133,18 +133,14 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const { licitacion_id, partida_id } = await req.json();
-    if (!licitacion_id) {
-      return new Response(JSON.stringify({ error: "licitacion_id requerido" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const ctx = await authenticate(req, { ruta: "generar-estudio-mercado", requiereEscritura: true, maxPorMinuto: 10 });
+    if (ctx instanceof Response) return ctx;
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const { licitacion_id, partida_id } = await req.json();
+    const licitacionCheck = await requireLicitacion(ctx, licitacion_id);
+    if (licitacionCheck instanceof Response) return licitacionCheck;
+
+    const supabase = ctx.service;
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
 
     let query = supabase
@@ -156,10 +152,7 @@ Deno.serve(async (req) => {
     const { data: partidas, error: partidasError } = await query;
     if (partidasError) throw new Error(partidasError.message);
     if (!partidas || partidas.length === 0) {
-      return new Response(JSON.stringify({ error: "No hay partidas para analizar" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError(400, "No hay partidas para analizar");
     }
 
     const resultados = [];

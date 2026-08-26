@@ -5,11 +5,11 @@
 // para construir la ficha de análisis. Crea checklist_items automáticamente
 // desde la documentación requerida detectada.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import OpenAI from "npm:openai@^6";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
+import { authenticate, jsonError, requireDocumento, requireLicitacion } from "../_shared/auth.ts";
 
 const SYSTEM_PROMPT = `Eres un experto en licitaciones públicas mexicanas con 20 años de experiencia.
 Analizas documentos de bases de licitación conforme a la Ley de Adquisiciones,
@@ -314,35 +314,21 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const { licitacion_id, documento_id } = await req.json();
-    if (!licitacion_id) {
-      return new Response(JSON.stringify({ error: "licitacion_id requerido" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const ctx = await authenticate(req, { ruta: "analizar-bases", requiereEscritura: true, maxPorMinuto: 10 });
+    if (ctx instanceof Response) return ctx;
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const { licitacion_id, documento_id } = await req.json();
+    const licitacion = await requireLicitacion(ctx, licitacion_id);
+    if (licitacion instanceof Response) return licitacion;
+
+    const supabase = ctx.service;
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
     const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 
     let documentoAnalizado: { id: string; nombre: string } | null = null;
     if (documento_id) {
-      const { data: documento } = await supabase
-        .from("documentos")
-        .select("id, nombre")
-        .eq("id", documento_id)
-        .eq("licitacion_id", licitacion_id)
-        .single();
-      if (!documento) {
-        return new Response(JSON.stringify({ error: "Documento no encontrado" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      const documento = await requireDocumento(ctx, documento_id, licitacion_id);
+      if (documento instanceof Response) return documento;
       documentoAnalizado = documento;
     }
 
@@ -356,13 +342,11 @@ Deno.serve(async (req) => {
     const { count: chunkCount } = await chunkCountQuery;
 
     if (!chunkCount) {
-      return new Response(
-        JSON.stringify({
-          error: documento_id
-            ? "Ese documento aún no ha sido procesado."
-            : "No hay documentos procesados para esta licitación. Sube y procesa un documento primero.",
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      return jsonError(
+        400,
+        documento_id
+          ? "Ese documento aún no ha sido procesado."
+          : "No hay documentos procesados para esta licitación. Sube y procesa un documento primero.",
       );
     }
 

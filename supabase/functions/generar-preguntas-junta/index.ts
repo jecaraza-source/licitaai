@@ -1,9 +1,9 @@
 // LicitaAI — Sprint 4: generar-preguntas-junta
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
+import { authenticate, requireLicitacion } from "../_shared/auth.ts";
 
 const SYSTEM_PROMPT = `Eres un experto licitante con 20 años de experiencia en licitaciones públicas mexicanas.
 Tu objetivo es identificar puntos ambiguos, contradictorios o poco claros en las bases
@@ -43,18 +43,14 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const { licitacion_id } = await req.json();
-    if (!licitacion_id) {
-      return new Response(JSON.stringify({ error: "licitacion_id requerido" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const ctx = await authenticate(req, { ruta: "generar-preguntas-junta", requiereEscritura: true, maxPorMinuto: 10 });
+    if (ctx instanceof Response) return ctx;
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const { licitacion_id } = await req.json();
+    const licitacionCheck = await requireLicitacion(ctx, licitacion_id);
+    if (licitacionCheck instanceof Response) return licitacionCheck;
+
+    const supabase = ctx.service;
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
 
     const { data: analisis } = await supabase

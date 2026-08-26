@@ -6,11 +6,11 @@
 // económica del expediente, y genera pendientes críticos, advertencias e
 // inconsistencias puntuales.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
 import { getEmpresaPerfilActiva } from "../_shared/empresa-perfil.ts";
+import { authenticate, jsonError, requireLicitacion } from "../_shared/auth.ts";
 
 const SYSTEM_PROMPT = `Eres un auditor experto en expedientes de licitaciones públicas mexicanas.
 Recibes los datos de la empresa participante, la propuesta económica y los resultados de auditoría
@@ -60,18 +60,14 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const { licitacion_id } = await req.json();
-    if (!licitacion_id) {
-      return new Response(JSON.stringify({ error: "licitacion_id requerido" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const ctx = await authenticate(req, { ruta: "auditar-expediente", requiereEscritura: true, maxPorMinuto: 10 });
+    if (ctx instanceof Response) return ctx;
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const { licitacion_id } = await req.json();
+    const licitacionCheck = await requireLicitacion(ctx, licitacion_id);
+    if (licitacionCheck instanceof Response) return licitacionCheck;
+
+    const supabase = ctx.service;
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
 
     const { data: licitacion } = await supabase
@@ -95,10 +91,7 @@ Deno.serve(async (req) => {
     ]);
 
     if (!checklistItems || checklistItems.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "No hay checklist para esta licitación" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return jsonError(400, "No hay checklist para esta licitación");
     }
 
     const contexto = `
