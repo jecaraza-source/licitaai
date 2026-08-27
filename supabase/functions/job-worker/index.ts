@@ -16,6 +16,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { estaAutorizadoWorker } from "../_shared/worker-auth.ts";
 import { ejecutarUnJob, type JobRow, type ResultadoEjecucion } from "../_shared/job-runner.ts";
+import { notificarJobSiCorresponde } from "../_shared/job-notify.ts";
 
 const LIMITE_POR_TICK = Number(Deno.env.get("JOB_WORKER_BATCH") ?? "5");
 const PRESUPUESTO_TICK_MS = Number(Deno.env.get("JOB_WORKER_TICK_BUDGET_MS") ?? "50000");
@@ -56,6 +57,18 @@ Deno.serve(async (req) => {
   const { data: expirados } = await service.rpc("expirar_jobs");
   if (typeof expirados === "number" && expirados > 0) {
     console.log(`[job-worker] ${expirados} jobs expirados`);
+  }
+
+  // Notificar jobs recién expirados (expirar_jobs no envía correo).
+  const { data: expiradosSinNotificar } = await service
+    .from("jobs")
+    .select("id, tipo, estado, requested_by, created_at, finished_at, error_seguro")
+    .eq("estado", "EXPIRED")
+    .is("notificado_at", null)
+    .gte("finished_at", new Date(Date.now() - 3_600_000).toISOString())
+    .limit(20);
+  for (const j of expiradosSinNotificar ?? []) {
+    await notificarJobSiCorresponde(service, j);
   }
 
   while (Date.now() < deadline) {

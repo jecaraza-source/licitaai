@@ -73,12 +73,12 @@ async function main() {
     }).select("id").single();
 
     const { channel, eventos } = await suscribir(orgA.client, jobRow.id);
-    await sleep(300);
+    await sleep(800);
 
     await admin.rpc("progreso_job", { p_job_id: jobRow.id, p_progreso: 45, p_detalle: "a mitad" });
     await admin.rpc("completar_job", { p_job_id: jobRow.id, p_result_ref: { ok: true } });
 
-    await sleep(1500);
+    await sleep(2500);
     check("2. el dueño recibe eventos de UPDATE de su job", eventos.length >= 1, `${eventos.length} eventos`);
     check("3. el evento trae el progreso actualizado", eventos.some((e) => e.progreso === 45 && e.progreso_detalle === "a mitad"));
     check("4. el dueño recibe el evento de COMPLETED", eventos.some((e) => e.estado === "COMPLETED"));
@@ -95,9 +95,9 @@ async function main() {
     }).select("id").single();
 
     const { channel, eventos } = await suscribir(orgB.client, jobRow.id);
-    await sleep(300);
+    await sleep(800);
     await admin.rpc("progreso_job", { p_job_id: jobRow.id, p_progreso: 70 });
-    await sleep(1500);
+    await sleep(2500);
 
     check("5. una organización ajena no recibe eventos del job (RLS en Realtime)", eventos.length === 0, `${eventos.length} eventos filtrados`);
 

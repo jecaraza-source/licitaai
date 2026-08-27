@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { noopHandler } from "./job-handlers/noop.ts";
+import { notificarJobSiCorresponde } from "./job-notify.ts";
 
 export interface JobRow {
   id: string;
@@ -170,7 +171,7 @@ export async function ejecutarUnJob(
     }
 
     if (res.completo) {
-      await service.rpc("completar_job", {
+      const { data } = await service.rpc("completar_job", {
         p_job_id: job.id,
         p_result_ref: res.completo.resultRef ?? null,
         p_provider: res.completo.provider ?? null,
@@ -179,20 +180,22 @@ export async function ejecutarUnJob(
         p_tokens_output: res.completo.tokensOutput ?? 0,
         p_costo: res.completo.costo ?? 0,
       });
+      if (data) await notificarJobSiCorresponde(service, data);
       return { resultado: "COMPLETED" };
     }
 
-    await service.rpc("fallar_job", {
+    const { data: vacio } = await service.rpc("fallar_job", {
       p_job_id: job.id,
       p_error_seguro: "El procesamiento no produjo un resultado",
       p_error_interno_ref: `empty-result:${job.tipo}`,
       p_reintentable: false,
     });
+    if (vacio) await notificarJobSiCorresponde(service, vacio);
     return { resultado: "RETRYING_OR_FAILED", detalle: "resultado vacío" };
   } catch (err) {
     const reintentable = esReintentable(err);
     const msg = err instanceof Error ? err.message : String(err);
-    await service.rpc("fallar_job", {
+    const { data } = await service.rpc("fallar_job", {
       p_job_id: job.id,
       p_error_seguro: reintentable
         ? "El procesamiento falló temporalmente y se reintentará automáticamente"
@@ -200,6 +203,7 @@ export async function ejecutarUnJob(
       p_error_interno_ref: msg.slice(0, 300),
       p_reintentable: reintentable,
     });
+    if (data) await notificarJobSiCorresponde(service, data);
     return { resultado: "RETRYING_OR_FAILED", detalle: msg.slice(0, 120) };
   } finally {
     clearTimeout(timer);
