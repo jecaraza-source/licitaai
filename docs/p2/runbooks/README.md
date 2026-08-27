@@ -14,6 +14,7 @@ Procedimientos de mitigación para los incidentes previstos. Cada runbook:
 | [fuga-de-datos](fuga-de-datos.md) | SEV1 | acceso cross-organización; datos expuestos |
 | [documento-malicioso](documento-malicioso.md) | SEV2 | archivo que rompe el procesamiento o intenta prompt injection |
 | [borrar-organizacion](borrar-organizacion.md) | — | baja de cuenta / derecho al olvido (operación planificada) |
+| [setup-staging](setup-staging.md) | — | poner en marcha staging + producción (secrets, ramas, protección) — se hace una vez |
 
 **Antes de empezar cualquier runbook:** abre el issue de incidente
 (plantilla `incidente`), mira `/admin/salud` y `/api/ready`.

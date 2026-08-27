@@ -11,12 +11,12 @@ Leyenda de esfuerzo: **S** ≤ 1 día · **M** 2–4 días · **L** ~1 semana ·
 
 ## A. Habilitar el despliegue — decisiones, no código
 
-| # | Pendiente | Bloquea | Quién | Esfuerzo |
-|---|---|---|---|---|
-| A1 | **Proyecto Supabase de staging** + cargar secrets/vars en GitHub (`SUPABASE_ACCESS_TOKEN`, `STAGING_PROJECT_REF`, `STAGING_DB_PASSWORD`, `PROD_*`) + branch protection en `main`/`staging` + Environment `production` con required reviewers | todo despliegue; los workflows ya referencian estos nombres | Dueño de la cuenta Supabase/Vercel | M |
-| A2 | **Decisión de PITR**: aprobar el add-on (~$100/mes) **o** firmar la aceptación del RPO interino de 24 h con `pg_dump` diario (cierra R9) | criterio de terminación de P2.7 | Negocio | S |
-| A3 | **Aceptar en términos de uso + DPA** que el contenido de documentos sale a Anthropic/OpenAI; confirmar endpoints con retención cero / no-entrenamiento (cierra R7) | lanzamiento a clientes reales | Legal + Producto | S |
-| A4 | Rotar las API keys de OpenAI y Anthropic usadas en la validación local (se compartieron en texto plano) y ponerlas solo en `supabase secrets` de prod | seguridad | Ingeniería | S |
+| # | Pendiente | Bloquea | Quién | Esfuerzo | Estado |
+|---|---|---|---|---|---|
+| A1 | **Proyecto Supabase de staging** + secrets/vars en GitHub + Vercel + branch protection + Environment `production` con reviewers | todo despliegue; los workflows ya referencian estos nombres | Dueño de la cuenta Supabase/Vercel | M | ⏳ runbook click-by-click listo: [`runbooks/setup-staging.md`](runbooks/setup-staging.md) |
+| A2 | **Decisión de PITR**: aprobar el add-on (~$100/mes) **o** firmar la aceptación del RPO interino de 24 h (cierra R9) | criterio de terminación de P2.7 | Negocio | S | ⏳ brief + plantilla de firma: [`17-decisiones-negocio.md`](17-decisiones-negocio.md) §A2 |
+| A3 | **Términos de uso + DPA**: divulgar que el contenido sale a Anthropic/OpenAI; firmar DPA con retención cero / no-entrenamiento (cierra R7) | lanzamiento a clientes reales | Legal + Producto | S | ⏳ texto propuesto de términos + cláusula de DPA + anexo de subprocesadores: [`17-decisiones-negocio.md`](17-decisiones-negocio.md) §A3 |
+| A4 | Rotar las API keys de OpenAI y Anthropic compartidas en la validación local | seguridad | Ingeniería / dueño de las keys | S | ✅ borradas del `.env` local y del contenedor edge; **falta que el dueño las revoque en los dashboards de OpenAI y Anthropic** y ponga las nuevas solo en `supabase secrets` de prod |
 
 ---
 
