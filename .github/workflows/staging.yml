@@ -29,9 +29,10 @@ jobs:
 
       - name: Verificar migraciones contra una base limpia
         run: |
-          supabase start -x imgproxy,vector,edge-runtime,realtime,storage,studio
-          supabase db reset --no-seed
-          supabase stop --no-backup
+          supabase stop --no-backup || true
+          supabase db start
+          supabase db reset --local --no-seed
+          supabase stop --no-backup || true
 
       - name: Aplicar migraciones a staging
         run: |
