@@ -46,6 +46,10 @@ interface Parcial {
   escaneado: boolean;
   paginas: number;
   chunks_total: number;
+  /** tokens acumulados a lo largo de los steps, para la conciliación de
+   * presupuesto (C3). */
+  tok_in: number;
+  tok_out: number;
 }
 
 // Formas mínimas de las respuestas de los SDK — withRetry<T>() pierde la
@@ -109,10 +113,13 @@ async function registrarUso(
   if (error) console.error("[procesar-documento] registrar_uso_ia_worker:", error.message);
 }
 
-async function extraerTextoEscaneado(pdfB64: string, ctx: JobContext): Promise<string> {
+async function extraerTextoEscaneado(
+  pdfB64: string,
+  ctx: JobContext,
+): Promise<{ texto: string; tokIn: number; tokOut: number }> {
   if (MOCK_AI) {
     console.warn("[procesar-documento] MOCK_AI: extracción de escaneado simulada");
-    return "Texto simulado de un documento escaneado para pruebas locales.";
+    return { texto: "Texto simulado de un documento escaneado para pruebas locales.", tokIn: 0, tokOut: 0 };
   }
   const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
   const res = (await withRetry(() =>
@@ -130,23 +137,34 @@ async function extraerTextoEscaneado(pdfB64: string, ctx: JobContext): Promise<s
     })
   )) as RespuestaAnthropic;
   const bloque = res.content.find((b) => b.type === "text");
-  await registrarUso(ctx, "claude-sonnet-5", res.usage?.input_tokens ?? 0, res.usage?.output_tokens ?? 0);
-  return bloque?.text ?? "";
+  const tokIn = res.usage?.input_tokens ?? 0;
+  const tokOut = res.usage?.output_tokens ?? 0;
+  await registrarUso(ctx, "claude-sonnet-5", tokIn, tokOut);
+  return { texto: bloque?.text ?? "", tokIn, tokOut };
 }
 
-async function generarEmbeddings(textos: string[], ctx: JobContext): Promise<number[][]> {
+async function generarEmbeddings(
+  textos: string[],
+  ctx: JobContext,
+): Promise<{ embeddings: number[][]; tokens: number }> {
   if (MOCK_AI) {
-    const tokensAprox = Math.round(textos.reduce((s, t) => s + t.length, 0) / 4);
-    await registrarUso(ctx, "text-embedding-3-small-mock", tokensAprox, 0);
+    const tokens = Math.round(textos.reduce((s, t) => s + t.length, 0) / 4);
+    await registrarUso(ctx, "text-embedding-3-small-mock", tokens, 0);
     // vector no-cero (un cero puro rompe la distancia coseno del índice HNSW)
-    return textos.map(() => { const v = new Array(DIM_EMBEDDING).fill(0); v[0] = 1; return v; });
+    const embeddings = textos.map(() => {
+      const v = new Array(DIM_EMBEDDING).fill(0);
+      v[0] = 1;
+      return v;
+    });
+    return { embeddings, tokens };
   }
   const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
   const res = (await withRetry(() =>
     openai.embeddings.create({ model: "text-embedding-3-small", input: textos })
   )) as RespuestaEmbeddings;
-  await registrarUso(ctx, "text-embedding-3-small", res.usage?.total_tokens ?? 0, 0);
-  return res.data.map((d) => d.embedding);
+  const tokens = res.usage?.total_tokens ?? 0;
+  await registrarUso(ctx, "text-embedding-3-small", tokens, 0);
+  return { embeddings: res.data.map((d) => d.embedding), tokens };
 }
 
 async function stepExtraer(ctx: JobContext): Promise<StepResult> {
@@ -169,6 +187,8 @@ async function stepExtraer(ctx: JobContext): Promise<StepResult> {
   let texto = "";
   let escaneado = false;
   let paginas = 1;
+  let tokIn = 0;
+  let tokOut = 0;
 
   if (doc.nombre.toLowerCase().endsWith(".pdf")) {
     try {
@@ -181,7 +201,10 @@ async function stepExtraer(ctx: JobContext): Promise<StepResult> {
     if (texto.length / paginas < MIN_CHARS_POR_PAGINA) {
       escaneado = true;
       await ctx.reportarProgreso(15, "documento escaneado, extrayendo texto con IA");
-      texto = await extraerTextoEscaneado(uint8ToBase64(buffer), ctx);
+      const r = await extraerTextoEscaneado(uint8ToBase64(buffer), ctx);
+      texto = r.texto;
+      tokIn = r.tokIn;
+      tokOut = r.tokOut;
     }
   }
 
@@ -195,7 +218,14 @@ async function stepExtraer(ctx: JobContext): Promise<StepResult> {
       .from("documentos")
       .update({ procesado: true, procesado_at: new Date().toISOString() })
       .eq("id", id);
-    return { completo: { resultRef: { chunks: 0, escaneado, paginas, aviso: "Sin texto extraíble" } } };
+    return {
+      completo: {
+        resultRef: { chunks: 0, escaneado, paginas, aviso: "Sin texto extraíble" },
+        modelo: escaneado ? "claude-sonnet-5" : "text-embedding-3-small",
+        tokensInput: tokIn,
+        tokensOutput: tokOut,
+      },
+    };
   }
 
   const splitter = new RecursiveCharacterTextSplitter({
@@ -217,7 +247,9 @@ async function stepExtraer(ctx: JobContext): Promise<StepResult> {
     if (error) throw new Error(`Error guardando fragmentos: ${error.message}`);
   }
 
-  const parcial: Parcial = { escaneado, paginas, chunks_total: chunks.length };
+  const parcial: Parcial = {
+    escaneado, paginas, chunks_total: chunks.length, tok_in: tokIn, tok_out: tokOut,
+  };
   return { siguienteStep: { step: "embeddings", resultParcial: parcial, progreso: 40 } };
 }
 
@@ -238,12 +270,16 @@ async function stepEmbeddings(ctx: JobContext): Promise<StepResult> {
     return { siguienteStep: { step: "finalizar", resultParcial: parcial, progreso: 95 } };
   }
 
-  const embeddings = await generarEmbeddings(pendientes.map((c) => c.contenido as string), ctx);
+  const { embeddings, tokens } = await generarEmbeddings(
+    pendientes.map((c) => c.contenido as string),
+    ctx,
+  );
   await Promise.all(
     pendientes.map((c, i) =>
       ctx.service.from("document_chunks").update({ embedding: embeddings[i] }).eq("id", c.id)
     ),
   );
+  parcial.tok_in = (parcial.tok_in ?? 0) + tokens;
 
   const total = parcial.chunks_total || 1;
   const restantes = (await ctx.service
@@ -277,8 +313,12 @@ async function stepFinalizar(ctx: JobContext): Promise<StepResult> {
   return {
     completo: {
       resultRef: { chunks: count ?? 0, escaneado: parcial.escaneado, paginas: parcial.paginas },
-      provider: "openai",
-      modelo: "text-embedding-3-small",
+      provider: parcial.escaneado ? "anthropic+openai" : "openai",
+      // La conciliación de presupuesto (C3) usa un solo modelo; embeddings
+      // domina el costo salvo en documentos escaneados.
+      modelo: parcial.escaneado ? "claude-sonnet-5" : "text-embedding-3-small",
+      tokensInput: parcial.tok_in ?? 0,
+      tokensOutput: parcial.tok_out ?? 0,
     },
   };
 }

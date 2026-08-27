@@ -13,9 +13,12 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 | **A4** — API de jobs | `c76c53d` | `POST /api/jobs` (flag `jobs.api`), `GET /api/jobs`, `GET /api/jobs/:id`, `POST /api/jobs/:id/cancel`. `src/lib/jobs.ts` (`crearJob`, `proyectarJobPublico`, `mapearErrorRpcJob`). | 9 e2e |
 | **A5** — Realtime + UI | `8a52dc0` | `jobs` en publicación Realtime. `src/hooks/use-job.ts` (polling con backoff + Realtime). `<JobStatus>`. Tipo `Job` en `@/types`. | 5 integración |
 | **A6** — Notificación | `5f319b3` | `jobs.notificado_at` + `marcar_job_notificado` (guard atómico). `_shared/job-notify.ts` (Resend REST, > 60s, idempotente). | 7 integración |
-| **B1** — procesar-documento vía jobs | _(este commit)_ | Handler multi-step `_shared/job-handlers/procesar-documento.ts` (extraer → chunk → embeddings lote a lote → finalizar; idempotente; `MOCK_AI` sin keys). Ruta `licitaciones/[id]/procesar-documento` bifurca por flag `jobs.async_procesar_documento` (202 + job_id / sync). `registrar_uso_ia_worker` (service_role). Frontend sin cambios (fire-and-forget + Realtime de `documentos`). | 11 integración + 3 e2e |
+| **B1** — procesar-documento vía jobs | `d1efbf5` | Handler multi-step `_shared/job-handlers/procesar-documento.ts` (extraer → chunk → embeddings lote a lote → finalizar; idempotente; `MOCK_AI` sin keys). Ruta `licitaciones/[id]/procesar-documento` bifurca por flag `jobs.async_procesar_documento` (202 + job_id / sync). `registrar_uso_ia_worker` (service_role). Frontend sin cambios (fire-and-forget + Realtime de `documentos`). | 11 integración + 3 e2e |
+| **C1** — esquema de gobierno de costo IA | _(este commit)_ | `ai_org_policy` (cuota mensual/diario/por-operación, modelos permitidos, política de modelo), `ai_model_pricing` (seed con precios actuales), `ai_budget_ledger` (append-only). RPCs `reservar_presupuesto_ia` / `conciliar_presupuesto_ia` / `liberar_reserva_ia` / `estimar_costo_ia` / `presupuesto_ia_disponible`. `gastado = Σ(RESERVADO)+Σ(CONSUMIDO)−Σ(LIBERADO)`. | 20 integración |
+| **C2** — reserva en la creación del job | _(este commit)_ | `src/lib/ai-estimate.ts` (estimación tokens/costo por tipo). `crearJobConPresupuesto()` (flag `ai.gobierno_costo`): idempotencia → reservar → `crear_job(p_reserva_id)` → libera si falla. Errores de presupuesto → 429 `AI_BUDGET_EXCEEDED`. `crear_job` gana `p_reserva_id`. Rutas `procesar-documento` y `/api/jobs` integradas. | (cubierto en C2/C3) |
+| **C3** — conciliación por el worker | _(este commit)_ | `job-runner` concilia la reserva al COMPLETAR (con los tokens/modelo reales) y la libera al FALLAR/CANCELAR. `procesar-documento` acumula tokens entre steps. | 10 integración (C2+C3) |
 
-**Verificación acumulada:** `tsc` limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio · 9 suites unit · 7 suites integración P2 (84 casos) · 32 e2e · tests P0/P1 sin regresión.
+**Verificación acumulada:** `tsc` limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio · 9 suites unit · 9 suites integración P2 (114 casos) · 32 e2e · tests P0/P1 sin regresión.
 
 ## Migraciones nuevas (todas aditivas)
 
@@ -28,6 +31,8 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 20260827005000_p2_jobs_realtime
 20260827006000_p2_jobs_notificacion
 20260827007000_p2_b1_uso_ia_worker
+20260828000000_p2_c1_gobierno_costo_ia
+20260828001000_p2_c2_crear_job_reserva
 ```
 
 Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna toca datos existentes.
@@ -44,4 +49,6 @@ Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna t
 
 ## Siguiente
 
-Con B1 (piloto) validado, sigue **C1–C3 (gobierno de costo mínimo)** y **D1–D3 (versionado de resultados IA)** antes de migrar el resto de operaciones (B2–B11). Orden acordado: G1→A→**B1**→C1-C3→D1-D3→resto de B.
+**D1–D3 (versionado y trazabilidad de resultados de IA)** — `ai_results` append-only, `prompt_templates`, `ai_result_citations`. Luego el resto de operaciones a jobs (B2–B11). Orden acordado: G1→A→B1→**C1-C3**→D1-D3→resto de B.
+
+Flag `ai.gobierno_costo` sigue OFF: activarlo por organización tras validar la calibración de estimaciones contra el uso real (riesgo R3).

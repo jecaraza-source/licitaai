@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 import { isEnabled } from "@/lib/flags";
-import { crearJob } from "@/lib/jobs";
+import { crearJobConPresupuesto } from "@/lib/jobs";
 
 const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
 const bodySchema = z.object({
@@ -21,7 +21,7 @@ export const POST = apiRoute(
 
     const { data: documento } = await ctx.supabase
       .from("documentos")
-      .select("id, licitacion_id")
+      .select("id, licitacion_id, tamanio_bytes")
       .eq("id", body.documento_id)
       .eq("licitacion_id", params.id)
       .maybeSingle();
@@ -33,13 +33,17 @@ export const POST = apiRoute(
     });
 
     if (asincrono) {
-      const { job } = await crearJob(ctx, {
-        tipo: "procesar-documento",
-        recurso_tipo: "documento",
-        recurso_id: body.documento_id,
-        idempotency_key: `procdoc:${body.documento_id}`,
-        input: { documento_id: body.documento_id },
-      });
+      const { job } = await crearJobConPresupuesto(
+        ctx,
+        {
+          tipo: "procesar-documento",
+          recurso_tipo: "documento",
+          recurso_id: body.documento_id,
+          idempotency_key: `procdoc:${body.documento_id}`,
+          input: { documento_id: body.documento_id },
+        },
+        { bytes: documento.tamanio_bytes ?? undefined },
+      );
       return { data: { job_id: job.id, estado: job.estado, async: true }, status: 202 };
     }
 

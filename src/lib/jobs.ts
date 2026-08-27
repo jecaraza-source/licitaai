@@ -3,6 +3,8 @@ import { ApiError } from "@/lib/api";
 import type { ApiContext } from "@/lib/api";
 import type { JobTipo } from "@/lib/validations/jobs";
 import type { Job } from "@/types";
+import { estimarOperacion } from "@/lib/ai-estimate";
+import { isEnabled } from "@/lib/flags";
 
 // P2 · A4 — helper de servidor para crear/leer jobs. Lo usan la ruta
 // /api/jobs y, en Fase B, las rutas de dominio cuando su flag async está
@@ -54,6 +56,101 @@ export interface CrearJobParams {
   prioridad?: number;
   dedup_hash?: string;
   max_intentos?: number;
+  /** Reserva de presupuesto de IA asociada (C2), si `ai.gobierno_costo`
+   * está activo. El worker la concilia/libera al terminar el job. */
+  reserva_id?: string;
+}
+
+/** Traduce los `hint` de reservar_presupuesto_ia a una ApiError con código
+ * AI_BUDGET_EXCEEDED (el frontend puede mostrar un aviso de upgrade). */
+function mapearErrorPresupuesto(error: PostgrestError): ApiError {
+  const hint = error.hint ?? "";
+  if (hint.includes("limite_por_operacion")) {
+    return ApiError.aiBudgetExceeded(
+      "Esta operación excede el límite de gasto de IA por operación de tu organización.",
+    );
+  }
+  if (hint.includes("limite_diario")) {
+    return ApiError.aiBudgetExceeded(
+      "Se alcanzó el límite diario de gasto de IA de tu organización. Intenta de nuevo mañana.",
+    );
+  }
+  if (hint.includes("cuota_mensual")) {
+    return ApiError.aiBudgetExceeded("Se agotó la cuota mensual de IA de tu organización.");
+  }
+  return ApiError.internal();
+}
+
+/** Reserva presupuesto para una operación de IA (ADR 0004). Devuelve el
+ * reserva_id, o lanza AI_BUDGET_EXCEEDED. Solo se llama cuando el flag
+ * `ai.gobierno_costo` está activo para la organización. */
+export async function reservarPresupuestoIA(
+  ctx: ApiContext,
+  tipo: JobTipo,
+  opts: { bytes?: number; jobId?: string } = {},
+): Promise<string> {
+  const est = estimarOperacion(tipo, { bytes: opts.bytes });
+  const { data: usd, error: e1 } = await ctx.supabase.rpc("estimar_costo_ia", {
+    p_modelo: est.modelo,
+    p_tokens_input: est.inputTokens,
+    p_tokens_output: est.outputTokens,
+  });
+  if (e1) throw ApiError.internal();
+
+  const { data: reservaId, error: e2 } = await ctx.supabase.rpc("reservar_presupuesto_ia", {
+    p_tipo: tipo,
+    p_estimado_usd: usd,
+    p_job_id: opts.jobId ?? null,
+  });
+  if (e2) throw mapearErrorPresupuesto(e2);
+  return reservaId as string;
+}
+
+/** Libera una reserva propia (best-effort) — p. ej. si crear el job falla
+ * después de haber reservado. */
+export async function liberarMiReserva(ctx: ApiContext, reservaId: string): Promise<void> {
+  const { error } = await ctx.supabase.rpc("liberar_mi_reserva_ia", { p_reserva_id: reservaId });
+  if (error) console.error("[jobs] liberar_mi_reserva_ia:", error.message);
+}
+
+/** Busca un job existente por (organización, idempotency_key) sin crearlo. */
+export async function buscarJobPorIdempotencyKey(
+  ctx: ApiContext,
+  key: string,
+): Promise<Job | null> {
+  const { data } = await ctx.supabase
+    .from("jobs")
+    .select("*")
+    .eq("idempotency_key", key)
+    .maybeSingle();
+  return data ? proyectarJobPublico(data as unknown as Record<string, unknown>) : null;
+}
+
+/** Envuelve reserva → crear job → (si falla) liberar. Usa el flag
+ * `ai.gobierno_costo`. Devuelve el job y si fue nuevo. */
+export async function crearJobConPresupuesto(
+  ctx: ApiContext,
+  params: CrearJobParams,
+  opts: { bytes?: number } = {},
+): Promise<{ job: Job; nuevo: boolean }> {
+  const gobierno = await isEnabled(ctx.supabase, "ai.gobierno_costo", {
+    organizationId: ctx.organizationId,
+  });
+  if (!gobierno) return crearJob(ctx, params);
+
+  // Idempotencia: si el job ya existe, devolverlo sin reservar de nuevo.
+  if (params.idempotency_key) {
+    const existente = await buscarJobPorIdempotencyKey(ctx, params.idempotency_key);
+    if (existente) return { job: existente, nuevo: false };
+  }
+
+  const reservaId = await reservarPresupuestoIA(ctx, params.tipo, opts);
+  try {
+    return await crearJob(ctx, { ...params, reserva_id: reservaId });
+  } catch (e) {
+    await liberarMiReserva(ctx, reservaId);
+    throw e;
+  }
 }
 
 /** Crea (o recupera, si la idempotency_key coincide) un job vía la función
@@ -86,6 +183,7 @@ export async function crearJob(
     p_prioridad: params.prioridad ?? 100,
     p_dedup_hash: params.dedup_hash ?? null,
     p_max_intentos: params.max_intentos ?? 3,
+    p_reserva_id: params.reserva_id ?? null,
   });
 
   if (error) throw mapearErrorRpcJob(error);

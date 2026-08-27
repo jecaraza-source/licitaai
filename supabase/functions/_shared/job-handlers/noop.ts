@@ -62,7 +62,11 @@ export async function noopHandler(ctx: JobContext): Promise<StepResult> {
     completo: {
       resultRef: { ok: true, at: new Date().toISOString() },
       provider: "noop",
-      modelo: "noop",
+      // Para probar la conciliación de presupuesto (C3): input_json puede
+      // pedir que el noop "reporte" tokens/modelo.
+      modelo: typeof input.modelo === "string" ? input.modelo : "noop",
+      tokensInput: Number(input.tok_in) || 0,
+      tokensOutput: Number(input.tok_out) || 0,
     },
   };
 }

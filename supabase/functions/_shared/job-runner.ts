@@ -26,6 +26,37 @@ export interface JobRow {
   input_json: Record<string, unknown>;
   result_ref: unknown;
   cancel_solicitada: boolean;
+  reserva_id: string | null;
+}
+
+/** Concilia (o libera) la reserva de presupuesto de IA del job, si tiene
+ * una (C3, ADR 0004). Best-effort: no rompe la transición del job. */
+async function cerrarPresupuesto(
+  service: SupabaseClient,
+  job: JobRow,
+  desenlace:
+    | { tipo: "conciliar"; tokensInput: number; tokensOutput: number; modelo: string }
+    | { tipo: "liberar" },
+): Promise<void> {
+  if (!job.reserva_id) return;
+  try {
+    if (desenlace.tipo === "conciliar") {
+      await service.rpc("conciliar_presupuesto_ia", {
+        p_organization_id: job.organization_id,
+        p_reserva_id: job.reserva_id,
+        p_tokens_input: Math.max(0, Math.round(desenlace.tokensInput) || 0),
+        p_tokens_output: Math.max(0, Math.round(desenlace.tokensOutput) || 0),
+        p_modelo: desenlace.modelo || "claude-sonnet-5",
+      });
+    } else {
+      await service.rpc("liberar_reserva_ia", {
+        p_organization_id: job.organization_id,
+        p_reserva_id: job.reserva_id,
+      });
+    }
+  } catch (e) {
+    console.error(`[job-runner] cerrarPresupuesto(${desenlace.tipo}) job ${job.id}:`, e);
+  }
 }
 
 export interface JobContext {
@@ -121,11 +152,13 @@ export async function ejecutarUnJob(
       p_error_interno_ref: `handler-missing:${job.tipo}`,
       p_reintentable: false,
     });
+    await cerrarPresupuesto(service, job, { tipo: "liberar" });
     return { resultado: "RETRYING_OR_FAILED", detalle: "handler ausente" };
   }
 
   if (job.cancel_solicitada) {
     await service.rpc("marcar_job_cancelado", { p_job_id: job.id });
+    await cerrarPresupuesto(service, job, { tipo: "liberar" });
     return { resultado: "CANCELLED" };
   }
 
@@ -158,6 +191,7 @@ export async function ejecutarUnJob(
 
     if (await ctx.cancelado()) {
       await service.rpc("marcar_job_cancelado", { p_job_id: job.id });
+      await cerrarPresupuesto(service, job, { tipo: "liberar" });
       return { resultado: "CANCELLED" };
     }
 
@@ -181,6 +215,12 @@ export async function ejecutarUnJob(
         p_tokens_output: res.completo.tokensOutput ?? 0,
         p_costo: res.completo.costo ?? 0,
       });
+      await cerrarPresupuesto(service, job, {
+        tipo: "conciliar",
+        tokensInput: res.completo.tokensInput ?? 0,
+        tokensOutput: res.completo.tokensOutput ?? 0,
+        modelo: res.completo.modelo ?? "claude-sonnet-5",
+      });
       if (data) await notificarJobSiCorresponde(service, data);
       return { resultado: "COMPLETED" };
     }
@@ -191,6 +231,7 @@ export async function ejecutarUnJob(
       p_error_interno_ref: `empty-result:${job.tipo}`,
       p_reintentable: false,
     });
+    if (vacio?.estado === "FAILED") await cerrarPresupuesto(service, job, { tipo: "liberar" });
     if (vacio) await notificarJobSiCorresponde(service, vacio);
     return { resultado: "RETRYING_OR_FAILED", detalle: "resultado vacío" };
   } catch (err) {
@@ -204,6 +245,9 @@ export async function ejecutarUnJob(
       p_error_interno_ref: msg.slice(0, 300),
       p_reintentable: reintentable,
     });
+    // Solo se libera al llegar a FAILED (terminal); si es RETRYING, la
+    // reserva se mantiene para el siguiente intento.
+    if (data?.estado === "FAILED") await cerrarPresupuesto(service, job, { tipo: "liberar" });
     if (data) await notificarJobSiCorresponde(service, data);
     return { resultado: "RETRYING_OR_FAILED", detalle: msg.slice(0, 120) };
   } finally {

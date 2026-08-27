@@ -1,5 +1,5 @@
 import { apiRoute, ApiError } from "@/lib/api";
-import { crearJob, proyectarJobPublico } from "@/lib/jobs";
+import { crearJobConPresupuesto, proyectarJobPublico } from "@/lib/jobs";
 import { crearJobSchema, listarJobsQuerySchema, JOB_COLUMNS_PUBLICAS } from "@/lib/validations/jobs";
 
 // P2 · A4 — API genérica de jobs asíncronos.
@@ -14,7 +14,7 @@ export const POST = apiRoute(
     flags: ["jobs.api"],
   },
   async ({ ctx, body }) => {
-    const { job, nuevo } = await crearJob(ctx, {
+    const { job, nuevo } = await crearJobConPresupuesto(ctx, {
       tipo: body.tipo,
       recurso_tipo: body.recurso_tipo,
       recurso_id: body.recurso_id,
