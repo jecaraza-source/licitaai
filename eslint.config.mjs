@@ -19,6 +19,9 @@ const eslintConfig = defineConfig([
     ".vercel/**",
     // Deno edge functions — separate runtime/conventions, linted via `deno lint`.
     "supabase/functions/**",
+    // k6 load scripts — run by the k6 runtime, not Node; its API (default
+    // export, `open()`, `__ENV`) trips the Next/TS rules. See tests/load/README.md.
+    "tests/load/*.k6.js",
   ]),
 ]);
 

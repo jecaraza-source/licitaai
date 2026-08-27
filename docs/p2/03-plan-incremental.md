@@ -147,7 +147,7 @@ Patrón por operación (flag `jobs.async_<tipo>`):
 
 ## Fase J — Pruebas de aceptación (P2, cierre)
 
-Ejecutar y documentar en `10-pruebas-aceptacion.md`:
+Ejecutar y documentar en `15-pruebas-aceptacion.md`:
 carga concurrente multi-org · procesamiento simultáneo · reintentos y fallos parciales · caída simulada de Anthropic / OpenAI / correo · job duplicado · documento repetido · cancelación · presupuesto agotado · timeout · restauración de backup · rollback de app · migración fallida · aislamiento multi-tenant bajo carga · rendimiento de RLS · accesibilidad · Core Web Vitals · escaneo de seguridad · regresión completa (145 tests P0/P1 + nuevos).
 
 Herramienta de carga: **k6** o **Artillery** (script en `tests/load/`, no infra permanente).

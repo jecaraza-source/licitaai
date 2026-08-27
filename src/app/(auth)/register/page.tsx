@@ -95,7 +95,7 @@ export default function RegisterPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle as="h1" className="flex items-center gap-2">
           <UserPlus className="size-4.5 text-primary" />
           Crear cuenta
         </CardTitle>
