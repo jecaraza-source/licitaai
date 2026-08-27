@@ -16,9 +16,12 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 | **B1** — procesar-documento vía jobs | `d1efbf5` | Handler multi-step `_shared/job-handlers/procesar-documento.ts` (extraer → chunk → embeddings lote a lote → finalizar; idempotente; `MOCK_AI` sin keys). Ruta `licitaciones/[id]/procesar-documento` bifurca por flag `jobs.async_procesar_documento` (202 + job_id / sync). `registrar_uso_ia_worker` (service_role). Frontend sin cambios (fire-and-forget + Realtime de `documentos`). | 11 integración + 3 e2e |
 | **C1** — esquema de gobierno de costo IA | _(este commit)_ | `ai_org_policy` (cuota mensual/diario/por-operación, modelos permitidos, política de modelo), `ai_model_pricing` (seed con precios actuales), `ai_budget_ledger` (append-only). RPCs `reservar_presupuesto_ia` / `conciliar_presupuesto_ia` / `liberar_reserva_ia` / `estimar_costo_ia` / `presupuesto_ia_disponible`. `gastado = Σ(RESERVADO)+Σ(CONSUMIDO)−Σ(LIBERADO)`. | 20 integración |
 | **C2** — reserva en la creación del job | _(este commit)_ | `src/lib/ai-estimate.ts` (estimación tokens/costo por tipo). `crearJobConPresupuesto()` (flag `ai.gobierno_costo`): idempotencia → reservar → `crear_job(p_reserva_id)` → libera si falla. Errores de presupuesto → 429 `AI_BUDGET_EXCEEDED`. `crear_job` gana `p_reserva_id`. Rutas `procesar-documento` y `/api/jobs` integradas. | (cubierto en C2/C3) |
-| **C3** — conciliación por el worker | _(este commit)_ | `job-runner` concilia la reserva al COMPLETAR (con los tokens/modelo reales) y la libera al FALLAR/CANCELAR. `procesar-documento` acumula tokens entre steps. | 10 integración (C2+C3) |
+| **C3** — conciliación por el worker | `792b38a` | `job-runner` concilia la reserva al COMPLETAR (con los tokens/modelo reales) y la libera al FALLAR/CANCELAR. `procesar-documento` acumula tokens entre steps. | 10 integración (C2+C3) |
+| **D1** — esquema de trazabilidad IA | _(este commit)_ | `ai_results` append-only (nunca UPDATE de `resultado_json`; corrección = fila nueva con `reemplaza_a`), `prompt_templates` versionados (RLS: solo service_role), `ai_result_citations`. RPC `persistir_resultado_ia` (vía de escritura de los handlers de Fase B) + `aprobar_resultado_ia` (D5). Punteros `ai_result_id` en `analisis_bases`/`estudio_mercado`. | 15 integración |
+| **D2** — prompts a `prompt_templates` | _(este commit)_ | Seed de los prompts actuales como version 1 (`procesar-documento-extraccion`, `preguntar-rag`); el resto se siembra al migrar cada operación. `conGuardia()` se sigue aplicando encima. | (cubierto en D1) |
+| **D3** — historial + revisión | _(este commit)_ | Backfill de `analisis_bases`/`estudio_mercado` → `ai_results` (`origen=backfill_p2`, `APROBADO`). `GET /api/licitaciones/[id]/ai-results` (todas las versiones + citas + versión activa). `POST /api/ai-results/[id]/revision` (APROBADO/RECHAZADO; el motivo de rechazo = flujo "reportar resultado incorrecto" D6, va a `actividad_log`). | 5 e2e |
 
-**Verificación acumulada:** `tsc` limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio · 9 suites unit · 9 suites integración P2 (114 casos) · 32 e2e · tests P0/P1 sin regresión.
+**Verificación acumulada:** `tsc` limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio · 9 suites unit · 10 suites integración P2 (127 casos) · 37 e2e · tests P0/P1 sin regresión.
 
 ## Migraciones nuevas (todas aditivas)
 
@@ -33,6 +36,7 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 20260827007000_p2_b1_uso_ia_worker
 20260828000000_p2_c1_gobierno_costo_ia
 20260828001000_p2_c2_crear_job_reserva
+20260828010000_p2_d1_ai_results
 ```
 
 Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna toca datos existentes.
@@ -49,6 +53,6 @@ Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna t
 
 ## Siguiente
 
-**D1–D3 (versionado y trazabilidad de resultados de IA)** — `ai_results` append-only, `prompt_templates`, `ai_result_citations`. Luego el resto de operaciones a jobs (B2–B11). Orden acordado: G1→A→B1→**C1-C3**→D1-D3→resto de B.
+**Resto de operaciones a jobs (B2–B11)**, cada una: refactor de su Edge Function a handler(s) de step + persistencia vía `persistir_resultado_ia` (con citas) + seed de su prompt en `prompt_templates` + política de modelo (económico por defecto) + flag `jobs.async_<tipo>`. Empezar por **B2 (`analizar-bases`)** — ya valida su salida contra JSON Schema (P0.6), es el mejor caso para estrenar el versionado.
 
-Flag `ai.gobierno_costo` sigue OFF: activarlo por organización tras validar la calibración de estimaciones contra el uso real (riesgo R3).
+Flags OFF pendientes de activación gradual: `ai.gobierno_costo` (tras calibrar estimaciones, R3), `ai.versionado_resultados` (cuando B2+ escriban `ai_results`), `jobs.async_procesar_documento` (piloto).
