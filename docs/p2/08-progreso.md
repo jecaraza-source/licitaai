@@ -85,8 +85,9 @@ Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna t
 
 ## Siguiente
 
-**Todas las fases de implementación (A–J) están completas.** Lo que queda no
-es código:
+**Todas las fases de implementación (A–J) están completas.** La lista
+pormenorizada de pendientes —para atender uno por uno— está en
+[`16-pendientes.md`](16-pendientes.md). Resumen:
 
 - **G2 / staging** (pendiente de autorización): crear proyecto Supabase de staging, cargar secrets/vars de GitHub, activar branch protection + Environment `production` con required reviewers. Los workflows ya referencian esos nombres.
 - **H7 (drill de restauración) / H8 (activar PITR)** — código y procedimiento listos (`scripts/restore-verify.mjs`, `docs/p2/14-backup-y-restauracion.md`); el drill se corre en cuanto haya un proyecto Supabase donde restaurar. Falta la aceptación formal del RPO de 24 h o la aprobación de PITR (~$100/mes).
