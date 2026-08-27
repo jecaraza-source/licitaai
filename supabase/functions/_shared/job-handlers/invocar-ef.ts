@@ -20,7 +20,22 @@
 // procesar-documento (B1) en un incremento posterior.
 
 import { isEnabled } from "../flags.ts";
+import { conBreaker } from "../circuit-breaker.ts";
 import type { JobContext, JobHandler, StepResult } from "../job-runner.ts";
+
+// E3 — timeout duro por invocación de Edge Function de dominio. La EF tiene
+// su propio límite de wall-clock; esto acota además lo que el worker
+// espera, para no bloquear el tick entero si una EF cuelga.
+const TIMEOUT_INVOKE_MS = Number(Deno.env.get("JOB_EF_TIMEOUT_MS") ?? "150000");
+
+function conTimeout<T>(p: Promise<T>, ms: number, etiqueta: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, rej) =>
+      setTimeout(() => rej(Object.assign(new Error(`${etiqueta}: timeout tras ${ms}ms`), { name: "TimeoutError" })), ms)
+    ),
+  ]);
+}
 
 interface RespuestaEF {
   ok?: boolean;
@@ -40,24 +55,33 @@ export function handlerInvocaEF(
     const input = { ...(ctx.job.input_json ?? {}), job_id: ctx.job.id };
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const { data, error } = await ctx.service.functions.invoke(nombreEF, {
-      body: input,
-      headers: { Authorization: `Bearer ${serviceKey}` },
-    });
-
-    if (error) {
-      // FunctionsHttpError trae el status en context; se re-lanza para que
-      // el worker lo clasifique (esReintentable).
-      const status = (error as { context?: { status?: number } }).context?.status;
-      const e = new Error(`${nombreEF}: ${error.message}`) as Error & { status?: number };
-      if (typeof status === "number") e.status = status;
-      throw e;
-    }
-
-    const res = (data ?? {}) as RespuestaEF;
-    if (res.error) {
-      throw new Error(`${nombreEF}: ${res.error}`);
-    }
+    // Circuit breaker de Anthropic (proveedor dominante de estas
+    // operaciones). Si el circuito está abierto, se lanza para que el
+    // worker deje el job en RETRYING con backoff (no quema intentos).
+    const res = await conBreaker<RespuestaEF>(
+      ctx.service,
+      "anthropic",
+      async () => {
+        const { data, error } = await conTimeout(
+          ctx.service.functions.invoke(nombreEF, {
+            body: input,
+            headers: { Authorization: `Bearer ${serviceKey}` },
+          }),
+          TIMEOUT_INVOKE_MS,
+          nombreEF,
+        );
+        if (error) {
+          const status = (error as { context?: { status?: number } }).context?.status;
+          const e = new Error(`${nombreEF}: ${error.message}`) as Error & { status?: number };
+          if (typeof status === "number") e.status = status;
+          throw e;
+        }
+        const body = (data ?? {}) as RespuestaEF;
+        if (body.error) throw new Error(`${nombreEF}: ${body.error}`);
+        return body;
+      },
+      { organizationId: ctx.job.organization_id },
+    );
 
     const usage = res._usage ?? {};
     const modelo = usage.modelo ?? "claude-sonnet-5";

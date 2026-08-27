@@ -11,7 +11,11 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { noopHandler } from "./job-handlers/noop.ts";
 import { procesarDocumentoHandler } from "./job-handlers/procesar-documento.ts";
 import { handlerInvocaEF } from "./job-handlers/invocar-ef.ts";
+import { CircuitoAbiertoError } from "./circuit-breaker.ts";
+import { esReintentable } from "./retry.ts";
 import { notificarJobSiCorresponde } from "./job-notify.ts";
+
+const ESPERA_CIRCUITO_SEG = Number(Deno.env.get("CB_ABIERTO_SEGUNDOS") ?? "60") + 15;
 
 const licDeInput = (i: Record<string, unknown>) => ({
   tipo: "licitacion",
@@ -106,14 +110,10 @@ export interface StepResult {
 
 export type JobHandler = (ctx: JobContext) => Promise<StepResult>;
 
-/** Error que NO debe reintentarse (input inválido, recurso inexistente,
- * salida que no valida contra su esquema, etc.). */
-export class ErrorNoReintentable extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ErrorNoReintentable";
-  }
-}
+// La clasificación de errores y ErrorNoReintentable viven en retry.ts (E1),
+// compartidas por withRetry y por el worker. Se re-exportan para no romper
+// los imports existentes (noop.ts, procesar-documento.ts).
+export { ErrorNoReintentable, esReintentable } from "./retry.ts";
 
 export const HANDLERS: Record<string, JobHandler> = {
   noop: noopHandler,
@@ -155,35 +155,6 @@ export const HANDLERS: Record<string, JobHandler> = {
 // refDeInput queda para cuando procesar-referencia-legal se scope-e por organización.
 void refDeInput;
 
-/** Clasificación mínima de errores. El incremento E1 (ADR 0005) la
- * reemplaza por la versión completa con circuit breakers. */
-export function esReintentable(err: unknown): boolean {
-  if (err instanceof ErrorNoReintentable) return false;
-
-  const status =
-    (err as { status?: number })?.status ?? (err as { statusCode?: number })?.statusCode;
-  if (typeof status === "number") {
-    if ([400, 401, 403, 404, 405, 409, 422].includes(status)) return false;
-    if (status === 429 || status >= 500) return true;
-  }
-
-  const name = (err as Error)?.name ?? "";
-  if (["AbortError", "TimeoutError"].includes(name)) return true;
-
-  const msg = ((err as Error)?.message ?? "").toLowerCase();
-
-  // Errores de configuración/credenciales: no se arreglan reintentando.
-  if (/api.?key|credential|authentication method|missing credentials|x-api-key|unauthorized/.test(msg)) {
-    return false;
-  }
-  if (/timeout|econnreset|socket hang up|fetch failed|network|overloaded|rate.?limit/.test(msg)) {
-    return true;
-  }
-
-  // Por defecto reintentar: fallar_job respeta max_intentos, así que un
-  // error genuinamente permanente termina en FAILED igualmente.
-  return true;
-}
 
 const STEP_BUDGET_MS = Number(Deno.env.get("JOB_STEP_BUDGET_MS") ?? "90000");
 
@@ -289,6 +260,16 @@ export async function ejecutarUnJob(
     if (vacio) await notificarJobSiCorresponde(service, vacio);
     return { resultado: "RETRYING_OR_FAILED", detalle: "resultado vacío" };
   } catch (err) {
+    // Circuito abierto: no es culpa del job. Se re-encola con espera larga y
+    // sin consumir presupuesto de reintentos (ADR 0005).
+    if (err instanceof CircuitoAbiertoError) {
+      await service.rpc("reencolar_por_espera", {
+        p_job_id: job.id,
+        p_segundos: ESPERA_CIRCUITO_SEG,
+      });
+      return { resultado: "RETRYING_OR_FAILED", detalle: `circuito abierto: ${err.provider}` };
+    }
+
     const reintentable = esReintentable(err);
     const msg = err instanceof Error ? err.message : String(err);
     const { data } = await service.rpc("fallar_job", {

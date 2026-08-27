@@ -20,9 +20,15 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 | **D1** — esquema de trazabilidad IA | _(este commit)_ | `ai_results` append-only (nunca UPDATE de `resultado_json`; corrección = fila nueva con `reemplaza_a`), `prompt_templates` versionados (RLS: solo service_role), `ai_result_citations`. RPC `persistir_resultado_ia` (vía de escritura de los handlers de Fase B) + `aprobar_resultado_ia` (D5). Punteros `ai_result_id` en `analisis_bases`/`estudio_mercado`. | 15 integración |
 | **D2** — prompts a `prompt_templates` | _(este commit)_ | Seed de los prompts actuales como version 1 (`procesar-documento-extraccion`, `preguntar-rag`); el resto se siembra al migrar cada operación. `conGuardia()` se sigue aplicando encima. | (cubierto en D1) |
 | **D3** — historial + revisión | `763d920` | Backfill de `analisis_bases`/`estudio_mercado` → `ai_results` (`origen=backfill_p2`, `APROBADO`). `GET /api/licitaciones/[id]/ai-results` (todas las versiones + citas + versión activa). `POST /api/ai-results/[id]/revision` (APROBADO/RECHAZADO; el motivo de rechazo = flujo "reportar resultado incorrecto" D6, va a `actividad_log`). | 5 e2e |
-| **B2–B10** — resto de operaciones a jobs | _(este commit)_ | Wrapper `handlerInvocaEF`: cada operación de IA se ejecuta invocando su Edge Function existente en "modo job" (`authenticate({ permitirJob: true })` — service key + `job_id`; la EF conserva su lógica intacta). El worker orquesta estado/reintentos/idempotencia/notificación/conciliación de costo (C3) + trazabilidad `ai_results` (D3, tras `ai.versionado_resultados`). Rutas: `analizar-bases`, `estudio-mercado`, `junta/generar`, `propuesta-tecnica/generar`, `checklist-items/[itemId]/documento` (auditar-documento), `seguimiento/analizar-fallo`, `empresa-perfil/.../analizar` bifurcan por su flag → 202. **B7**: `auditar-todos` reemplaza el fan-out en serie por N jobs `auditar-documento` (prioridad de lote) + 1 `auditar-expediente`. **B8**: nueva Edge Function `analizar-fallo` (antes SDK directo en la ruta). `esReintentable` v2: errores de credencial/config no se reintentan. | 9 integración + 8 e2e |
+| **B2–B10** — resto de operaciones a jobs | `e24e269` | Wrapper `handlerInvocaEF`: cada operación de IA se ejecuta invocando su Edge Function existente en "modo job" (`authenticate({ permitirJob: true })` — service key + `job_id`; la EF conserva su lógica intacta). El worker orquesta estado/reintentos/idempotencia/notificación/conciliación de costo (C3) + trazabilidad `ai_results` (D3, tras `ai.versionado_resultados`). Rutas: `analizar-bases`, `estudio-mercado`, `junta/generar`, `propuesta-tecnica/generar`, `checklist-items/[itemId]/documento` (auditar-documento), `seguimiento/analizar-fallo`, `empresa-perfil/.../analizar` bifurcan por su flag → 202. **B7**: `auditar-todos` reemplaza el fan-out en serie por N jobs `auditar-documento` (prioridad de lote) + 1 `auditar-expediente`. **B8**: nueva Edge Function `analizar-fallo` (antes SDK directo en la ruta). | 9 integración + 8 e2e |
+| **E1** — retry v2 | _(este commit)_ | `_shared/retry.ts` reescrito: clasificación de errores (`esReintentable` — 4xx / credenciales no; 429/5xx/timeout sí), backoff exponencial con **jitter** + tope, respeta `Retry-After`, timeout por intento. `esReintentable`/`ErrorNoReintentable` movidos aquí (compartidos con el worker). | 18 unit |
+| **E2** — circuit breakers | _(este commit)_ | `provider_health` (anthropic/openai/resend) + máquina de estados CLOSED→OPEN→HALF_OPEN→CLOSED. RPCs `cb_estado`/`cb_registrar_exito`/`cb_registrar_fallo`/`reencolar_por_espera`. `_shared/circuit-breaker.ts` (`conBreaker`) integrado en `invocar-ef` (anthropic) y `procesar-documento` (anthropic + openai). Con el circuito OPEN el worker deja el job en RETRYING con espera larga y **sin consumir presupuesto de reintentos**. Flag `resiliencia.circuit_breaker`. | 16 integración |
+| **E3** — timeouts | _(este commit)_ | Timeout duro por invocación de Edge Function en `invocar-ef` (`Promise.race`); `withRetry` con `timeoutMs` por intento. | (en E1/E2) |
+| **E4** — health / readiness | _(este commit)_ | `GET /api/health` (liveness, sin auth ni DB); `GET /api/ready` (Postgres + Storage + estado de breakers → 200 / 503). | 2 e2e |
+| **E5** — monitoreo sintético | _(este commit)_ | `GET /api/cron/monitoreo` (Vercel Cron cada 10 min): DLQ, tasa de fallo de jobs 1h, jobs atascados sin arrancar, breakers abiertos → Sentry `captureMessage` (warning/error). | — |
+| **E6** — degradación en UI | _(este commit)_ | `GET /api/estado-ia` + hook `useEstadoIA` → los botones de IA se deshabilitan con aviso cuando un circuito está abierto (integrado en `analisis-ia-tab`; patrón para el resto). | 1 e2e |
 
-**Verificación acumulada:** `tsc` limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio (salvo el gap pre-existente `web_search_20260209` en generar-estudio-mercado, docs P0 §7) · 9 suites unit · 11 suites integración P2 (145 casos) · 45 e2e · tests P0/P1 sin regresión.
+**Verificación acumulada:** `tsc` limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio (salvo el gap pre-existente `web_search_20260209` en generar-estudio-mercado, docs P0 §7) · 10 suites unit (63 casos) · 12 suites integración P2 (161 casos) · 48 e2e · tests P0/P1 sin regresión.
 
 ## Migraciones nuevas (todas aditivas)
 
@@ -40,6 +46,7 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 20260828010000_p2_d1_ai_results
 20260828020000_p2_b_prompt_templates
 20260828021000_p2_b_job_tipo_noop_ef
+20260829000000_p2_e2_provider_health
 ```
 
 Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna toca datos existentes.
@@ -60,6 +67,6 @@ Fase A + B (jobs) y C + D (costo + trazabilidad) completas. Queda:
 
 - **B11** — retirar el modo síncrono de cada operación (subir su flag a 100%, esperar ~2 semanas estable, borrar el código sync). Solo tras despliegue autorizado.
 - **B follow-up** — para las operaciones que rebasen el wall-clock de Edge Functions (propuesta técnica, estudio de mercado con web_search), re-partir en steps como `procesar-documento` (riesgo R1). Medir primero.
-- **Fase E** (resiliencia: circuit breakers, `withRetry` v2 completo), **F** (rendimiento), **G3–G7** (CI/CD), **H** (retención/DR), **I** (operación), **J** (pruebas de aceptación).
+- **F** (rendimiento + presupuestos), **G3–G7** (CI/CD), **H** (retención/DR + prueba de restauración), **I** (operación: dashboards, runbooks, SLO), **J** (pruebas de aceptación bajo carga).
 
 Todos los flags `jobs.async_*` / `ai.*` siguen **OFF**. Activación gradual por organización tras despliegue autorizado a staging.

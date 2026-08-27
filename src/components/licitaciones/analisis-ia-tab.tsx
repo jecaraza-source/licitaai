@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Info, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useEstadoIA } from "@/hooks/use-estado-ia";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -114,6 +115,7 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
   const [documentos, setDocumentos] = useState<DocumentoProcesado[]>([]);
   const [documentoId, setDocumentoId] = useState(TODOS_LOS_DOCUMENTOS);
   const [analizando, setAnalizando] = useState(false);
+  const { iaDisponible } = useEstadoIA();
   const [stepIndex, setStepIndex] = useState(0);
   const [confirmandoSobreescritura, setConfirmandoSobreescritura] = useState(false);
   const stepInterval = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -265,7 +267,7 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
           </Select>
           <Button
             onClick={() => (analisis ? setConfirmandoSobreescritura(true) : handleAnalizar())}
-            disabled={analizando}
+            disabled={analizando || !iaDisponible}
           >
             <Sparkles />
             {analisis ? "Re-analizar" : "Analizar bases con IA"}
@@ -277,6 +279,12 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
           </Button>
         )}
       </div>
+
+      {!iaDisponible && (
+        <p className="-mt-4 text-xs text-destructive print:hidden">
+          El servicio de IA no está disponible en este momento. Vuelve a intentarlo en unos minutos.
+        </p>
+      )}
 
       {!analizando && analisis && (
         <p className="-mt-4 text-xs text-muted-foreground print:hidden">
