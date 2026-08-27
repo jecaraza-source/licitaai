@@ -35,6 +35,7 @@ Convertir eso en una plataforma operable: **jobs asíncronos** con estado/progre
 | 2 | Arquitectura objetivo | [02-arquitectura-objetivo.md](02-arquitectura-objetivo.md) |
 | 3 | ADRs de decisiones principales | [adr/](adr/) |
 | 4–15 | Sistema de jobs, costos IA, versionado, dashboard, cargas, retención, respaldo, restauración, runbooks, SLO, pipeline | Se implementan por incremento (ver #16) |
+| 15 | Pipeline mejorado (CI/CD) | [09-entrega-continua.md](09-entrega-continua.md) |
 | 16 | Plan de despliegue gradual / incrementos | [03-plan-incremental.md](03-plan-incremental.md) |
 | 17 | Plan de rollback | [03-plan-incremental.md](03-plan-incremental.md) (por incremento) + [04-rollback-y-dr.md](04-rollback-y-dr.md) |
 | 18 | Estimación mensual de infraestructura | [05-costos-y-limites.md](05-costos-y-limites.md) |

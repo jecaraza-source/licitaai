@@ -1,0 +1,57 @@
+name: Deploy · staging
+
+on:
+  push:
+    branches: [staging]
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
+      STAGING_REF: ${{ secrets.STAGING_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - run: npm ci
+
+      - name: Verificaciones rápidas
+        run: npm run check
+
+      - name: Verificar migraciones contra una base limpia
+        run: |
+          supabase start -x imgproxy,vector,edge-runtime,realtime,storage,studio
+          supabase db reset --no-seed
+          supabase stop --no-backup
+
+      - name: Aplicar migraciones a staging
+        run: |
+          supabase link --project-ref "$STAGING_REF"
+          supabase db push
+
+      - name: Desplegar Edge Functions a staging
+        run: supabase functions deploy --project-ref "$STAGING_REF"
+
+      - name: Desplegar app a Vercel (staging)
+        run: |
+          npm i -g vercel
+          vercel pull --yes --environment=preview --token="${{ secrets.VERCEL_TOKEN }}"
+          vercel build --token="${{ secrets.VERCEL_TOKEN }}"
+          URL=$(vercel deploy --prebuilt --token="${{ secrets.VERCEL_TOKEN }}")
+          vercel alias set "$URL" "${{ vars.STAGING_ALIAS }}" --token="${{ secrets.VERCEL_TOKEN }}" || true
+          echo "DEPLOY_URL=https://${{ vars.STAGING_ALIAS }}" >> "$GITHUB_ENV"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Smoke test
+        run: node scripts/smoke.mjs "$DEPLOY_URL"

@@ -26,9 +26,10 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 | **E3** — timeouts | _(este commit)_ | Timeout duro por invocación de Edge Function en `invocar-ef` (`Promise.race`); `withRetry` con `timeoutMs` por intento. | (en E1/E2) |
 | **E4** — health / readiness | _(este commit)_ | `GET /api/health` (liveness, sin auth ni DB); `GET /api/ready` (Postgres + Storage + estado de breakers → 200 / 503). | 2 e2e |
 | **E5** — monitoreo sintético | _(este commit)_ | `GET /api/cron/monitoreo` (Vercel Cron cada 10 min): DLQ, tasa de fallo de jobs 1h, jobs atascados sin arrancar, breakers abiertos → Sentry `captureMessage` (warning/error). | — |
-| **E6** — degradación en UI | _(este commit)_ | `GET /api/estado-ia` + hook `useEstadoIA` → los botones de IA se deshabilitan con aviso cuando un circuito está abierto (integrado en `analisis-ia-tab`; patrón para el resto). | 1 e2e |
+| **E6** — degradación en UI | `c1906ae` | `GET /api/estado-ia` + hook `useEstadoIA` → los botones de IA se deshabilitan con aviso cuando un circuito está abierto (integrado en `analisis-ia-tab`; patrón para el resto). | 1 e2e |
+| **G3–G7** — CI/CD | _(este commit)_ | `ci.yml` reescrito (typecheck, lint, **lint:migrations**, `npm audit`, build, deno check, unit, integración + e2e contra Supabase local, gitleaks); `codeql.yml`; `staging.yml` / `production.yml` (respaldo previo con `db dump`, verificación de migraciones contra base limpia, aprobación manual vía Environment, smoke, tag+release). `scripts/lint-migraciones.mjs` (G7: bloquea DROP/TRUNCATE/ALTER TYPE sin marca `-- safe:`/`-- expand-contract:`), `scripts/smoke.mjs`, `scripts/test-runner.mjs`. `CODEOWNERS`, `dependabot.yml`, plantilla de PR, `CHANGELOG.md`. `package.json`: `check`, `typecheck`, `test:*`, `lint:migrations`. | — (scripts verificados en local; workflows validados sintácticamente) |
 
-**Verificación acumulada:** `tsc` limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio (salvo el gap pre-existente `web_search_20260209` en generar-estudio-mercado, docs P0 §7) · 10 suites unit (63 casos) · 12 suites integración P2 (161 casos) · 48 e2e · tests P0/P1 sin regresión.
+**Verificación acumulada:** `npm run check` (typecheck + lint + lint:migrations) limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio (salvo el gap pre-existente `web_search_20260209`, docs P0 §7) · 10 suites unit (63 casos) · 12 suites integración P2 (161 casos) · 48 e2e · tests P0/P1 sin regresión.
 
 ## Migraciones nuevas (todas aditivas)
 
@@ -67,6 +68,7 @@ Fase A + B (jobs) y C + D (costo + trazabilidad) completas. Queda:
 
 - **B11** — retirar el modo síncrono de cada operación (subir su flag a 100%, esperar ~2 semanas estable, borrar el código sync). Solo tras despliegue autorizado.
 - **B follow-up** — para las operaciones que rebasen el wall-clock de Edge Functions (propuesta técnica, estudio de mercado con web_search), re-partir en steps como `procesar-documento` (riesgo R1). Medir primero.
-- **F** (rendimiento + presupuestos), **G3–G7** (CI/CD), **H** (retención/DR + prueba de restauración), **I** (operación: dashboards, runbooks, SLO), **J** (pruebas de aceptación bajo carga).
+- **F** (rendimiento + presupuestos), **H** (retención/DR + prueba de restauración), **I** (operación: dashboards, runbooks, SLO), **J** (pruebas de aceptación bajo carga).
+- **G2** (pendiente de autorización): crear proyecto Supabase de staging, cargar secrets/vars de GitHub, activar branch protection + Environment `production` con required reviewers. Los workflows ya referencian esos nombres.
 
 Todos los flags `jobs.async_*` / `ai.*` siguen **OFF**. Activación gradual por organización tras despliegue autorizado a staging.

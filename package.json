@@ -6,7 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "lint:migrations": "node scripts/lint-migraciones.mjs",
+    "test:unit": "node scripts/test-runner.mjs tests/unit",
+    "test:integration": "node scripts/test-runner.mjs tests/integration",
+    "test:e2e": "playwright test",
+    "deno:check": "cd supabase/functions && deno check $(git ls-files '*.ts')",
+    "check": "npm run typecheck && npm run lint && npm run lint:migrations"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

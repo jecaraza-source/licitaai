@@ -7,6 +7,7 @@
 -- la que se muestra en el encabezado y la que se usa al generar propuestas,
 -- auditorías y documentos exportados.
 
+-- safe: se pasa de 1:1 a 1:N por organización; el índice único ya no aplica
 alter table public.empresa_perfil drop constraint empresa_perfil_organization_id_key;
 create index empresa_perfil_organization_id_idx on public.empresa_perfil (organization_id);
 

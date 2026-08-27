@@ -1,0 +1,24 @@
+# Revisión obligatoria por área (ADR 0009). Configurar "Require review from
+# Code Owners" en la branch protection de `main` y `staging`.
+
+# Por defecto — cualquier cambio necesita una revisión.
+*                                   @jecaraza
+
+# Seguridad / autorización — cambios aquí requieren atención extra.
+/supabase/migrations/               @jecaraza
+/supabase/functions/_shared/auth.ts @jecaraza
+/src/lib/api/                       @jecaraza
+/src/lib/supabase/                  @jecaraza
+/src/proxy.ts                       @jecaraza
+
+# Infra / despliegue.
+/.github/workflows/                 @jecaraza
+/supabase/config.toml              @jecaraza
+/vercel.json                        @jecaraza
+
+# Sistema de jobs y gobierno de costo (P2).
+/supabase/functions/job-worker/    @jecaraza
+/supabase/functions/_shared/job-runner.ts       @jecaraza
+/supabase/functions/_shared/circuit-breaker.ts  @jecaraza
+/src/lib/jobs.ts                    @jecaraza
+/src/lib/ai-estimate.ts            @jecaraza

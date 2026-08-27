@@ -1,0 +1,31 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      # Agrupa parches/minors no relacionados en un solo PR para reducir ruido.
+      dev-minor-patch:
+        dependency-type: development
+        update-types: [minor, patch]
+      prod-patch:
+        dependency-type: production
+        update-types: [patch]
+    # Mayores se abren individualmente para revisar breaking changes
+    # (especialmente Next.js — ver AGENTS.md).
+    ignore:
+      - dependency-name: "next"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directory: "/supabase"
+    schedule:
+      interval: monthly

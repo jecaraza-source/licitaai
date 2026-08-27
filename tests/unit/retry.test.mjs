@@ -68,9 +68,8 @@ check("error genérico se reintenta por defecto", esReintentable(new Error("algo
 // --- withRetry: backoff con jitter está en el rango esperado ---
 {
   const inicio = Date.now();
-  let llamadas = 0;
   try {
-    await withRetry(async () => { llamadas++; throw { status: 500 }; }, { attempts: 2, baseDelayMs: 100 });
+    await withRetry(async () => { throw { status: 500 }; }, { attempts: 2, baseDelayMs: 100 });
   } catch { /* esperado */ }
   const transcurrido = Date.now() - inicio;
   // 1 reintento: backoff = 100 * 2^0 * [0.5,1) = [50,100)ms
