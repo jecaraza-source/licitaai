@@ -44,13 +44,16 @@ jobs:
 
       - name: Desplegar app a Vercel (staging)
         run: |
-          npm i -g vercel
-          vercel pull --yes --environment=preview --token="${{ secrets.VERCEL_TOKEN }}"
-          vercel build --token="${{ secrets.VERCEL_TOKEN }}"
-          URL=$(vercel deploy --prebuilt --token="${{ secrets.VERCEL_TOKEN }}")
-          vercel alias set "$URL" "${{ vars.STAGING_ALIAS }}" --token="${{ secrets.VERCEL_TOKEN }}" || true
-          echo "DEPLOY_URL=https://${{ vars.STAGING_ALIAS }}" >> "$GITHUB_ENV"
+          npm i -g vercel@latest
+          # --git-branch=staging trae las env vars scoped a la rama staging
+          # (Supabase de staging), no las de preview genéricas.
+          vercel pull --yes --environment=preview --git-branch=staging --token="$VERCEL_TOKEN"
+          vercel build --token="$VERCEL_TOKEN"
+          URL=$(vercel deploy --prebuilt --archive=tgz --token="$VERCEL_TOKEN")
+          vercel alias set "$URL" "${{ vars.STAGING_ALIAS }}" --token="$VERCEL_TOKEN" || true
+          echo "DEPLOY_URL=$URL" >> "$GITHUB_ENV"
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
