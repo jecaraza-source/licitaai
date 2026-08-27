@@ -2,51 +2,26 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import { ApiError } from "@/lib/api";
 import type { ApiContext } from "@/lib/api";
 import type { JobTipo } from "@/lib/validations/jobs";
+import type { Job } from "@/types";
 
 // P2 · A4 — helper de servidor para crear/leer jobs. Lo usan la ruta
 // /api/jobs y, en Fase B, las rutas de dominio cuando su flag async está
-// activo.
+// activo. La forma pública `Job` vive en @/types (sin dependencias de
+// servidor) para poder usarse también en el cliente (<JobStatus>).
 
-/** Campos públicos de un job (los que expone la API). Nunca `input_json`,
- * `error_interno_ref`, `worker_id` ni `reserva_id`. */
-export interface JobPublico {
-  id: string;
-  tipo: string;
-  recurso_tipo: string | null;
-  recurso_id: string | null;
-  estado: string;
-  prioridad: number;
-  progreso: number;
-  progreso_detalle: string | null;
-  step_actual: string | null;
-  intentos: number;
-  max_intentos: number;
-  provider: string | null;
-  modelo: string | null;
-  tokens_input: number | null;
-  tokens_output: number | null;
-  costo_real_usd: number | null;
-  result_ref: unknown;
-  error_seguro: string | null;
-  reused_from: string | null;
-  created_at: string;
-  authorized_at: string | null;
-  started_at: string | null;
-  finished_at: string | null;
-  expires_at: string;
-}
-
-const CAMPOS_PUBLICOS: (keyof JobPublico)[] = [
+const CAMPOS_PUBLICOS: (keyof Job)[] = [
   "id", "tipo", "recurso_tipo", "recurso_id", "estado", "prioridad", "progreso",
   "progreso_detalle", "step_actual", "intentos", "max_intentos", "provider", "modelo",
   "tokens_input", "tokens_output", "costo_real_usd", "result_ref", "error_seguro",
   "reused_from", "created_at", "authorized_at", "started_at", "finished_at", "expires_at",
 ];
 
-export function proyectarJobPublico(row: Record<string, unknown>): JobPublico {
+/** Proyecta una fila cruda de `jobs` a la forma pública (omite input_json,
+ * error_interno_ref, worker_id, reserva_id, lease, next_attempt_at, etc.). */
+export function proyectarJobPublico(row: Record<string, unknown>): Job {
   const salida = {} as Record<string, unknown>;
   for (const campo of CAMPOS_PUBLICOS) salida[campo] = row[campo] ?? null;
-  return salida as unknown as JobPublico;
+  return salida as unknown as Job;
 }
 
 /** Traduce el error de una función de Postgres de jobs a una ApiError
@@ -86,7 +61,7 @@ export interface CrearJobParams {
 export async function crearJob(
   ctx: ApiContext,
   params: CrearJobParams,
-): Promise<{ job: JobPublico; nuevo: boolean }> {
+): Promise<{ job: Job; nuevo: boolean }> {
   // Pre-check de idempotencia (RLS lo acota a la propia organización) para
   // poder responder 200 vs 201. Si dos requests idénticas corren a la vez y
   // ambas pasan este check, el índice único hace que el segundo crear_job
