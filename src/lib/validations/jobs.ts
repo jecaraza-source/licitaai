@@ -18,6 +18,7 @@ export const JOB_TIPOS = [
   "analizar-documento-corporativo",
   "procesar-referencia-legal",
   "exportar-organizacion",
+  "borrar-organizacion",
 ] as const;
 export type JobTipo = (typeof JOB_TIPOS)[number];
 

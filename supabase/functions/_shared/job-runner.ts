@@ -11,6 +11,7 @@ import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { noopHandler } from "./job-handlers/noop.ts";
 import { procesarDocumentoHandler } from "./job-handlers/procesar-documento.ts";
 import { exportarOrganizacionHandler } from "./job-handlers/exportar-organizacion.ts";
+import { borrarOrganizacionHandler } from "./job-handlers/borrar-organizacion.ts";
 import { handlerInvocaEF } from "./job-handlers/invocar-ef.ts";
 import { CircuitoAbiertoError } from "./circuit-breaker.ts";
 import { esReintentable } from "./retry.ts";
@@ -124,6 +125,7 @@ export const HANDLERS: Record<string, JobHandler> = {
   }), // prueba del wrapper invocar-ef
   "procesar-documento": procesarDocumentoHandler, // B1 (multi-step propio)
   "exportar-organizacion": exportarOrganizacionHandler, // H4 (multi-step propio, sin IA)
+  "borrar-organizacion": borrarOrganizacionHandler, // H5 (multi-step orquestado, sin IA)
 
   // B2–B10: envuelven la Edge Function de dominio (que conserva su lógica).
   "analizar-bases": handlerInvocaEF("analizar-bases", {

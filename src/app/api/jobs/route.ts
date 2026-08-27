@@ -16,7 +16,7 @@ export const POST = apiRoute(
   async ({ ctx, body }) => {
     // Operaciones sobre la organización entera (export / borrado) tienen su
     // propia ruta con control de rol ADMIN — no se encolan por aquí.
-    if (body.tipo === "exportar-organizacion") {
+    if (body.tipo === "exportar-organizacion" || body.tipo === "borrar-organizacion") {
       throw ApiError.forbidden("Usa el endpoint específico de la organización para esta operación");
     }
 

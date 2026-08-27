@@ -12,8 +12,9 @@
 // (y es lo que el job `borrar-organizacion` encadena en audit_log, H5).
 
 import { ErrorNoReintentable, type JobContext, type StepResult } from "../job-runner.ts";
+import { listarPrefijo } from "../storage-prefijo.ts";
 
-const BUCKETS_ORG = [
+export const BUCKETS_ORG = [
   "documentos-originales",
   "propuestas-generadas",
   "documentos-requeridos",
@@ -25,31 +26,6 @@ const TTL_URL_SEG = 72 * 3600;
 async function sha256Hex(texto: string): Promise<string> {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto));
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-/** Lista recursivamente los objetos bajo `{org}/` en un bucket. */
-async function listarPrefijo(
-  ctx: JobContext,
-  bucket: string,
-  prefijo: string,
-): Promise<string[]> {
-  const salida: string[] = [];
-  const pendientes = [prefijo];
-  while (pendientes.length > 0) {
-    const dir = pendientes.pop()!;
-    const { data, error } = await ctx.service.storage.from(bucket).list(dir, { limit: 1000 });
-    if (error) {
-      // bucket inexistente o vacío para esta org: no es fatal
-      console.warn(`[exportar-organizacion] list ${bucket}/${dir}: ${error.message}`);
-      continue;
-    }
-    for (const entry of data ?? []) {
-      const ruta = dir ? `${dir}/${entry.name}` : entry.name;
-      if (entry.id === null) pendientes.push(ruta); // carpeta
-      else salida.push(ruta);
-    }
-  }
-  return salida;
 }
 
 export async function exportarOrganizacionHandler(ctx: JobContext): Promise<StepResult> {
@@ -66,7 +42,7 @@ export async function exportarOrganizacionHandler(ctx: JobContext): Promise<Step
   const storage: Record<string, string[]> = {};
   let totalArchivos = 0;
   for (const bucket of BUCKETS_ORG) {
-    const objetos = await listarPrefijo(ctx, bucket, org);
+    const objetos = await listarPrefijo(ctx.service, bucket, org);
     if (objetos.length > 0) {
       storage[bucket] = objetos;
       totalArchivos += objetos.length;

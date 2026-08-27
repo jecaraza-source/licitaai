@@ -37,9 +37,10 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 
 | **H1–H2** — clasificación de datos + retención | _(este commit)_ | `docs/p2/13-clasificacion-datos.md` (8 clases de dato; etiqueta por tabla, bucket y sistema externo; qué pasa con cada una al borrar usuario/organización). Migración: `data_retention_policy` (1 fila por recurso, `activo`/`dry_run`, **todo arranca apagado y en dry-run**), `retencion_archive` (archivo frío jsonb append-only, inmutable como `audit_log`), `ejecutar_limpieza_retencion(p_forzar_dry_run)` (service_role; archiva→borra; nunca lanza; registra `ultimo_resultado` por recurso). 7 recursos: `rate_limit_hits` (7 d), `ai_usage_log`/`ai_budget_ledger` (13 m → archivo), `jobs` terminales (90 d → archivo), `jobs_dead_letter` (180 d), `actividad_log` (24 m), embeddings de licitaciones CERRADAS (12 m). `GET /api/cron/retencion` (Vercel Cron diario): con el flag `retencion.limpieza_automatica` OFF corre en modo observación (fuerza dry-run global). | 19 integración |
 | **H3** — auditoría inmutable | (entregado en I6, `3447a0f`) | `audit_log` encadenado por hash + `registrar_auditoria` / `verificar_cadena_auditoria`. |
-| **H4** — export de organización | _(este commit)_ | Job `exportar-organizacion` (handler propio, sin IA). `exportar_datos_organizacion(org)` → bundle jsonb con ~30 tablas de dominio (sin embeddings ni catálogos globales); `service_role`. El handler sube `export.json` + `manifiesto.json` (con `sha256` del export y el inventario de Storage por bucket) al bucket **privado** `exportaciones/{org}/{job_id}/` y devuelve una **URL firmada de 72 h**. `POST/GET /api/organizacion/exportar` (ADMIN, flag `datos.export_organizacion`, idempotente por ventana de 10 min). `/api/jobs` rechaza este tipo (ruta dedicada). | 16 integración + 1 e2e |
+| **H4** — export de organización | `5a27c4e` | Job `exportar-organizacion` (handler propio, sin IA). `exportar_datos_organizacion(org)` → bundle jsonb con ~30 tablas de dominio (sin embeddings ni catálogos globales); `service_role`. El handler sube `export.json` + `manifiesto.json` (con `sha256` del export y el inventario de Storage por bucket) al bucket **privado** `exportaciones/{org}/{job_id}/` y devuelve una **URL firmada de 72 h**. `POST/GET /api/organizacion/exportar` (ADMIN, flag `datos.export_organizacion`, idempotente por ventana de 10 min). `/api/jobs` rechaza este tipo (ruta dedicada). | 16 integración + 1 e2e |
+| **H5** — borrado de organización orquestado | _(este commit)_ | `deletion_requests` + ventana de gracia de 7 días. `solicitar_borrado_organizacion(nombre_exacto)` (ADMIN; confirmación = nombre de la org; encola el export) · `cancelar_borrado_organizacion()` (revierte en la gracia) · `promover_borrados_vencidos()` / `finalizar_borrados_completados()` (cron `/api/cron/borrados` diario). Job **multi-step** `borrar-organizacion`: preparar (manifiesto) → revocar (sesiones + refresh tokens) → storage (borra `{org}/` en los 5 buckets) → purgar (cancela jobs en vuelo; **sella** `audit_log` + `retencion_archive` con el `sha256` del manifiesto; borra `auth.users`). El `DELETE FROM organizations` (cascade) lo hace el cron, **fuera del job** (borraría su propia fila). `ON DELETE CASCADE` es el último paso, no el plan. H5 quita las FK `audit_log.organization_id`/`actor_id` (una bitácora inmutable no puede perder el id original; `verificar_cadena_auditoria(org)` sigue válido tras el borrado). Rutas `POST/GET /api/organizacion/borrar` + `/cancelar` (ADMIN, flag `datos.borrado_organizacion`). Runbook `runbooks/borrar-organizacion.md`. | 26 integración + 1 e2e |
 
-**Verificación acumulada:** `npm run check` (typecheck + lint + lint:migrations) limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio (salvo el gap pre-existente `web_search_20260209`, docs P0 §7) · 10 suites unit (63 casos) · 14 suites integración P2 (215 casos) · 51 e2e · tests P0/P1 sin regresión.
+**Verificación acumulada:** `npm run check` (typecheck + lint + lint:migrations) limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio (salvo el gap pre-existente `web_search_20260209`, docs P0 §7) · 10 suites unit (63 casos) · 17 suites integración P2 (276 casos) · 54 e2e · tests P0/P1 sin regresión.
 
 ## Migraciones nuevas (todas aditivas)
 
@@ -64,13 +65,14 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 20260901000000_p2_i6_producto
 20260902000000_p2_h2_retencion
 20260903000000_p2_h4_exportar
+20260904000000_p2_h5_borrado
 ```
 
-Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna toca datos existentes.
+Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna toca datos existentes (H5 quita dos FK de `audit_log`, marcadas `-- safe:` — no pierde datos).
 
 ## Estado de los flags (todos OFF)
 
-`jobs.api` · `jobs.async_*` (10) · `ai.gobierno_costo` · `ai.cache` · `ai.versionado_resultados` · `resiliencia.circuit_breaker` · `perf.virtualizar_tablas` · `retencion.limpieza_automatica`
+`jobs.api` · `jobs.async_*` (10) · `ai.gobierno_costo` · `ai.cache` · `ai.versionado_resultados` · `resiliencia.circuit_breaker` · `perf.virtualizar_tablas` · `retencion.limpieza_automatica` · `datos.export_organizacion` · `datos.borrado_organizacion`
 
 ## Notas de entorno
 

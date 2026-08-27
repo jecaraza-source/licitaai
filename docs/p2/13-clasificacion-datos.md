@@ -38,8 +38,8 @@ orquestado (H5). Complementa el [ADR 0010](adr/0010-retencion-borrado-dr.md).
 | `jobs_dead_letter` | O | organización | 180 días → archivo | cascade |
 | `invitaciones_staff` | P | organización | 30 días tras aceptar/expirar | cascade |
 | `signup_tickets` | O | organización | hasta consumo o 7 días | cascade |
-| `audit_log` | L | organización (nullable) | 24 meses mínimo, inmutable | `organization_id → NULL`, se conserva |
-| `retencion_archive` | F / O | nullable | 24 meses, inmutable | se conserva (evidencia del borrado) |
+| `audit_log` | L | organización (histórica) | 24 meses mínimo, inmutable | se conserva con el `organization_id` histórico (H5 quitó la FK: una bitácora a prueba de manipulación no puede perder el id original; la cadena por hash sigue verificable con `verificar_cadena_auditoria(org)`) |
+| `retencion_archive` | F / O | nullable | 24 meses, inmutable | se conserva; la fila `deletion_manifest` (manifiesto + `manifiesto_sha256`) es la evidencia durable del borrado |
 | `rate_limit_hits` | LO | usuario | 7 días | cascade |
 | `feature_flags`, `prompt_templates`, `ai_model_pricing`, `estados_config`, `checklist_templates`, `provider_health`, `app_settings`, `referencias_legales`, `referencia_legal_*` | G | plataforma | indefinida | intactas |
 
@@ -71,7 +71,33 @@ orquestado (H5). Complementa el [ADR 0010](adr/0010-retencion-borrado-dr.md).
 | **Proveedores de IA (Anthropic / OpenAI)** | prompts + respuestas en tránsito | usar API con retención cero / no-entrenamiento; si un proveedor no lo garantiza, documentarlo en el DPA y en `06-riesgos-residuales.md` |
 | **Resend (correo)** | direcciones y asuntos de notificaciones | retención del proveedor; se solicita purga vía su API/soporte en el borrado |
 
-## 6. Principios operativos
+## 6. Borrado de organización — flujo implementado (H5)
+
+`deletion_requests` + jobs `exportar-organizacion` y `borrar-organizacion`
+(ADR 0010). Runbook: [`runbooks/borrar-organizacion.md`](runbooks/borrar-organizacion.md).
+
+```
+solicitar_borrado_organizacion(nombre_exacto)   [ADMIN, confirmación = nombre de la org]
+  → deletion_requests PROGRAMADA, programada_para = now() + 7 días
+  → encola job exportar-organizacion
+[ventana de gracia 7 d — cancelar_borrado_organizacion() revierte]
+cron /api/cron/borrados (diario):
+  promover_borrados_vencidos()    → si vencida y el export COMPLETED:
+                                     EN_PROCESO + encola job borrar-organizacion
+  job borrar-organizacion (steps): preparar (manifiesto) → revocar (sesiones +
+    refresh tokens) → storage (borra {org}/ en los 5 buckets) → purgar (cancela
+    jobs en vuelo; sella audit_log + retencion_archive con sha256 del
+    manifiesto; borra auth.users → cascade a public.users)
+  finalizar_borrados_completados() → DELETE de organizations (cascade al
+                                     dominio). Fuera del job: el cascade
+                                     borraría la propia fila `jobs`.
+```
+
+Reversible hasta que `programada_para` vence y el job arranca. La evidencia
+(hash del manifiesto) queda en `audit_log` (`organizacion_borrada`) y en
+`retencion_archive` (`deletion_manifest`), ambos inmutables.
+
+## 7. Principios operativos
 
 1. **Nada de PII de negocio en `console.*` ni en Sentry** salvo identificadores opacos (`organization_id`, `request_id`, `job_id`).
 2. **El borrado de organización siempre exporta primero** y deja rastro en `audit_log` + `retencion_archive` (hash del manifiesto).
