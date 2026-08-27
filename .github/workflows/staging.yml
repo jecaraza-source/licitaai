@@ -59,3 +59,5 @@ jobs:
 
       - name: Smoke test
         run: node scripts/smoke.mjs "$DEPLOY_URL"
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
