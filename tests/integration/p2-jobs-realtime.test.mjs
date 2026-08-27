@@ -76,6 +76,7 @@ async function main() {
     await sleep(800);
 
     await admin.rpc("progreso_job", { p_job_id: jobRow.id, p_progreso: 45, p_detalle: "a mitad" });
+    await sleep(600); // dejar propagar el primer evento antes del siguiente UPDATE
     await admin.rpc("completar_job", { p_job_id: jobRow.id, p_result_ref: { ok: true } });
 
     await sleep(2500);

@@ -13,8 +13,9 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 | **A4** — API de jobs | `c76c53d` | `POST /api/jobs` (flag `jobs.api`), `GET /api/jobs`, `GET /api/jobs/:id`, `POST /api/jobs/:id/cancel`. `src/lib/jobs.ts` (`crearJob`, `proyectarJobPublico`, `mapearErrorRpcJob`). | 9 e2e |
 | **A5** — Realtime + UI | `8a52dc0` | `jobs` en publicación Realtime. `src/hooks/use-job.ts` (polling con backoff + Realtime). `<JobStatus>`. Tipo `Job` en `@/types`. | 5 integración |
 | **A6** — Notificación | `5f319b3` | `jobs.notificado_at` + `marcar_job_notificado` (guard atómico). `_shared/job-notify.ts` (Resend REST, > 60s, idempotente). | 7 integración |
+| **B1** — procesar-documento vía jobs | _(este commit)_ | Handler multi-step `_shared/job-handlers/procesar-documento.ts` (extraer → chunk → embeddings lote a lote → finalizar; idempotente; `MOCK_AI` sin keys). Ruta `licitaciones/[id]/procesar-documento` bifurca por flag `jobs.async_procesar_documento` (202 + job_id / sync). `registrar_uso_ia_worker` (service_role). Frontend sin cambios (fire-and-forget + Realtime de `documentos`). | 11 integración + 3 e2e |
 
-**Verificación acumulada:** `tsc` limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio · 9 suites unit · 6 suites integración P2 (73 casos) · 19 e2e (10 P1 + 9 P2) · 76 tests de integración P0 y 145 P0/P1 sin regresión.
+**Verificación acumulada:** `tsc` limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio · 9 suites unit · 7 suites integración P2 (84 casos) · 32 e2e · tests P0/P1 sin regresión.
 
 ## Migraciones nuevas (todas aditivas)
 
@@ -26,6 +27,7 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 20260827004000_p2_jobs_api_flag
 20260827005000_p2_jobs_realtime
 20260827006000_p2_jobs_notificacion
+20260827007000_p2_b1_uso_ia_worker
 ```
 
 Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna toca datos existentes.
@@ -42,6 +44,4 @@ Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna t
 
 ## Siguiente
 
-**Fase B** — migrar las operaciones reales al sistema de jobs, una por una, cada una tras su flag `jobs.async_<tipo>`. Empezar por **B1 (`procesar-documento`)** como piloto del modelo multi-step. Ver [03-plan-incremental.md](03-plan-incremental.md) §B.
-
-Antes de Fase B conviene decidir: **C1–C3 (gobierno de costo mínimo)** y **D1–D3 (versionado)** deberían existir antes de mover volumen real de IA — el plan recomienda G1→A→piloto B1→C1-C3→D1-D3→resto de B.
+Con B1 (piloto) validado, sigue **C1–C3 (gobierno de costo mínimo)** y **D1–D3 (versionado de resultados IA)** antes de migrar el resto de operaciones (B2–B11). Orden acordado: G1→A→**B1**→C1-C3→D1-D3→resto de B.

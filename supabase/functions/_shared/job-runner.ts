@@ -9,6 +9,7 @@
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { noopHandler } from "./job-handlers/noop.ts";
+import { procesarDocumentoHandler } from "./job-handlers/procesar-documento.ts";
 import { notificarJobSiCorresponde } from "./job-notify.ts";
 
 export interface JobRow {
@@ -67,10 +68,10 @@ export class ErrorNoReintentable extends Error {
 
 export const HANDLERS: Record<string, JobHandler> = {
   noop: noopHandler,
-  // Fase B registra aquí: "procesar-documento", "analizar-bases",
-  // "generar-estudio-mercado", "generar-preguntas-junta",
-  // "generar-propuesta-tecnica", "auditar-documento",
-  // "auditar-expediente", "seguimiento-analizar-fallo",
+  "procesar-documento": procesarDocumentoHandler, // B1
+  // Fase B registra el resto: "analizar-bases", "generar-estudio-mercado",
+  // "generar-preguntas-junta", "generar-propuesta-tecnica",
+  // "auditar-documento", "auditar-expediente", "seguimiento-analizar-fallo",
   // "analizar-documento-corporativo", "procesar-referencia-legal".
 };
 
