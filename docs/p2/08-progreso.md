@@ -35,6 +35,9 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 
 | **I6–I8** — preparación de producto | _(este commit)_ | `audit_log` **inmutable encadenado por hash** (`registrar_auditoria` / `verificar_cadena_auditoria`; triggers anti UPDATE/DELETE) cableado en envío de licitación, revisión de resultado IA y aceptación de términos. Consentimiento de términos (`users.terminos_*`, `/terminos` + gate, `POST /api/terminos/aceptar`). Planes comerciales (`organizations.plan` + `aplicar_plan_a_org` → `ai_org_policy`). Página de estado pública `/estado` + `GET /api/estado`. `metricas_valor()` + `/api/organizacion/metricas-valor` + `<MetricasValorCard>` (tasa de aceptación humana, coste por expediente, requisitos detectados…). `GET /api/organizacion/actividad` (historial + bitácora). `<AvisoRevisionIA>`. `organizations.jurisdiccion`. Roles configurables y versionado de formatos legales: diseñados como follow-up (`12-producto.md`). | 14 integración + 4 e2e |
 
+| **H1–H2** — clasificación de datos + retención | _(este commit)_ | `docs/p2/13-clasificacion-datos.md` (8 clases de dato; etiqueta por tabla, bucket y sistema externo; qué pasa con cada una al borrar usuario/organización). Migración: `data_retention_policy` (1 fila por recurso, `activo`/`dry_run`, **todo arranca apagado y en dry-run**), `retencion_archive` (archivo frío jsonb append-only, inmutable como `audit_log`), `ejecutar_limpieza_retencion(p_forzar_dry_run)` (service_role; archiva→borra; nunca lanza; registra `ultimo_resultado` por recurso). 7 recursos: `rate_limit_hits` (7 d), `ai_usage_log`/`ai_budget_ledger` (13 m → archivo), `jobs` terminales (90 d → archivo), `jobs_dead_letter` (180 d), `actividad_log` (24 m), embeddings de licitaciones CERRADAS (12 m). `GET /api/cron/retencion` (Vercel Cron diario): con el flag `retencion.limpieza_automatica` OFF corre en modo observación (fuerza dry-run global). | 19 integración |
+| **H3** — auditoría inmutable | (entregado en I6, `3447a0f`) | `audit_log` encadenado por hash + `registrar_auditoria` / `verificar_cadena_auditoria`. |
+
 **Verificación acumulada:** `npm run check` (typecheck + lint + lint:migrations) limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio (salvo el gap pre-existente `web_search_20260209`, docs P0 §7) · 10 suites unit (63 casos) · 14 suites integración P2 (215 casos) · 51 e2e · tests P0/P1 sin regresión.
 
 ## Migraciones nuevas (todas aditivas)
@@ -58,6 +61,7 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 20260830001000_p2_fix_grants_service_role
 20260831000000_p2_f_rendimiento
 20260901000000_p2_i6_producto
+20260902000000_p2_h2_retencion
 ```
 
 Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna toca datos existentes.
