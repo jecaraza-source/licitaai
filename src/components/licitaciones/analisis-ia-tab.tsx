@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { AvisoRevisionIA } from "@/components/aviso-revision-ia";
 import type { AnalisisBases, FechasAnalisis, NivelConfianza } from "@/types";
 
 const TODOS_LOS_DOCUMENTOS = "__todos__";
@@ -287,9 +288,12 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
       )}
 
       {!analizando && analisis && (
-        <p className="-mt-4 text-xs text-muted-foreground print:hidden">
-          Basado en: {documentoAnalizado ? documentoAnalizado.nombre : "todos los documentos"}
-        </p>
+        <>
+          <p className="-mt-4 text-xs text-muted-foreground print:hidden">
+            Basado en: {documentoAnalizado ? documentoAnalizado.nombre : "todos los documentos"}
+          </p>
+          <AvisoRevisionIA className="print:hidden" />
+        </>
       )}
 
       {analizando && (

@@ -1,6 +1,7 @@
 import { Settings } from "lucide-react";
 import { ConfiguracionEmpresa } from "@/components/configuracion/configuracion-empresa";
 import { StaffJerarquiaCard } from "@/components/configuracion/staff-jerarquia-card";
+import { MetricasValorCard } from "@/components/configuracion/metricas-valor-card";
 
 export default function ConfiguracionPage() {
   return (
@@ -9,6 +10,7 @@ export default function ConfiguracionPage() {
         <Settings className="size-5 text-primary" />
         Configuración
       </h1>
+      <MetricasValorCard />
       <ConfiguracionEmpresa />
       <StaffJerarquiaCard />
     </div>

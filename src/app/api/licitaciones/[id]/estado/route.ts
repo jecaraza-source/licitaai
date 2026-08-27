@@ -48,6 +48,18 @@ export const POST = apiRoute(
       },
     });
 
+    // P2 · I6 — bitácora inmutable para el envío (acción crítica).
+    if (body.estado_licitacion === "ENVIADA") {
+      await ctx.supabase
+        .rpc("registrar_auditoria", {
+          p_accion: "licitacion_enviada",
+          p_recurso_tipo: "licitacion",
+          p_recurso_id: params.id,
+          p_detalle: { estado_anterior: anterior?.estado_licitacion ?? null },
+        })
+        .then(() => {}, () => {});
+    }
+
     return { data };
   },
 );

@@ -46,6 +46,16 @@ export const POST = apiRoute(
       }
     }
 
+    // P2 · I6 — bitácora inmutable de la revisión humana de un resultado de IA.
+    await ctx.supabase
+      .rpc("registrar_auditoria", {
+        p_accion: "ai_result_revision",
+        p_recurso_tipo: "ai_result",
+        p_recurso_id: params.id,
+        p_detalle: { estado: body.estado, motivo: body.motivo ?? null },
+      })
+      .then(() => {}, () => {});
+
     // Re-leer con la proyección pública.
     const { data: proyectado } = await ctx.supabase
       .from("ai_results")

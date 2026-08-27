@@ -1,7 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/register"];
+// `/estado` es la página de estado pública (P2 · I6); `/login` y `/register`
+// son el flujo de acceso. `/terminos` requiere sesión pero NO redirige a
+// dashboard si ya la hay (es un gate propio).
+const PUBLIC_PATHS = ["/login", "/register", "/estado"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
