@@ -82,6 +82,20 @@ Vercel Cron ya está declarado en `vercel.json` (`job-worker` 1 min,
 `Authorization: Bearer $CRON_SECRET` automáticamente si `CRON_SECRET`
 está definido en el entorno.
 
+> ⚠️ **Vercel Cron NO corre en deployments de preview** (solo en
+> producción). En un staging que vive como preview de rama, el worker hay
+> que dispararlo con **pg_cron** en la BD de staging:
+> ```sql
+> insert into public.app_settings (key, value) values
+>   ('worker_url', 'https://<STAGING_REF>.supabase.co/functions/v1/job-worker'),
+>   ('worker_secret', '<JOB_WORKER_SECRET de staging>')
+> on conflict (key) do update set value = excluded.value;
+> select cron.schedule('p2-job-worker-tick', '30 seconds',
+>   $$ select public.disparar_worker(); $$);
+> ```
+> (Los demás cron —monitoreo, retención, borrados— no son críticos para el
+> soak; se pueden agendar igual o dejar para producción.)
+
 ### 4b. `supabase secrets set` — Edge Functions (por proyecto: staging y prod)
 
 ```bash

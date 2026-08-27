@@ -41,28 +41,46 @@ Datos que vas a necesitar:
 **Objetivo:** ejercitar los flujos nuevos con los flags ENCENDIDOS en
 staging antes de que el código toque prod.
 
-### 0.1 Encender flags en la BD de staging, uno a uno
+### 0.0 Ya está preparado (no repetir)
 
-Studio de staging → SQL Editor (o `psql`):
+- **Usuario de prueba** en staging: `staging-admin@licitaai.test` /
+  `StagingTest2026!` (rol ADMIN, org "Prueba Staging iqxdx3"
+  `bd7112ef-62e2-4c6a-b9d4-d4e993376362`, plan BASE con `ai_org_policy`).
+- **Worker corriendo**: Vercel Cron NO corre en deployments de preview, así
+  que en staging el worker lo dispara **pg_cron** (`p2-job-worker-tick`,
+  cada 30s → `disparar_worker()` → POST al edge function). Config en
+  `app_settings` (`worker_url` / `worker_secret`). Verificado: un job
+  `noop` pasa AUTHORIZED→COMPLETED en ~25s.
+- **`PLATFORM_ADMIN_EMAILS`** de staging incluye `staging-admin@licitaai.test`.
+- **Flags piloto YA activos**: `jobs.api`, `jobs.async_procesar_documento`.
 
-```sql
--- empezar por el sistema de jobs y una operación piloto
-update public.feature_flags set enabled = true where key = 'jobs.api';
-update public.feature_flags set enabled = true where key = 'jobs.async_procesar_documento';
-```
+### 0.1 Entrar a staging
 
-Probar el flujo completo en `https://licitaai-staging.vercel.app`
-(necesitas login de Vercel para verlo, o añade
-`?x-vercel-protection-bypass=<secret>` a la URL — el secret está en el
-GitHub secret `VERCEL_AUTOMATION_BYPASS_SECRET`):
+`https://licitaai-staging.vercel.app` — el preview tiene SSO de Vercel.
+Dos formas:
+- **Con login de Vercel** (si tu cuenta está en el team): entras directo.
+- **Sin login**: añade `?x-vercel-protection-bypass=<SECRET>&x-vercel-set-bypass-cookie=true`
+  a la primera URL que abras (el `<SECRET>` es el valor del GitHub secret
+  `VERCEL_AUTOMATION_BYPASS_SECRET`); Vercel te pone una cookie y el resto
+  de la navegación funciona.
 
-- Subir un documento a una licitación → ver que se crea un job y completa
-  (Realtime / `<JobStatus>`).
-- `GET /admin/salud` (con un correo de `PLATFORM_ADMIN_EMAILS`) → métricas
-  de operación.
-- Revisar `jobs`, `ai_results`, `ai_usage_log` en Studio.
+Login con `staging-admin@licitaai.test` / `StagingTest2026!`.
 
-### 0.2 Ir sumando flags conforme cada flujo pasa
+### 0.2 Probar el flujo piloto
+
+1. Crear una licitación (Licitaciones → Nueva).
+2. Subir un documento (pestaña Documentos). Con `jobs.async_procesar_documento`
+   ON, se encola un job en vez de procesarse en la request.
+3. Ver el `<JobStatus>` avanzar (Realtime) hasta "completado".
+4. En Studio de staging: `select * from jobs order by created_at desc limit 5;`
+   → el job en COMPLETED, `intentos = 1`.
+5. `select * from document_chunks where documento_id = '<id>';` → chunks con
+   embedding real (OpenAI está configurado en staging).
+6. `GET /admin/salud` en la app → métricas de operación, sin SEV1/SEV2.
+
+### 0.3 Ir sumando flags conforme cada flujo pasa
+
+Studio de staging → SQL Editor:
 
 ```sql
 update public.feature_flags set enabled = true where key = 'ai.gobierno_costo';
@@ -71,11 +89,11 @@ update public.feature_flags set enabled = true where key = 'jobs.async_analizar_
 -- ... el resto de jobs.async_*, resiliencia.circuit_breaker, etc.
 ```
 
-### 0.3 Correr la validación de carga contra staging
+### 0.4 Correr la validación de carga contra staging
 
 ```bash
 SUPABASE_URL=https://vuoimnwhxzlfelacvinf.supabase.co \
-SUPABASE_SERVICE_ROLE_KEY=<service_role de staging> \
+SUPABASE_SERVICE_ROLE_KEY=<service_role de staging — Studio → Settings → API> \
 CARGA_ORGS=20 CARGA_JOBS_POR_ORG=25 node tests/load/carga-local.mjs
 ```
 
