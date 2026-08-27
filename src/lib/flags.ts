@@ -74,13 +74,13 @@ export function evaluarFlag(
   return row.enabled;
 }
 
-// --- Caché en memoria del proceso (30 s) para no consultar por request ---
+// --- Caché en memoria del proceso (3 s) para no consultar por request ---
 interface CacheEntry {
   filas: Map<string, FeatureFlagRow>;
   expira: number;
 }
 let cache: CacheEntry | null = null;
-const TTL_MS = 30_000;
+const TTL_MS = 3_000;
 
 /** Solo para tests: limpia la caché de flags. */
 export function _resetFlagsCache(): void {

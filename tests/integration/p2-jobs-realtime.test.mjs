@@ -70,16 +70,18 @@ async function main() {
   // reintenta una vez con una suscripción fresca si no llega nada.
   {
     let eventos = [];
-    for (let intento = 0; intento < 2 && eventos.length === 0; intento++) {
+    const tieneProgreso = () => eventos.some((e) => e.progreso === 45 && e.progreso_detalle === "a mitad");
+    const tieneCompleted = () => eventos.some((e) => e.estado === "COMPLETED");
+    for (let intento = 0; intento < 3 && !(tieneProgreso() && tieneCompleted()); intento++) {
       const { data: jobRow } = await admin.from("jobs").insert({
         organization_id: orgA.orgId, requested_by: orgA.userId, tipo: "noop", estado: "RUNNING",
         lease_expires_at: new Date(Date.now() + 300000).toISOString(),
       }).select("id").single();
 
       const sub = await suscribir(orgA.client, jobRow.id);
-      await sleep(1500);
+      await sleep(1800);
       await admin.rpc("progreso_job", { p_job_id: jobRow.id, p_progreso: 45, p_detalle: "a mitad" });
-      await sleep(600);
+      await sleep(1500);
       await admin.rpc("completar_job", { p_job_id: jobRow.id, p_result_ref: { ok: true } });
       await sleep(3500);
 

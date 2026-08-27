@@ -68,6 +68,12 @@ interface AuthenticateOptions {
    * requiereIA es true. Por defecto 3,000,000 — ajustable vía la env var
    * AI_DAILY_TOKEN_CAP para no requerir una nueva migración por cliente. */
   limiteDiarioIA?: number;
+  /** P2 · Fase B — permite que el worker de jobs invoque esta función con
+   * el service role key + un `job_id` en el body. La organización/usuario
+   * se derivan del job (cuya pertenencia ya verificó crear_job). Sin JWT de
+   * usuario: no aplica rate limit ni check_ai_budget (el gobierno de costo
+   * lo aplica la ruta al crear el job, C2). */
+  permitirJob?: boolean;
 }
 
 /**
@@ -89,6 +95,31 @@ export async function authenticate(
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  // --- Modo job (P2 · Fase B): el worker invoca con service key + job_id ---
+  if (opts.permitirJob && authHeader === `Bearer ${serviceKey}`) {
+    const body = await req.clone().json().catch(() => ({} as Record<string, unknown>));
+    const jobId = (body as { job_id?: string }).job_id;
+    if (jobId) {
+      const service = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+      const { data: job } = await service
+        .from("jobs")
+        .select("organization_id, requested_by")
+        .eq("id", jobId)
+        .maybeSingle();
+      if (!job) return jsonError(404, "Job no encontrado");
+      return {
+        userId: job.requested_by ?? "",
+        email: "",
+        organizationId: job.organization_id,
+        rol: "ADMIN",
+        // La pertenencia del recurso ya la verificó crear_job; en modo job
+        // asUser = service (sin RLS) y require*() solo comprueba existencia.
+        asUser: service,
+        service,
+      };
+    }
+  }
 
   // El apikey de este cliente es el anon key, pero el rol de Postgres
   // efectivo lo determina el JWT del header Authorization (claim `role`):

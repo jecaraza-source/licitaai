@@ -1,14 +1,17 @@
 import { z } from "zod";
-import { apiRoute, ApiError } from "@/lib/api";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 import { sendEmail } from "@/lib/resend";
 import { AnalisisCompletadoEmail } from "@/emails/analisis-completado";
+import { encolarOperacionIA } from "@/lib/jobs";
 
 const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
 const bodySchema = z.object({ documento_id: z.string().uuid().optional() });
 
 export const POST = apiRoute(
-  { paramsSchema, bodySchema, rateLimit: { ruta: "analizar-bases" } },
+  { paramsSchema, bodySchema, rateLimit: { ruta: "analizar-bases" }, aiBudget: true },
   async ({ ctx, params, body }) => {
+    requireWriteRole(ctx);
+
     const { data: licitacion, error: licitacionError } = await ctx.supabase
       .from("licitaciones")
       .select("id, numero_expediente, titulo")
@@ -17,6 +20,15 @@ export const POST = apiRoute(
 
     if (licitacionError) throw ApiError.internal();
     if (!licitacion) throw ApiError.notFound("Licitación no encontrada");
+
+    const encolado = await encolarOperacionIA(ctx, {
+      flag: "jobs.async_analizar_bases",
+      tipo: "analizar-bases",
+      recursoTipo: "licitacion",
+      recursoId: params.id,
+      input: { licitacion_id: params.id, documento_id: body.documento_id },
+    });
+    if (encolado) return { data: encolado, status: 202 };
 
     const { data, error } = await ctx.supabase.functions.invoke("analizar-bases", {
       body: { licitacion_id: params.id, documento_id: body.documento_id },

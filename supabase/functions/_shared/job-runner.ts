@@ -10,7 +10,25 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { noopHandler } from "./job-handlers/noop.ts";
 import { procesarDocumentoHandler } from "./job-handlers/procesar-documento.ts";
+import { handlerInvocaEF } from "./job-handlers/invocar-ef.ts";
 import { notificarJobSiCorresponde } from "./job-notify.ts";
+
+const licDeInput = (i: Record<string, unknown>) => ({
+  tipo: "licitacion",
+  id: String(i.licitacion_id ?? ""),
+});
+const docDeInput = (i: Record<string, unknown>) => ({
+  tipo: "documento",
+  id: String(i.documento_id ?? ""),
+});
+const docCorpDeInput = (i: Record<string, unknown>) => ({
+  tipo: "documento_corporativo",
+  id: String(i.documento_id ?? ""),
+});
+const refDeInput = (i: Record<string, unknown>) => ({
+  tipo: "referencia_legal",
+  id: String(i.referencia_legal_id ?? ""),
+});
 
 export interface JobRow {
   id: string;
@@ -99,12 +117,43 @@ export class ErrorNoReintentable extends Error {
 
 export const HANDLERS: Record<string, JobHandler> = {
   noop: noopHandler,
-  "procesar-documento": procesarDocumentoHandler, // B1
-  // Fase B registra el resto: "analizar-bases", "generar-estudio-mercado",
-  // "generar-preguntas-junta", "generar-propuesta-tecnica",
-  // "auditar-documento", "auditar-expediente", "seguimiento-analizar-fallo",
-  // "analizar-documento-corporativo", "procesar-referencia-legal".
+  "noop-ef": handlerInvocaEF("test-echo", {
+    tipoAnalisis: "analisis_bases",
+    recursoDeInput: (i) => ({ tipo: "licitacion", id: String(i.licitacion_id ?? "") }),
+  }), // prueba del wrapper invocar-ef
+  "procesar-documento": procesarDocumentoHandler, // B1 (multi-step propio)
+
+  // B2–B10: envuelven la Edge Function de dominio (que conserva su lógica).
+  "analizar-bases": handlerInvocaEF("analizar-bases", {
+    tipoAnalisis: "analisis_bases", recursoDeInput: licDeInput,
+  }),
+  "generar-estudio-mercado": handlerInvocaEF("generar-estudio-mercado", {
+    tipoAnalisis: "estudio_mercado", recursoDeInput: licDeInput,
+  }),
+  "generar-preguntas-junta": handlerInvocaEF("generar-preguntas-junta", {
+    tipoAnalisis: "junta_preguntas", recursoDeInput: licDeInput,
+  }),
+  "generar-propuesta-tecnica": handlerInvocaEF("generar-propuesta-tecnica", {
+    tipoAnalisis: "propuesta_tecnica", recursoDeInput: licDeInput,
+  }),
+  "auditar-documento": handlerInvocaEF("auditar-documento", {
+    tipoAnalisis: "auditoria_documento", recursoDeInput: docDeInput,
+  }),
+  "auditar-expediente": handlerInvocaEF("auditar-expediente", {
+    tipoAnalisis: "auditoria_expediente", recursoDeInput: licDeInput,
+  }),
+  "seguimiento-analizar-fallo": handlerInvocaEF("analizar-fallo", {
+    tipoAnalisis: "analisis_fallo", recursoDeInput: licDeInput,
+  }),
+  "analizar-documento-corporativo": handlerInvocaEF("analizar-documento-corporativo", {
+    tipoAnalisis: "documento_corporativo", recursoDeInput: docCorpDeInput,
+  }),
+  // procesamiento del catálogo global (admin), sin ai_results ni recurso de organización
+  "procesar-referencia-legal": handlerInvocaEF("procesar-referencia-legal"),
 };
+
+// refDeInput queda para cuando procesar-referencia-legal se scope-e por organización.
+void refDeInput;
 
 /** Clasificación mínima de errores. El incremento E1 (ADR 0005) la
  * reemplaza por la versión completa con circuit breakers. */
@@ -122,6 +171,11 @@ export function esReintentable(err: unknown): boolean {
   if (["AbortError", "TimeoutError"].includes(name)) return true;
 
   const msg = ((err as Error)?.message ?? "").toLowerCase();
+
+  // Errores de configuración/credenciales: no se arreglan reintentando.
+  if (/api.?key|credential|authentication method|missing credentials|x-api-key|unauthorized/.test(msg)) {
+    return false;
+  }
   if (/timeout|econnreset|socket hang up|fetch failed|network|overloaded|rate.?limit/.test(msg)) {
     return true;
   }

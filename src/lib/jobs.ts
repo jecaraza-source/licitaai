@@ -113,6 +113,45 @@ export async function liberarMiReserva(ctx: ApiContext, reservaId: string): Prom
   if (error) console.error("[jobs] liberar_mi_reserva_ia:", error.message);
 }
 
+/**
+ * Helper para las rutas de operaciones de IA (Fase B): si el flag async de
+ * la operación está activo, crea el job (con reserva de presupuesto) y
+ * devuelve `{job_id, ...}` para responder 202; si no, devuelve null y la
+ * ruta sigue con su comportamiento síncrono.
+ *
+ * La idempotency_key incluye un bucket de ~2 min: un doble clic no crea dos
+ * jobs, pero un reintento deliberado más tarde sí.
+ */
+export async function encolarOperacionIA(
+  ctx: ApiContext,
+  opts: {
+    flag: string;
+    tipo: JobTipo;
+    recursoTipo: "licitacion" | "documento" | "documento_corporativo" | "checklist_item";
+    recursoId: string;
+    input: Record<string, unknown>;
+    bytes?: number;
+  },
+): Promise<{ job_id: string; estado: string; async: true } | null> {
+  const activo = await isEnabled(ctx.supabase, opts.flag, { organizationId: ctx.organizationId });
+  if (!activo) return null;
+
+  const bucket = Math.floor(Date.now() / 120_000);
+  const docId = (opts.input.documento_id as string | undefined) ?? "";
+  const { job } = await crearJobConPresupuesto(
+    ctx,
+    {
+      tipo: opts.tipo,
+      recurso_tipo: opts.recursoTipo,
+      recurso_id: opts.recursoId,
+      idempotency_key: `${opts.tipo}:${opts.recursoId}:${docId}:${bucket}`,
+      input: opts.input,
+    },
+    { bytes: opts.bytes },
+  );
+  return { job_id: job.id, estado: job.estado, async: true };
+}
+
 /** Busca un job existente por (organización, idempotency_key) sin crearlo. */
 export async function buscarJobPorIdempotencyKey(
   ctx: ApiContext,

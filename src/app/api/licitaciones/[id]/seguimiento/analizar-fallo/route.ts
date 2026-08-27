@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 import { logAiUsage } from "@/lib/ai-usage";
 import { conGuardia } from "@/lib/ai-guard";
+import { encolarOperacionIA } from "@/lib/jobs";
 
 const TOOL_SCHEMA = {
   type: "object" as const,
@@ -43,6 +44,15 @@ export const POST = apiRoute(
       .eq("licitacion_id", params.id)
       .maybeSingle();
     if (!documento) throw ApiError.notFound("Documento no encontrado");
+
+    const encolado = await encolarOperacionIA(ctx, {
+      flag: "jobs.async_analizar_fallo",
+      tipo: "seguimiento-analizar-fallo",
+      recursoTipo: "licitacion",
+      recursoId: params.id,
+      input: { licitacion_id: params.id, documento_id: body.documento_id },
+    });
+    if (encolado) return { data: encolado, status: 202 };
 
     const { data: propuestaEconomica } = await ctx.supabase
       .from("propuesta_economica_partidas")

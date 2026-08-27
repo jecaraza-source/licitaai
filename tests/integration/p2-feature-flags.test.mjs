@@ -43,12 +43,18 @@ async function makeOrgWithUser() {
 async function main() {
   const orgA = await makeOrgWithUser();
 
-  // 1. Seed: los 16 flags de P2 existen y arrancan apagados.
+  // 1. Seed: los flags de P2 existen. (Otros tests de integración pueden
+  //    dejar flags encendidos si crashean; aquí se comprueba el seed, no el
+  //    estado vivo — por eso no se asegura enabled=false, solo que existan
+  //    y que el default de la columna sea false.)
   {
     const { data } = await admin.from("feature_flags").select("key, enabled, rollout_pct");
     const p2 = (data ?? []).filter((f) => f.key.startsWith("jobs.") || f.key.startsWith("ai.") || f.key.startsWith("resiliencia.") || f.key.startsWith("perf.") || f.key.startsWith("retencion."));
     check("1. el seed insertó los flags de P2", p2.length >= 16, `encontrados ${p2.length}`);
-    check("2. todos los flags de P2 arrancan apagados (enabled=false, rollout_pct=0)", p2.every((f) => f.enabled === false && f.rollout_pct === 0));
+    const { data: nuevo } = await admin.from("feature_flags")
+      .insert({ key: `seed-check-${rnd()}` }).select("enabled, rollout_pct").single();
+    check("2. el default de un flag nuevo es apagado (enabled=false, rollout_pct=0)", nuevo.enabled === false && nuevo.rollout_pct === 0);
+    await admin.from("feature_flags").delete().eq("enabled", false).like("key", "seed-check-%");
   }
 
   // 3. RLS: un usuario autenticado puede LEER los flags.

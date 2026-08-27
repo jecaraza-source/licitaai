@@ -93,6 +93,7 @@ Deno.serve(async (req) => {
       requiereEscritura: true,
       maxPorMinuto: 5,
       requiereIA: true,
+      permitirJob: true,
     });
     if (ctx instanceof Response) return ctx;
 
@@ -178,9 +179,10 @@ Clientes de referencia: ${JSON.stringify(empresa?.clientes_referencia_json ?? []
       metadata_json: { secciones: resultado.length },
     });
 
-    return new Response(JSON.stringify({ ok: true, data: propuesta }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ...{ ok: true, data: propuesta }, _usage: { tokens_input: totalInputTokens, tokens_output: totalOutputTokens, modelo: "claude-sonnet-5", provider: "anthropic" } }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (error) {
     console.error(error);
     return new Response(

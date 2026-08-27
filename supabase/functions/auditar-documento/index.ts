@@ -68,6 +68,7 @@ Deno.serve(async (req) => {
       requiereEscritura: true,
       maxPorMinuto: 20,
       requiereIA: true,
+      permitirJob: true,
     });
     if (ctx instanceof Response) return ctx;
 
@@ -182,9 +183,10 @@ RFC: ${empresa?.rfc ?? "N/D"}
       metadata_json: { documento_id, nivel_riesgo: auditoria.nivel_riesgo },
     });
 
-    return new Response(JSON.stringify({ ok: true, data: auditoria }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ...{ ok: true, data: auditoria }, _usage: { tokens_input: response.usage?.input_tokens ?? 0, tokens_output: response.usage?.output_tokens ?? 0, modelo: "claude-sonnet-5", provider: "anthropic" } }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (error) {
     console.error(error);
     return new Response(

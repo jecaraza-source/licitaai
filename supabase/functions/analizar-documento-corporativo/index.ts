@@ -262,6 +262,7 @@ Deno.serve(async (req) => {
       requiereEscritura: true,
       maxPorMinuto: 20,
       requiereIA: true,
+      permitirJob: true,
     });
     if (ctx instanceof Response) return ctx;
 
@@ -395,6 +396,12 @@ Deno.serve(async (req) => {
           coincide_empresa: coincide,
           nombre_persona_detectado: datos.nombre_persona_detectado,
           datos_extraidos_json: datosExtraidos,
+        },
+        _usage: {
+          tokens_input: response.usage?.input_tokens ?? 0,
+          tokens_output: response.usage?.output_tokens ?? 0,
+          modelo: "claude-sonnet-5",
+          provider: "anthropic",
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },

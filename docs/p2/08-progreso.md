@@ -19,9 +19,10 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 | **C3** — conciliación por el worker | `792b38a` | `job-runner` concilia la reserva al COMPLETAR (con los tokens/modelo reales) y la libera al FALLAR/CANCELAR. `procesar-documento` acumula tokens entre steps. | 10 integración (C2+C3) |
 | **D1** — esquema de trazabilidad IA | _(este commit)_ | `ai_results` append-only (nunca UPDATE de `resultado_json`; corrección = fila nueva con `reemplaza_a`), `prompt_templates` versionados (RLS: solo service_role), `ai_result_citations`. RPC `persistir_resultado_ia` (vía de escritura de los handlers de Fase B) + `aprobar_resultado_ia` (D5). Punteros `ai_result_id` en `analisis_bases`/`estudio_mercado`. | 15 integración |
 | **D2** — prompts a `prompt_templates` | _(este commit)_ | Seed de los prompts actuales como version 1 (`procesar-documento-extraccion`, `preguntar-rag`); el resto se siembra al migrar cada operación. `conGuardia()` se sigue aplicando encima. | (cubierto en D1) |
-| **D3** — historial + revisión | _(este commit)_ | Backfill de `analisis_bases`/`estudio_mercado` → `ai_results` (`origen=backfill_p2`, `APROBADO`). `GET /api/licitaciones/[id]/ai-results` (todas las versiones + citas + versión activa). `POST /api/ai-results/[id]/revision` (APROBADO/RECHAZADO; el motivo de rechazo = flujo "reportar resultado incorrecto" D6, va a `actividad_log`). | 5 e2e |
+| **D3** — historial + revisión | `763d920` | Backfill de `analisis_bases`/`estudio_mercado` → `ai_results` (`origen=backfill_p2`, `APROBADO`). `GET /api/licitaciones/[id]/ai-results` (todas las versiones + citas + versión activa). `POST /api/ai-results/[id]/revision` (APROBADO/RECHAZADO; el motivo de rechazo = flujo "reportar resultado incorrecto" D6, va a `actividad_log`). | 5 e2e |
+| **B2–B10** — resto de operaciones a jobs | _(este commit)_ | Wrapper `handlerInvocaEF`: cada operación de IA se ejecuta invocando su Edge Function existente en "modo job" (`authenticate({ permitirJob: true })` — service key + `job_id`; la EF conserva su lógica intacta). El worker orquesta estado/reintentos/idempotencia/notificación/conciliación de costo (C3) + trazabilidad `ai_results` (D3, tras `ai.versionado_resultados`). Rutas: `analizar-bases`, `estudio-mercado`, `junta/generar`, `propuesta-tecnica/generar`, `checklist-items/[itemId]/documento` (auditar-documento), `seguimiento/analizar-fallo`, `empresa-perfil/.../analizar` bifurcan por su flag → 202. **B7**: `auditar-todos` reemplaza el fan-out en serie por N jobs `auditar-documento` (prioridad de lote) + 1 `auditar-expediente`. **B8**: nueva Edge Function `analizar-fallo` (antes SDK directo en la ruta). `esReintentable` v2: errores de credencial/config no se reintentan. | 9 integración + 8 e2e |
 
-**Verificación acumulada:** `tsc` limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio · 9 suites unit · 10 suites integración P2 (127 casos) · 37 e2e · tests P0/P1 sin regresión.
+**Verificación acumulada:** `tsc` limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio (salvo el gap pre-existente `web_search_20260209` en generar-estudio-mercado, docs P0 §7) · 9 suites unit · 11 suites integración P2 (145 casos) · 45 e2e · tests P0/P1 sin regresión.
 
 ## Migraciones nuevas (todas aditivas)
 
@@ -37,6 +38,8 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 20260828000000_p2_c1_gobierno_costo_ia
 20260828001000_p2_c2_crear_job_reserva
 20260828010000_p2_d1_ai_results
+20260828020000_p2_b_prompt_templates
+20260828021000_p2_b_job_tipo_noop_ef
 ```
 
 Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna toca datos existentes.
@@ -53,6 +56,10 @@ Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna t
 
 ## Siguiente
 
-**Resto de operaciones a jobs (B2–B11)**, cada una: refactor de su Edge Function a handler(s) de step + persistencia vía `persistir_resultado_ia` (con citas) + seed de su prompt en `prompt_templates` + política de modelo (económico por defecto) + flag `jobs.async_<tipo>`. Empezar por **B2 (`analizar-bases`)** — ya valida su salida contra JSON Schema (P0.6), es el mejor caso para estrenar el versionado.
+Fase A + B (jobs) y C + D (costo + trazabilidad) completas. Queda:
 
-Flags OFF pendientes de activación gradual: `ai.gobierno_costo` (tras calibrar estimaciones, R3), `ai.versionado_resultados` (cuando B2+ escriban `ai_results`), `jobs.async_procesar_documento` (piloto).
+- **B11** — retirar el modo síncrono de cada operación (subir su flag a 100%, esperar ~2 semanas estable, borrar el código sync). Solo tras despliegue autorizado.
+- **B follow-up** — para las operaciones que rebasen el wall-clock de Edge Functions (propuesta técnica, estudio de mercado con web_search), re-partir en steps como `procesar-documento` (riesgo R1). Medir primero.
+- **Fase E** (resiliencia: circuit breakers, `withRetry` v2 completo), **F** (rendimiento), **G3–G7** (CI/CD), **H** (retención/DR), **I** (operación), **J** (pruebas de aceptación).
+
+Todos los flags `jobs.async_*` / `ai.*` siguen **OFF**. Activación gradual por organización tras despliegue autorizado a staging.

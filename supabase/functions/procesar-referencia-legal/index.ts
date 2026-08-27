@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     // no está scoped por organización — pero (re)procesarlo gasta cuota de
     // OpenAI y puede corromper el RAG compartido, así que se restringe a
     // ADMIN en vez de a cualquier usuario autenticado.
-    const ctx = await authenticate(req, { ruta: "procesar-referencia-legal", requiereEscritura: true, maxPorMinuto: 5 });
+    const ctx = await authenticate(req, { ruta: "procesar-referencia-legal", requiereEscritura: true, maxPorMinuto: 5, permitirJob: true });
     if (ctx instanceof Response) return ctx;
     if (ctx.rol !== "ADMIN") {
       return jsonError(403, "Solo un administrador puede reprocesar el catálogo de referencias legales");
@@ -160,9 +160,10 @@ Deno.serve(async (req) => {
       .update({ procesado: true, procesado_at: new Date().toISOString() })
       .eq("id", referencia_documento_id);
 
-    return new Response(JSON.stringify({ ok: true, chunks: totalInsertados }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ok: true, chunks: totalInsertados, data: { chunks: totalInsertados } }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (error) {
     console.error(error);
     return new Response(

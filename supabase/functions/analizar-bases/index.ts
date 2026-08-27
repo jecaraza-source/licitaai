@@ -352,6 +352,7 @@ Deno.serve(async (req) => {
       requiereEscritura: true,
       maxPorMinuto: 10,
       requiereIA: true,
+      permitirJob: true,
     });
     if (ctx instanceof Response) return ctx;
 
@@ -549,9 +550,20 @@ Deno.serve(async (req) => {
       metadata_json: { nivel_confianza: nivelGeneral, secciones: Object.keys(resultados) },
     });
 
-    return new Response(JSON.stringify({ ok: true, data: analisis }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        data: analisis,
+        _usage: {
+          tokens_input: totalInputTokens,
+          tokens_output: totalOutputTokens,
+          modelo: "claude-sonnet-5",
+          provider: "anthropic",
+        },
+        _nivel_confianza: nivelGeneral,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (error) {
     console.error(error);
     return new Response(

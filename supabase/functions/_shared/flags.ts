@@ -51,7 +51,7 @@ export function evaluarFlag(
 }
 
 let cache: { filas: Map<string, FeatureFlagRow>; expira: number } | null = null;
-const TTL_MS = 30_000;
+const TTL_MS = 3_000;
 
 async function cargarFilas(supabase: SupabaseClient): Promise<Map<string, FeatureFlagRow>> {
   if (cache && cache.expira > Date.now()) return cache.filas;
