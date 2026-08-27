@@ -215,27 +215,42 @@ function normalizarTexto(texto: string): string {
 }
 
 /**
- * true = coincide, false = no coincide, null = el documento no traía RFC
- * ni razón social para comparar (p. ej. un comprobante de domicilio).
+ * coincide: true = coincide, false = no coincide, null = el documento no
+ *   traía RFC ni razón social para comparar (p. ej. un comprobante de domicilio).
+ * motivo: cuando coincide === false, explicación legible de por qué; null en el resto.
  */
 function coincideEmpresa(
   empresa: { rfc: string | null; razon_social: string | null } | null,
   rfcDetectado: string | null,
   razonSocialDetectada: string | null,
-): boolean | null {
-  if (!empresa) return null;
+): { coincide: boolean | null; motivo: string | null } {
+  if (!empresa) return { coincide: null, motivo: null };
 
   if (rfcDetectado && empresa.rfc) {
-    return normalizarTexto(rfcDetectado) === normalizarTexto(empresa.rfc);
+    const ok = normalizarTexto(rfcDetectado) === normalizarTexto(empresa.rfc);
+    return {
+      coincide: ok,
+      motivo: ok
+        ? null
+        : `El RFC del documento (${rfcDetectado}) no coincide con el de tu empresa activa (${empresa.rfc}). ` +
+          `Puede que el documento sea de otra empresa o que hayas seleccionado la empresa equivocada.`,
+    };
   }
 
   if (razonSocialDetectada && empresa.razon_social) {
     const detectada = normalizarTexto(razonSocialDetectada);
     const propia = normalizarTexto(empresa.razon_social);
-    return detectada === propia || detectada.includes(propia) || propia.includes(detectada);
+    const ok = detectada === propia || detectada.includes(propia) || propia.includes(detectada);
+    return {
+      coincide: ok,
+      motivo: ok
+        ? null
+        : `La razón social del documento ("${razonSocialDetectada}") no coincide con la de tu empresa activa ` +
+          `("${empresa.razon_social}"). El documento no trae RFC para verificar; revísalo.`,
+    };
   }
 
-  return null;
+  return { coincide: null, motivo: null };
 }
 
 function calcularVigenciaHasta(tipo: string, fechaEmision: string | null): string | null {
@@ -363,7 +378,11 @@ Deno.serve(async (req) => {
 
     const vigenciaHasta =
       datos.fecha_vigencia_indicada ?? calcularVigenciaHasta(documento.tipo, datos.fecha_emision);
-    const coincide = coincideEmpresa(empresa, datos.rfc_detectado, datos.razon_social_detectada);
+    const { coincide, motivo: motivoNoCoincide } = coincideEmpresa(
+      empresa,
+      datos.rfc_detectado,
+      datos.razon_social_detectada,
+    );
 
     // Solo se guardan las claves extra propias del tipo de documento, y solo
     // las que la IA sí pudo detectar (no se pisan datos con null).
@@ -382,6 +401,9 @@ Deno.serve(async (req) => {
         fecha_emision: datos.fecha_emision,
         vigencia_hasta: vigenciaHasta,
         coincide_empresa: coincide,
+        rfc_detectado: datos.rfc_detectado,
+        razon_social_detectada: datos.razon_social_detectada,
+        motivo_no_coincide: motivoNoCoincide,
         nombre_persona_detectado: datos.nombre_persona_detectado,
         datos_extraidos_json: datosExtraidos,
       })
@@ -394,6 +416,9 @@ Deno.serve(async (req) => {
           fecha_emision: datos.fecha_emision,
           vigencia_hasta: vigenciaHasta,
           coincide_empresa: coincide,
+          rfc_detectado: datos.rfc_detectado,
+          razon_social_detectada: datos.razon_social_detectada,
+          motivo_no_coincide: motivoNoCoincide,
           nombre_persona_detectado: datos.nombre_persona_detectado,
           datos_extraidos_json: datosExtraidos,
         },

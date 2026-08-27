@@ -497,6 +497,10 @@ export interface DocumentoCorporativo {
   fecha_emision: string | null;
   vigencia_hasta: string | null;
   coincide_empresa: boolean | null;
+  rfc_detectado: string | null;
+  razon_social_detectada: string | null;
+  /** Explicación legible de por qué `coincide_empresa === false`. */
+  motivo_no_coincide: string | null;
   nombre_persona_detectado: string | null;
   datos_extraidos_json: Record<string, unknown>;
   created_at: string;
