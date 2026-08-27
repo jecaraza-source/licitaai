@@ -2,7 +2,7 @@
 
 **Rama:** `architecture/p2-production-readiness`
 **Base:** `quality/p1-stability-and-testing` (P0 y P1 implementadas, revisadas y aprobadas)
-**Estado:** FASE DE DISEÑO. Ningún cambio de código/infra de esta fase se ha implementado ni desplegado todavía. Este directorio contiene los entregables 1–3 y 16–19 del brief (arquitectura actual, arquitectura objetivo, ADRs, plan incremental, costos, rollback, riesgos). La implementación se hace por incrementos pequeños, cada uno con su propio commit, tests y plan de reversión, y solo tras confirmación explícita.
+**Estado:** EN IMPLEMENTACIÓN. Diseño aprobado. **Fase A (sistema de jobs) + G1 (feature flags) completas** — ver [08-progreso.md](08-progreso.md). Nada desplegado a producción. Cada incremento tiene su commit, tests y plan de reversión.
 
 ---
 
