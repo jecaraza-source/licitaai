@@ -13,7 +13,8 @@
     "test:integration": "node scripts/test-runner.mjs tests/integration",
     "test:e2e": "playwright test",
     "deno:check": "cd supabase/functions && deno check $(git ls-files '*.ts')",
-    "check": "npm run typecheck && npm run lint && npm run lint:migrations"
+    "check": "npm run typecheck && npm run lint && npm run lint:migrations",
+    "check:bundle": "node scripts/check-bundle.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

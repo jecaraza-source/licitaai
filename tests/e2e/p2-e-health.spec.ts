@@ -56,19 +56,18 @@ test("/api/estado-ia refleja el circuit breaker; requiere sesión", async ({ pag
   expect(ok.status()).toBe(200);
   expect((await ok.json()).data.iaDisponible).toBe(true);
 
-  // abrir el circuito de anthropic + activar el flag
-  await admin.from("feature_flags").update({ enabled: true }).eq("key", "resiliencia.circuit_breaker");
+  // El flag resiliencia.circuit_breaker está forzado ON por env en e2e;
+  // basta con abrir el circuito de anthropic en provider_health.
   await admin.from("provider_health").update({
     estado: "OPEN", abierto_hasta: new Date(Date.now() + 120000).toISOString(),
   }).eq("provider", "anthropic");
-  await page.waitForTimeout(3500); // TTL de la caché de flags
 
-  const degradado = await page.request.get("/api/estado-ia");
-  const body = await degradado.json();
+  await expect
+    .poll(async () => (await (await page.request.get("/api/estado-ia")).json()).data.circuitos.anthropic, { timeout: 5000 })
+    .toBe("OPEN");
+
+  const body = await (await page.request.get("/api/estado-ia")).json();
   expect(body.data.iaDisponible).toBe(false);
-  expect(body.data.circuitos.anthropic).toBe("OPEN");
 
-  // restaurar
   await admin.from("provider_health").update({ estado: "CLOSED", abierto_hasta: null, fallos_consecutivos: 0 }).eq("provider", "anthropic");
-  await admin.from("feature_flags").update({ enabled: false }).eq("key", "resiliencia.circuit_breaker");
 });

@@ -30,9 +30,10 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 | **fix seguridad** — grants del worker | `0df1bc1` | Revoca `EXECUTE` de `anon`/`authenticated` en las 21 funciones del worker (Supabase las auto-concede por default privileges; `revoke from public` no basta). Sin esto un usuario autenticado podía `reclamar_jobs` (fuga cross-org), `cb_registrar_fallo` (DoS), `persistir_resultado_ia`, `conciliar_presupuesto_ia`, etc. | 18 integración |
 | **G3–G7** — CI/CD | `c557cdf` | `ci.yml` reescrito (typecheck, lint, **lint:migrations**, `npm audit`, build, deno check, unit, integración + e2e contra Supabase local, gitleaks); `codeql.yml`; `staging.yml` / `production.yml` (respaldo previo con `db dump`, verificación de migraciones contra base limpia, aprobación manual vía Environment, smoke, tag+release). `scripts/lint-migraciones.mjs` (G7: bloquea DROP/TRUNCATE/ALTER TYPE sin marca `-- safe:`/`-- expand-contract:`), `scripts/smoke.mjs`, `scripts/test-runner.mjs`. `CODEOWNERS`, `dependabot.yml`, plantilla de PR, `CHANGELOG.md`. `package.json`: `check`, `typecheck`, `test:*`, `lint:migrations`. | — (scripts verificados en local; workflows validados sintácticamente) |
 
-| **I** — operación y soporte | _(este commit)_ | `metricas_operacion()` (jobs por estado, arranque p50/p95, jobs sin intervención %, DLQ, atascados, circuit breakers, consumo IA por org vs cuota, flags activos). `GET /api/admin/salud` + página `/admin/salud` (client, refresco 30 s) gated por `PLATFORM_ADMIN_EMAILS` (fail-closed). `/api/cron/monitoreo` con clasificación **SEV1/SEV2/SEV3** → Sentry (`fatal`/`error`/`warning`) + webhook opcional (`ALERTAS_WEBHOOK_URL`). `docs/p2/10-slo-y-alertas.md` (SLO + error budgets + severidad + matriz de responsables + procedimiento de incidente). **8 runbooks** (`docs/p2/runbooks/`): proveedor caído, DLQ, worker parado, consumo anormal de IA, migración fallida, revocar sesiones, fuga de datos, documento malicioso. Plantillas de issue `incidente` / `postmortem`. | 10 integración + 3 e2e |
+| **F** — rendimiento | _(este commit)_ | **F1** instrumentación: `apiRoute()` añade `Server-Timing` + log `[api:slow]` (>800 ms); `pg_stat_statements`; arranque de jobs ya en `/admin/salud`. **F2** presupuesto de bundle (`scripts/check-bundle.mjs` + `perf-budgets.json`, gate de CI): total JS cliente ≤ 1500 KB gz, chunk mayor ≤ 320 KB gz. **F3** code-split de las 6 pestañas pesadas de la licitación (`next/dynamic`), `react-pdf` con `ssr:false`, `exceljs` a `await import()` en el handler. **F4** índices por patrones de P2 + `statement_timeout` en `search_chunks`/`metricas_operacion`/`presupuesto_ia_disponible` + `match_count` acotado. **F5** `search_chunks` fija `hnsw.ef_search=40` explícito (calibrable con recall real). `docs/p2/11-rendimiento.md`. Lo dirigido por datos de producción (top-10 de consultas, objetivos de CWV como gate) queda pendiente de baseline. | 6 integración + 1 e2e |
+| **I** — operación y soporte | `059199a` | `metricas_operacion()` (jobs por estado, arranque p50/p95, jobs sin intervención %, DLQ, atascados, circuit breakers, consumo IA por org vs cuota, flags activos). `GET /api/admin/salud` + página `/admin/salud` (client, refresco 30 s) gated por `PLATFORM_ADMIN_EMAILS` (fail-closed). `/api/cron/monitoreo` con clasificación **SEV1/SEV2/SEV3** → Sentry (`fatal`/`error`/`warning`) + webhook opcional (`ALERTAS_WEBHOOK_URL`). `docs/p2/10-slo-y-alertas.md` (SLO + error budgets + severidad + matriz de responsables + procedimiento de incidente). **8 runbooks** (`docs/p2/runbooks/`): proveedor caído, DLQ, worker parado, consumo anormal de IA, migración fallida, revocar sesiones, fuga de datos, documento malicioso. Plantillas de issue `incidente` / `postmortem`. | 10 integración + 3 e2e |
 
-**Verificación acumulada:** `npm run check` (typecheck + lint + lint:migrations) limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio (salvo el gap pre-existente `web_search_20260209`, docs P0 §7) · 10 suites unit (63 casos) · 14 suites integración P2 (189 casos) · 51 e2e · tests P0/P1 sin regresión.
+**Verificación acumulada:** `npm run check` (typecheck + lint + lint:migrations) limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio (salvo el gap pre-existente `web_search_20260209`, docs P0 §7) · 10 suites unit (63 casos) · 14 suites integración P2 (201 casos) · 51 e2e · tests P0/P1 sin regresión.
 
 ## Migraciones nuevas (todas aditivas)
 
@@ -53,6 +54,7 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 20260829000000_p2_e2_provider_health
 20260830000000_p2_i_metricas_operacion
 20260830001000_p2_fix_grants_service_role
+20260831000000_p2_f_rendimiento
 ```
 
 Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna toca datos existentes.
@@ -73,7 +75,7 @@ Fase A + B (jobs) y C + D (costo + trazabilidad) completas. Queda:
 
 - **B11** — retirar el modo síncrono de cada operación (subir su flag a 100%, esperar ~2 semanas estable, borrar el código sync). Solo tras despliegue autorizado.
 - **B follow-up** — para las operaciones que rebasen el wall-clock de Edge Functions (propuesta técnica, estudio de mercado con web_search), re-partir en steps como `procesar-documento` (riesgo R1). Medir primero.
-- **F** (rendimiento + presupuestos), **H** (retención/DR + prueba de restauración), **J** (pruebas de aceptación bajo carga).
+- **H** (retención/DR + prueba de restauración), **J** (pruebas de aceptación bajo carga).
 - **G2** (pendiente de autorización): crear proyecto Supabase de staging, cargar secrets/vars de GitHub, activar branch protection + Environment `production` con required reviewers. Los workflows ya referencian esos nombres.
 
 Todos los flags `jobs.async_*` / `ai.*` siguen **OFF**. Activación gradual por organización tras despliegue autorizado a staging.

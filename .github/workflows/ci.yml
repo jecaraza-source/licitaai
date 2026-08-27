@@ -25,6 +25,8 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      - name: Presupuesto de bundle (P2 · F2)
+        run: npm run check:bundle
 
   deno-check:
     runs-on: ubuntu-latest

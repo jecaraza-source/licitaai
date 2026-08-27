@@ -55,6 +55,10 @@ async function makeLicitacion(orgId) {
 }
 
 async function main() {
+  // Aislamiento: limpiar jobs no terminales de corridas previas (en CI la
+  // base arranca limpia; en local se acumulan y contaminan reclamar_jobs).
+  await admin.from("jobs").delete().in("estado", ["PENDING", "AUTHORIZED", "RETRYING", "RUNNING"]);
+
   const orgA = await makeOrgWithUser();
   const orgB = await makeOrgWithUser();
   const licA = await makeLicitacion(orgA.orgId);

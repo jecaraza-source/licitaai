@@ -85,7 +85,23 @@ export function apiRoute<
     const requestId = crypto.randomUUID();
     const path = request.nextUrl.pathname;
     const method = request.method;
+    const t0 = performance.now();
     let ctx: ApiContext | undefined;
+
+    // P2 · F1 — instrumentación de latencia de API. Server-Timing en la
+    // respuesta (visible en devtools / Speed Insights) + una línea de log
+    // con el request_id y los ms para correlacionar consultas lentas.
+    const instrumentar = (res: NextResponse): NextResponse => {
+      const ms = Math.round(performance.now() - t0);
+      res.headers.set("Server-Timing", `route;desc="${method} ${path}";dur=${ms}`);
+      if (ms > 800) {
+        console.warn(
+          "[api:slow]",
+          JSON.stringify({ request_id: requestId, method, path, ms, status: res.status }),
+        );
+      }
+      return res;
+    };
 
     try {
       ctx = await requireApiContext(requestId);
@@ -129,15 +145,15 @@ export function apiRoute<
 
       const resultado = await handler({ ctx, params, query, body, request });
 
-      if (resultado instanceof Response) return resultado as NextResponse;
-      return apiOk(resultado.data, requestId, { status: resultado.status });
+      if (resultado instanceof Response) return instrumentar(resultado as NextResponse);
+      return instrumentar(apiOk(resultado.data, requestId, { status: resultado.status }));
     } catch (error) {
       const apiError = error instanceof ApiError ? error : ApiError.internal();
       logApiError(
         { requestId, method, path, organizationId: ctx?.organizationId, userId: ctx?.userId },
         error,
       );
-      return apiErrorResponse(apiError, requestId);
+      return instrumentar(apiErrorResponse(apiError, requestId));
     }
   };
 }

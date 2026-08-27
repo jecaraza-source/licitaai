@@ -156,3 +156,11 @@ test("sin sesión, /api/jobs devuelve 401", async ({ page }) => {
   const res = await page.request.get("/api/jobs");
   expect(res.status()).toBe(401);
 });
+
+test("apiRoute añade el header Server-Timing (P2 · F1)", async ({ page }) => {
+  const org = await makeOrgWithUser("ADMIN");
+  await login(page, org.email, org.password);
+  const res = await page.request.get("/api/jobs");
+  expect(res.status()).toBe(200);
+  expect(res.headers()["server-timing"] ?? "").toMatch(/route;.*dur=\d+/);
+});

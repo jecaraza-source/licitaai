@@ -11,7 +11,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, sanitizeFilename } from "@/lib/utils";
 import { CATEGORIA_LABELS, ESTADO_DOT, ESTADO_LABELS } from "@/lib/checklist-labels";
-import { PdfViewer } from "@/components/licitaciones/pdf-viewer";
+import dynamic from "next/dynamic";
+
+// P2 · F3 — react-pdf (~pdf.js) es pesado y solo se usa al abrir el visor.
+// Carga diferida + sin SSR (usa `window`).
+const PdfViewer = dynamic(
+  () => import("@/components/licitaciones/pdf-viewer").then((m) => m.PdfViewer),
+  { ssr: false, loading: () => <div className="p-8 text-center text-sm text-muted-foreground">Cargando visor…</div> },
+);
 import { FirmaDigitalDialog } from "@/components/licitaciones/firma-digital-dialog";
 import type { Documento, EstadoChecklistItem, ModalidadProcedimiento } from "@/types";
 

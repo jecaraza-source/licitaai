@@ -1,0 +1,5 @@
+{
+  "totalClientJsGzipKB": 1500,
+  "maxChunkGzipKB": 320,
+  "_nota": "Presupuesto de JS cliente (gzip) sobre .next/static/chunks. Subir aquí en el mismo PR si un aumento es intencional, con justificación. Baseline P2·F2: total ~1258, mayor ~250."
+}

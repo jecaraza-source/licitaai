@@ -40,6 +40,9 @@ export default defineConfig({
       // P2 · I — panel de operación y monitoreo.
       PLATFORM_ADMIN_EMAILS: "platform-admin-e2e@example.org",
       CRON_SECRET: "e2e-cron-secret-0123456789abcdef",
+      // P2 · E — circuit breaker siempre evaluado en e2e (los tests
+      // manipulan provider_health directamente, no el flag).
+      FLAG_RESILIENCIA_CIRCUIT_BREAKER: "on",
     },
   },
 });

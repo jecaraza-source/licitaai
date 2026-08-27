@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import ExcelJS from "exceljs";
 import { descargarWorkbook } from "@/lib/exportar-excel";
 import { CheckCircle2, Sparkles, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -147,6 +146,7 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
 
   async function exportarExcel() {
     if (!filas) return;
+    const ExcelJS = (await import("exceljs")).default;
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Propuesta Económica");
     sheet.addRow([

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Sparkles, Info } from "lucide-react";
-import ExcelJS from "exceljs";
 import { descargarWorkbook } from "@/lib/exportar-excel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -90,6 +89,7 @@ export function PartidasTab({ licitacionId }: { licitacionId: string }) {
 
   async function exportarExcel() {
     if (!partidas) return;
+    const ExcelJS = (await import("exceljs")).default;
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Partidas");
     sheet.columns = [
