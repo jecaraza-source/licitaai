@@ -37,6 +37,9 @@ export default defineConfig({
       FLAG_JOBS_ASYNC_AUDITAR_EXPEDIENTE: "on",
       FLAG_JOBS_ASYNC_ANALIZAR_FALLO: "on",
       FLAG_JOBS_ASYNC_ANALIZAR_DOC_CORP: "on",
+      // P2 · I — panel de operación y monitoreo.
+      PLATFORM_ADMIN_EMAILS: "platform-admin-e2e@example.org",
+      CRON_SECRET: "e2e-cron-secret-0123456789abcdef",
     },
   },
 });
