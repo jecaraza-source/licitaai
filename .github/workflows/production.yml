@@ -33,9 +33,10 @@ jobs:
 
       - name: Verificar migraciones contra una base limpia
         run: |
-          supabase start -x imgproxy,vector,edge-runtime,realtime,storage,studio
-          supabase db reset --no-seed
-          supabase stop --no-backup
+          supabase stop --no-backup || true
+          supabase db start
+          supabase db reset --local --no-seed
+          supabase stop --no-backup || true
 
       - name: Respaldo previo de la base de producción
         run: |
@@ -58,16 +59,19 @@ jobs:
 
       - name: Desplegar app a Vercel (producción)
         run: |
-          npm i -g vercel
-          vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
-          vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
-          echo "DEPLOY_URL=$(vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}")" >> "$GITHUB_ENV"
+          npm i -g vercel@latest
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod --token="$VERCEL_TOKEN"
+          echo "DEPLOY_URL=$(vercel deploy --prebuilt --prod --archive=tgz --token="$VERCEL_TOKEN")" >> "$GITHUB_ENV"
         env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Smoke test
         run: node scripts/smoke.mjs "$DEPLOY_URL"
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
 
       - name: Registrar versión (tag + release)
         run: |
