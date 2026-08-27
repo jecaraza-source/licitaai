@@ -42,7 +42,8 @@ Configurar en *Settings → Secrets and variables → Actions* (y en el
 | `STAGING_PROJECT_REF`, `PRODUCTION_PROJECT_REF` | resp. environment | ref del proyecto Supabase |
 | `STAGING_DB_PASSWORD`, `PRODUCTION_DB_PASSWORD` | resp. environment | contraseña de la BD (para `db push`/`db dump`) |
 | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | staging + production | despliegue |
-| var `STAGING_ALIAS` | staging | alias estable del deploy de staging |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | staging (+ production si aplica) | el smoke test salta la protección de Vercel (previews `*.vercel.app` con SSO) — `x-vercel-protection-bypass` |
+| var `STAGING_ALIAS` | staging | alias estable del deploy de staging (`licitaai-staging.vercel.app`) |
 
 Los **secretos de la app** (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
 `RESEND_API_KEY`, `CRON_SECRET`, `JOB_WORKER_SECRET`,
