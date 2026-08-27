@@ -37,6 +37,7 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 
 | **H1–H2** — clasificación de datos + retención | _(este commit)_ | `docs/p2/13-clasificacion-datos.md` (8 clases de dato; etiqueta por tabla, bucket y sistema externo; qué pasa con cada una al borrar usuario/organización). Migración: `data_retention_policy` (1 fila por recurso, `activo`/`dry_run`, **todo arranca apagado y en dry-run**), `retencion_archive` (archivo frío jsonb append-only, inmutable como `audit_log`), `ejecutar_limpieza_retencion(p_forzar_dry_run)` (service_role; archiva→borra; nunca lanza; registra `ultimo_resultado` por recurso). 7 recursos: `rate_limit_hits` (7 d), `ai_usage_log`/`ai_budget_ledger` (13 m → archivo), `jobs` terminales (90 d → archivo), `jobs_dead_letter` (180 d), `actividad_log` (24 m), embeddings de licitaciones CERRADAS (12 m). `GET /api/cron/retencion` (Vercel Cron diario): con el flag `retencion.limpieza_automatica` OFF corre en modo observación (fuerza dry-run global). | 19 integración |
 | **H3** — auditoría inmutable | (entregado en I6, `3447a0f`) | `audit_log` encadenado por hash + `registrar_auditoria` / `verificar_cadena_auditoria`. |
+| **H4** — export de organización | _(este commit)_ | Job `exportar-organizacion` (handler propio, sin IA). `exportar_datos_organizacion(org)` → bundle jsonb con ~30 tablas de dominio (sin embeddings ni catálogos globales); `service_role`. El handler sube `export.json` + `manifiesto.json` (con `sha256` del export y el inventario de Storage por bucket) al bucket **privado** `exportaciones/{org}/{job_id}/` y devuelve una **URL firmada de 72 h**. `POST/GET /api/organizacion/exportar` (ADMIN, flag `datos.export_organizacion`, idempotente por ventana de 10 min). `/api/jobs` rechaza este tipo (ruta dedicada). | 16 integración + 1 e2e |
 
 **Verificación acumulada:** `npm run check` (typecheck + lint + lint:migrations) limpio · `npm run lint` sin errores nuevos (2 warnings baseline) · `deno check` limpio (salvo el gap pre-existente `web_search_20260209`, docs P0 §7) · 10 suites unit (63 casos) · 14 suites integración P2 (215 casos) · 51 e2e · tests P0/P1 sin regresión.
 
@@ -62,6 +63,7 @@ Rama `architecture/p2-production-readiness`. Nada desplegado a producción. Todo
 20260831000000_p2_f_rendimiento
 20260901000000_p2_i6_producto
 20260902000000_p2_h2_retencion
+20260903000000_p2_h4_exportar
 ```
 
 Rollback de cada una: comentario `-- Rollback:` al inicio del archivo. Ninguna toca datos existentes.

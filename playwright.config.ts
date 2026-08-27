@@ -46,6 +46,9 @@ export default defineConfig({
       // P2 · I6 — los e2e crean usuarios vía la admin API (sin pasar por el
       // flujo de aceptación de términos); se desactiva el gate.
       TERMINOS_GATE: "off",
+      // P2 · H — autoservicio de datos (export / borrado de organización).
+      FLAG_DATOS_EXPORT_ORGANIZACION: "on",
+      FLAG_DATOS_BORRADO_ORGANIZACION: "on",
     },
   },
 });

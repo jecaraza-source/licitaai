@@ -14,6 +14,12 @@ export const POST = apiRoute(
     flags: ["jobs.api"],
   },
   async ({ ctx, body }) => {
+    // Operaciones sobre la organización entera (export / borrado) tienen su
+    // propia ruta con control de rol ADMIN — no se encolan por aquí.
+    if (body.tipo === "exportar-organizacion") {
+      throw ApiError.forbidden("Usa el endpoint específico de la organización para esta operación");
+    }
+
     const { job, nuevo } = await crearJobConPresupuesto(ctx, {
       tipo: body.tipo,
       recurso_tipo: body.recurso_tipo,
