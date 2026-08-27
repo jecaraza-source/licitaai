@@ -7,6 +7,7 @@ import { requireApiContext, requireRole, type ApiContext, type Rol } from "./con
 import { validarParams, validarQuery, validarBody } from "./validate";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { checkAiBudget } from "@/lib/ai-usage";
+import { resolveFlags } from "@/lib/flags";
 
 type RouteParams = Record<string, string | string[]>;
 type NextRouteContext = { params: Promise<RouteParams> };
@@ -33,6 +34,12 @@ interface ApiRouteConfig<
    * (check_ai_budget) antes de ejecutar el handler — usar en toda ruta que
    * llame a un modelo de IA directa o indirectamente (vía Edge Function). */
   aiBudget?: boolean;
+  /** Feature flags (ADR 0008) que deben estar TODOS activos para la
+   * organización del llamante. Si alguno está apagado, la ruta responde
+   * 404 (NOT_FOUND) — el cliente no debe distinguir "apagado" de "no
+   * existe". Se evalúan después de resolver el contexto (se necesita la
+   * organización), antes de validar params/body. */
+  flags?: readonly string[];
 }
 
 type Infer<T extends z.ZodTypeAny | undefined> = T extends z.ZodTypeAny ? z.output<T> : undefined;
@@ -85,6 +92,14 @@ export function apiRoute<
 
       if (config.rolesPermitidos) {
         requireRole(ctx, config.rolesPermitidos);
+      }
+
+      if (config.flags && config.flags.length > 0) {
+        const resueltos = await resolveFlags(ctx.supabase, [...config.flags], {
+          organizationId: ctx.organizationId,
+        });
+        const apagado = config.flags.find((f) => !resueltos[f]);
+        if (apagado) throw ApiError.notFound();
       }
 
       if (config.rateLimit) {
