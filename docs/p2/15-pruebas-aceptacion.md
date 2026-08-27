@@ -49,6 +49,7 @@ npm run test:load               # carga-local.mjs, sin k6
 | 17 | **Core Web Vitals** | presupuesto de bundle en CI (`check:bundle`: total ≤ 1500 KB gz, chunk ≤ 320 KB gz); `Server-Timing` + log `[api:slow]` (>800 ms) | `scripts/check-bundle.mjs`, `p2-f-rendimiento.test.mjs`; **LCP/INP de campo pendientes de datos de producción** (`11-rendimiento.md`) | ⚠️ presupuestos como gate; CWV de campo tras despliegue |
 | 18 | **Escaneo de seguridad** | `npm audit` + `gitleaks` + CodeQL en CI; fix de grants del worker (`0df1bc1`); `p2-grants-worker-fns.test.mjs` (18 casos) | `.github/workflows/ci.yml`, `codeql.yml`, `p2-grants-worker-fns.test.mjs` | ✅ |
 | 19 | **Regresión completa** | P0 + P1 + P2: 10 suites unit · 23 suites integración · e2e | `npm run check && npm run test:*` | ✅ en verde suite a suite (ver nota de entorno) |
+| 20 | **IA real end-to-end** | `carga-ia-real.mjs`: Anthropic + OpenAI de verdad; embeddings 1536 dim reales, `ai_results` con contenido real, `ai_usage_log` con uso real | `tests/load/carga-ia-real.mjs` | ✅ (encontró y arregló el gap de `ai_usage_log` en el path asíncrono — §4) |
 
 ## 3. Resultados de carga (referencia — local, colima, sin pooler)
 
@@ -69,14 +70,42 @@ de compute). En producción el `throughput` real lo domina la latencia de
 los proveedores de IA, no la cola — se re-mide con carga de IA real cuando
 haya API keys y presupuesto autorizados (`tests/load/README.md` §3).
 
-## 4. Carga con IA real — pendiente
+## 4. Validación con IA real
 
-Necesita `ANTHROPIC_API_KEY` + `OPENAI_API_KEY` en el edge runtime y
-presupuesto autorizado (cada job cuesta dinero; `ai_org_policy` lo acota a
-propósito). Procedimiento en `tests/load/README.md` §3. Métricas a capturar:
-tiempo-a-completar p50/p95 de `procesar-documento` y `analizar-bases`,
-coste real por job vs. la estimación de `ai-estimate.ts`, comportamiento
-del breaker bajo throttling real (429 de Anthropic).
+`tests/load/carga-ia-real.mjs` — corrida acotada (no carga masiva) contra
+Anthropic + OpenAI de verdad. Requiere `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`
+en `supabase/functions/.env` (+ `supabase stop/start`) y `JOB_MOCK_AI != 1`.
+
+**Corrida de referencia** (1× `procesar-documento`, 2× `analizar-bases`,
+PDF de prueba ~1.4 KB):
+
+| Operación | Latencia p50 | Tokens/job | Modelo(s) | Coste real/job |
+|---|---|---|---|---|
+| `procesar-documento` | ~7.8 s | ~2 100 | claude-sonnet-5 (extracción del PDF, que por su tamaño entra por la ruta "escaneado") + text-embedding-3-small | ~$0.0044 |
+| `analizar-bases` | ~24.6 s | ~11 100 | claude-sonnet-5 | ~$0.029 |
+
+Verificado end-to-end: embeddings **reales** de 1536 dim (no el patrón
+mock), `ai_results` poblado con contenido y tokens reales, `ai_usage_log`
+con el uso real.
+
+### Bug encontrado y arreglado
+
+`handlerInvocaEF` (todas las operaciones B2–B10) **no registraba el uso en
+`ai_usage_log`**: en modo job la Edge Function corre con `service_role` y su
+`registrarUsoIA()` —que deriva la organización de `auth.uid()`— fallaba en
+silencio. `ai_usage_log` alimenta el tope diario de tokens de P0.6, así que
+las operaciones de IA asíncronas quedaban fuera de esa red de seguridad
+(el `ai_budget_ledger` de P2.2 sí las cubre, pero solo con su flag ON).
+**Fix:** `invocar-ef.ts` llama a `registrar_uso_ia_worker` con el `_usage`
+que ya recibe y el `organization_id` del job. Cubierto por
+`p2-b-invocar-ef.test.mjs` (#6b).
+
+### Pendiente (necesita más presupuesto / tiempo)
+
+Carga sostenida con IA real (decenas de jobs concurrentes) para medir el
+comportamiento del breaker bajo throttling real (429 de Anthropic) y la
+cola bajo latencia de proveedor de 20–30 s/job. Procedimiento en
+`tests/load/README.md` §3.
 
 ## 5. Checklist de accesibilidad pre-lanzamiento (manual)
 
@@ -90,11 +119,12 @@ del breaker bajo throttling real (429 de Anthropic).
 
 ## 6. Criterio de cierre de P2
 
-- [x] Escenarios 1–10, 12–15, 18–19: verde.
+- [x] Escenarios 1–10, 12–15, 18–20: verde.
+- [x] Escenario 20 (IA real end-to-end): verde — corrida acotada; encontró y arregló un bug de accounting.
 - [ ] Escenario 11 (drill de restauración real): **requiere proyecto Supabase aislado**.
 - [ ] Escenarios 16–17 (auditoría de accesibilidad con lector de pantalla; CWV de campo): **requieren despliegue** y tiempo de operación.
-- [ ] Carga con IA real (§4): **requiere API keys + presupuesto autorizado**.
+- [ ] Carga *sostenida* con IA real (§4): **requiere presupuesto** para decenas de jobs concurrentes.
 
 Nada de lo pendiente es código: son un proyecto de restauración, un
-despliegue y unas keys. El resto de P2 está listo para autorización de
-despliegue a staging.
+despliegue y presupuesto de IA. El resto de P2 está listo para
+autorización de despliegue a staging.

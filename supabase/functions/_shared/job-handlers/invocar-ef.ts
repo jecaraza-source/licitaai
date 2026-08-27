@@ -88,6 +88,22 @@ export function handlerInvocaEF(
     const tokensInput = usage.tokens_input ?? 0;
     const tokensOutput = usage.tokens_output ?? 0;
 
+    // Uso de IA en ai_usage_log (alimenta el tope diario de P0.6 y las
+    // métricas). En modo job la EF corre con service_role y su propio
+    // registrarUsoIA() —que usa auth.uid()— no puede escribir; lo hace aquí
+    // el worker con la variante service-role y el org explícito del job.
+    if (tokensInput > 0 || tokensOutput > 0) {
+      const { error: eUso } = await ctx.service.rpc("registrar_uso_ia_worker", {
+        p_organization_id: ctx.job.organization_id,
+        p_user_id: ctx.job.requested_by,
+        p_funcion: nombreEF,
+        p_modelo: modelo,
+        p_input_tokens: Math.max(0, Math.round(tokensInput) || 0),
+        p_output_tokens: Math.max(0, Math.round(tokensOutput) || 0),
+      });
+      if (eUso) console.error(`[${nombreEF}] registrar_uso_ia_worker:`, eUso.message);
+    }
+
     // Trazabilidad append-only (D3), tras el flag ai.versionado_resultados.
     if (opts.tipoAnalisis && opts.recursoDeInput) {
       const versionar = await isEnabled(ctx.service, "ai.versionado_resultados", {

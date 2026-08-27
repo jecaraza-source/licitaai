@@ -109,6 +109,13 @@ async function main() {
     check("4. el job noop-ef llega a COMPLETED", final.estado === "COMPLETED", `${final.estado}/${final.error_seguro}`);
     check("5. el worker guardó los tokens que reportó la EF (_usage)", final.tokens_input === 12000 && final.tokens_output === 2000);
     check("6. result_ref trae la data de la EF", final.result_ref?.echo?.licitacion_id === licId);
+
+    // el worker registra el uso en ai_usage_log (la EF en modo job corre con
+    // service_role y su registrarUsoIA con auth.uid() no puede escribir).
+    const { data: usos } = await admin.from("ai_usage_log")
+      .select("funcion, input_tokens, output_tokens")
+      .eq("organization_id", org.orgId).eq("funcion", "test-echo");
+    check("6b. el worker registró el uso de IA en ai_usage_log", (usos ?? []).some((u) => u.input_tokens === 12000 && u.output_tokens === 2000));
   }
 
   // --- versionado: con ai.versionado_resultados ON, se persiste en ai_results ---
