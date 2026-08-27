@@ -1,6 +1,8 @@
 # P2 · Entregable 17 — Plan de rollback consolidado y DR
 
-El rollback **por incremento** está en las tablas de [03-plan-incremental.md](03-plan-incremental.md). Este documento consolida la estrategia y cubre DR (se completa con evidencia real en Fase H).
+El rollback **por incremento** está en las tablas de [03-plan-incremental.md](03-plan-incremental.md). Este documento consolida la estrategia y cubre DR.
+
+> **Backup, restauración y decisión de PITR:** [`14-backup-y-restauracion.md`](14-backup-y-restauracion.md) (H6/H7/H8). Lo de abajo es el resumen; el detalle operativo, los scripts y el procedimiento de drill viven allí.
 
 ## 1. Principios
 

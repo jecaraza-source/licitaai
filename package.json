@@ -14,7 +14,11 @@
     "test:e2e": "playwright test",
     "deno:check": "cd supabase/functions && deno check $(git ls-files '*.ts')",
     "check": "npm run typecheck && npm run lint && npm run lint:migrations",
-    "check:bundle": "node scripts/check-bundle.mjs"
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "backup:db": "node scripts/backup-db.mjs",
+    "backup:config": "node scripts/backup-config.mjs",
+    "backup:storage": "node scripts/backup-storage.mjs",
+    "restore:verify": "node scripts/restore-verify.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
