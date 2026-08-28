@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
+    "typegen": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
     "lint:migrations": "node scripts/lint-migraciones.mjs",
     "test": "npm run test:hygiene && npm run test:unit",
     "test:hygiene": "node scripts/check-test-hygiene.mjs",

@@ -153,3 +153,15 @@ Construida en `src/lib/api/` (`errors.ts`, `response.ts`, `log.ts`, `context.ts`
 **Índices añadidos**: `checklist_items(documento_id)`, `requisitos_tecnicos(licitacion_id)`, `requisitos_tecnicos(documento_id)`, `propuesta_economica_partidas(partida_id)` — todos parciales `where ... is not null` salvo el de `licitacion_id`.
 
 Tests: `tests/integration/p1-integridad.test.mjs` (9 casos — atomicidad del RPC con rollback, rechazo de referencias cross-licitación).
+
+## P1.4 — TypeScript y contratos de datos
+
+| Punto del brief | Estado |
+|---|---|
+| Scripts `typegen` / `typecheck` / `test` / `test:*` / `test:coverage` | ✅ todos presentes en `package.json` |
+| `next typegen` antes de `tsc --noEmit` | ✅ ya en el script `typecheck` |
+| Generar tipos Supabase desde el esquema real | ✅ `src/lib/supabase/database.types.ts` (`npm run typegen`, `supabase gen types --local`); CI (`supabase-tests`) lo regenera y falla con `git diff --exit-code` si quedó desincronizado de las migraciones |
+| Eliminar `any` y casts inseguros | ✅ `grep -rn ": any\| as any" src` → 0 resultados (ya era así desde antes) |
+| Helpers de tipos para consumo | ✅ `src/lib/supabase/tipos.ts` — `Fila<T>` / `Insert<T>` / `Update<T>` / `FuncionArgs<T>` sobre el `Database` generado |
+| Validar respuestas de IA con esquema en runtime | ⚠️ parcial — `analizar-bases` valida contra su JSON Schema (`validarContraEsquema`, P0.6); `ai_results` con Zod (P2·D1). Las otras Edge Functions de IA dependen de `tool_choice` (documentado en `docs/security-p0-hardening.md` §7) |
+| Cliente Supabase tipado (`createServerClient<Database>`) end-to-end | ⏳ **pendiente** — enhebrar `Database` por `createClient()` / `ApiContext.supabase` destapa ~43 desajustes de contrato reales (columnas de enum que Postgres da como `text`, columnas JSONB que la app trata con interfaces de dominio). Es exactamente el trabajo de "alinear tipos" del brief, pero cada arreglo es una frontera de `as` que hay que revisar 1×1 y validar con la suite e2e — se hace como su propio paso enfocado. Inventario: `src/app/(dashboard)/licitaciones/[id]/page.tsx` (5), `src/components/licitaciones/documentos-tab.tsx` (2), `src/lib/jobs.ts` (7), y sitios de escritura JSONB en ~15 rutas de `src/app/api` (`seguimiento`, `viabilidad`, `responsabilidades`, `liberacion`, `junta-aclaraciones*`, `propuesta-tecnica`, `jerarquia`, `empresa-perfil*`, `checklist-items`, `ai-results/*/revision`). Reconciliar requiere que los tipos de `@/types` deriven de `database.types.ts` en vez de duplicarlo.

@@ -80,6 +80,15 @@ jobs:
             echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
           } >> "$GITHUB_ENV"
 
+      - name: Tipos de Supabase al día (P1.4)
+        # Regenera los tipos desde el esquema real (todas las migraciones
+        # aplicadas por `supabase start`) y falla si el archivo committeado
+        # quedó desincronizado respecto a las migraciones.
+        run: |
+          npm run typegen
+          git diff --exit-code src/lib/supabase/database.types.ts \
+            || { echo "::error::database.types.ts desactualizado — corre 'npm run typegen' y commitea"; exit 1; }
+
       - name: Esperar a las Edge Functions
         run: |
           for i in $(seq 1 40); do
