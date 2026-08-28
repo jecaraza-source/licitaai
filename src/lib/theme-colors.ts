@@ -37,14 +37,25 @@ export function contrastText(hex: string): string {
  * el layout del panel — el resto de tokens (primary, ring, sidebar-*, charts)
  * ya están definidos en globals.css en función de estas variables.
  */
+/** `#rgb` o `#rrggbb`. Se usa como guarda antes de interpolar un color en
+ * un bloque `<style>` — sin esto, un `color_primario` con `}`/`@import`/`;`
+ * sería inyección de CSS que afecta a toda la organización (P1.6). */
+export function esHexValido(valor: unknown): valor is string {
+  return typeof valor === "string" && /^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/.test(valor.trim());
+}
+
 export function buildCompanyThemeStyle(
   colorPrimario?: string | null,
   colorSecundario?: string | null,
 ): string | null {
-  if (!colorPrimario) return null;
+  // Defensa en profundidad: aunque el schema Zod ya exige formato hex al
+  // guardar, una fila anterior a esa restricción no debe poder inyectar CSS.
+  if (!esHexValido(colorPrimario)) return null;
 
-  const primario = colorPrimario;
-  const secundario = colorSecundario ?? mix(colorPrimario, "black", 0.35);
+  const primario = colorPrimario.trim();
+  const secundario = esHexValido(colorSecundario)
+    ? colorSecundario.trim()
+    : mix(primario, "black", 0.35);
   const primarioForeground = contrastText(primario);
 
   return `:root {

@@ -6,7 +6,9 @@
     "src/lib/api/response.ts",
     "src/lib/api/validate.ts",
     "src/lib/cron-auth.ts",
-    "src/lib/efirma.ts"
+    "src/lib/efirma.ts",
+    "src/lib/sanitize-html.ts",
+    "src/lib/theme-colors.ts"
   ],
   "exclude": ["**/*.d.ts", "**/node_modules/**"],
   "reporter": ["text", "text-summary", "lcov"],
