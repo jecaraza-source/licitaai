@@ -5,10 +5,11 @@
 //   npx supabase start
 //   node tests/integration/p2-b1-b2-concurrencia.test.mjs
 import { createClient } from "@supabase/supabase-js";
+import { LOCAL } from "../helpers/local-supabase.mjs";
 
-const URL = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
-const ANON_KEY = process.env.SUPABASE_ANON_KEY ?? "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH";
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz";
+const URL = process.env.SUPABASE_URL ?? LOCAL.url;
+const ANON_KEY = process.env.SUPABASE_ANON_KEY ?? LOCAL.anonKey;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? LOCAL.serviceRoleKey;
 
 if (URL.includes("supabase.co")) {
   console.error("Refusing to run against a remote project.");
@@ -127,6 +128,40 @@ async function main() {
       `reclamó: ${[...ids].join(",")}`,
     );
     check("B1.6 ese retomo NO arranca además el job fresco (respeta cupo=1)", !ids.has(j2));
+
+    await admin.from("jobs").delete().eq("organization_id", org.orgId);
+    await admin.from("organizations").delete().eq("id", org.orgId);
+  }
+
+  // ── carrera: N workers concurrentes NUNCA reclaman el mismo job ──────
+  {
+    const org = await orgConUsuario(100);
+    await crearNoop(org.asUser, 30);
+
+    // 6 llamadas concurrentes a reclamar_jobs (como 6 workers).
+    const lotes = await Promise.all(
+      Array.from({ length: 6 }, (_, i) =>
+        admin.rpc("reclamar_jobs", { p_worker_id: `race-w${i}`, p_limite: 8 }).then((r) => r.data ?? []),
+      ),
+    );
+    const todos = lotes.flat();
+    const ids = todos.map((j) => j.id);
+    check(
+      "RACE 1. ningún job fue reclamado por dos workers a la vez",
+      new Set(ids).size === ids.length,
+      `${ids.length} reclamos, ${new Set(ids).size} únicos`,
+    );
+
+    const { data: filas } = await admin
+      .from("jobs")
+      .select("intentos")
+      .eq("organization_id", org.orgId)
+      .eq("estado", "RUNNING");
+    check(
+      "RACE 2. ningún job RUNNING tiene intentos > 1 (no doble arranque)",
+      (filas ?? []).every((f) => f.intentos === 1),
+      `intentos: ${(filas ?? []).map((f) => f.intentos).join(",")}`,
+    );
 
     await admin.from("jobs").delete().eq("organization_id", org.orgId);
     await admin.from("organizations").delete().eq("id", org.orgId);

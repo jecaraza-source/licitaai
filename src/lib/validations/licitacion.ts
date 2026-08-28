@@ -56,4 +56,7 @@ export type LicitacionInput = z.output<typeof licitacionSchema>;
 
 export const estadoLicitacionSchema = z.object({
   estado_licitacion: z.enum(ESTADOS_LICITACION),
+  /** B5 — solo ADMIN: enviar pese a tener análisis de IA sin revisar
+   * (queda registrado en la bitácora inmutable). */
+  omitir_revision_ia: z.boolean().optional(),
 });

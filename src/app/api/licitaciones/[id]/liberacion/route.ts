@@ -10,7 +10,7 @@ const putBodySchema = z.object({
 });
 
 export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
-  const data = await getGateStatus(ctx.supabase, params.id);
+  const data = await getGateStatus(ctx.supabase, params.id, ctx.organizationId);
   return { data };
 });
 
@@ -38,6 +38,6 @@ export const PUT = apiRoute({ paramsSchema, bodySchema: putBodySchema }, async (
 
   if (error) throw ApiError.internal();
 
-  const data = await getGateStatus(ctx.supabase, params.id);
+  const data = await getGateStatus(ctx.supabase, params.id, ctx.organizationId);
   return { data };
 });

@@ -6,6 +6,7 @@ import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
 import { authenticate, jsonError, registrarUsoIA, requireDocumentoCorporativo } from "../_shared/auth.ts";
+import { resolverModelo } from "../_shared/modelo-politica.ts";
 import { contenidoCoincideConNombre } from "../_shared/file-validation.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
 import { bloqueDocumentoParaClaude } from "../_shared/anthropic-content-block.ts";
@@ -286,6 +287,7 @@ Deno.serve(async (req) => {
     if (documento instanceof Response) return documento;
 
     const supabase = ctx.service;
+    const modeloIA = await resolverModelo(supabase, ctx.organizationId, "claude-sonnet-5");
 
     const { data: empresa } = await supabase
       .from("empresa_perfil")
@@ -332,7 +334,7 @@ Deno.serve(async (req) => {
 
     const response = await withRetry(() =>
       anthropic.messages.create({
-        model: "claude-sonnet-5",
+        model: modeloIA,
         max_tokens: 1000,
         system: SYSTEM_PROMPT,
         tools: [
@@ -357,7 +359,7 @@ Deno.serve(async (req) => {
 
     await registrarUsoIA(ctx, {
       funcion: "analizar-documento-corporativo",
-      modelo: "claude-sonnet-5",
+      modelo: modeloIA,
       inputTokens: response.usage?.input_tokens ?? 0,
       outputTokens: response.usage?.output_tokens ?? 0,
     });
@@ -425,7 +427,7 @@ Deno.serve(async (req) => {
         _usage: {
           tokens_input: response.usage?.input_tokens ?? 0,
           tokens_output: response.usage?.output_tokens ?? 0,
-          modelo: "claude-sonnet-5",
+          modelo: modeloIA,
           provider: "anthropic",
         },
       }),

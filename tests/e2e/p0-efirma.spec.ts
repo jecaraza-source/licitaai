@@ -14,9 +14,10 @@ import { test, expect, type Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import forge from "node-forge";
 import { firmarDocumento, hashDocumentoHex } from "../../src/lib/efirma";
+import { LOCAL } from "../helpers/local-supabase.mjs";
 
-const SUPABASE_URL = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz";
+const SUPABASE_URL = process.env.SUPABASE_URL ?? LOCAL.url;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? LOCAL.serviceRoleKey;
 
 test.skip(
   SUPABASE_URL.includes("supabase.co"),

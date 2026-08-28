@@ -9,9 +9,10 @@
 //   npx supabase start   (o stop/start si el edge runtime no recogió job-notify)
 //   node tests/integration/p2-jobs-notificacion.test.mjs
 import { createClient } from "@supabase/supabase-js";
+import { LOCAL } from "../helpers/local-supabase.mjs";
 
-const URL = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz";
+const URL = process.env.SUPABASE_URL ?? LOCAL.url;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? LOCAL.serviceRoleKey;
 const FUNCTIONS_URL = `${URL}/functions/v1`;
 
 if (URL.includes("supabase.co")) {

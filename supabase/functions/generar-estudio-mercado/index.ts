@@ -10,6 +10,7 @@ import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
 import { authenticate, jsonError, registrarUsoIA, requireLicitacion } from "../_shared/auth.ts";
+import { resolverModelo } from "../_shared/modelo-politica.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
 
 const SYSTEM_PROMPT_INVESTIGACION = conGuardia(`Eres un analista de mercado especializado en compras gubernamentales mexicanas.
@@ -83,14 +84,14 @@ interface InvestigacionResultado {
   outputTokens: number;
 }
 
-async function investigarPartida(anthropic: Anthropic, partida: Partida): Promise<InvestigacionResultado> {
+async function investigarPartida(anthropic: Anthropic, partida: Partida, modelo: string): Promise<InvestigacionResultado> {
   // Streaming es obligatorio aquí: con web_search la llamada puede tardar más
   // de 150s sin emitir bytes, y el gateway de Edge Functions de Supabase
   // cierra la conexión por IDLE_TIMEOUT en llamadas no streaming.
   const response = await withRetry(() =>
     anthropic.messages
       .stream({
-        model: "claude-sonnet-5",
+        model: modelo,
         max_tokens: 4000,
         system: SYSTEM_PROMPT_INVESTIGACION,
         tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
@@ -121,10 +122,10 @@ interface EstructuraResultado {
   outputTokens: number;
 }
 
-async function estructurarEstudio(anthropic: Anthropic, investigacion: string): Promise<EstructuraResultado> {
+async function estructurarEstudio(anthropic: Anthropic, investigacion: string, modelo: string): Promise<EstructuraResultado> {
   const response = await withRetry(() =>
     anthropic.messages.create({
-      model: "claude-sonnet-5",
+      model: modelo,
       max_tokens: 2000,
       system: SYSTEM_PROMPT_ESTRUCTURA,
       tools: [
@@ -168,6 +169,7 @@ Deno.serve(async (req) => {
     if (licitacionCheck instanceof Response) return licitacionCheck;
 
     const supabase = ctx.service;
+    const modeloIA = await resolverModelo(supabase, ctx.organizationId, "claude-sonnet-5");
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
 
     let query = supabase
@@ -186,11 +188,11 @@ Deno.serve(async (req) => {
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     for (const partida of partidas as Partida[]) {
-      const investigacion = await investigarPartida(anthropic, partida);
+      const investigacion = await investigarPartida(anthropic, partida, modeloIA);
       totalInputTokens += investigacion.inputTokens;
       totalOutputTokens += investigacion.outputTokens;
 
-      const estructura = await estructurarEstudio(anthropic, investigacion.texto);
+      const estructura = await estructurarEstudio(anthropic, investigacion.texto, modeloIA);
       totalInputTokens += estructura.inputTokens;
       totalOutputTokens += estructura.outputTokens;
       if (!estructura.data) continue;
@@ -219,7 +221,7 @@ Deno.serve(async (req) => {
 
     await registrarUsoIA(ctx, {
       funcion: "generar-estudio-mercado",
-      modelo: "claude-sonnet-5",
+      modelo: modeloIA,
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
     });
@@ -231,7 +233,7 @@ Deno.serve(async (req) => {
     });
 
     return new Response(
-      JSON.stringify({ ...{ ok: true, data: resultados }, _usage: { tokens_input: totalInputTokens, tokens_output: totalOutputTokens, modelo: "claude-sonnet-5", provider: "anthropic" } }),
+      JSON.stringify({ ...{ ok: true, data: resultados }, _usage: { tokens_input: totalInputTokens, tokens_output: totalOutputTokens, modelo: modeloIA, provider: "anthropic" } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

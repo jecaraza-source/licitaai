@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ChecklistLiberacionItem } from "@/types";
+import { isEnabled } from "@/lib/flags";
 
 export const ITEMS_LIBERACION_DEFAULT: Omit<ChecklistLiberacionItem, "checked">[] = [
   { id: "documentos_descargados", label: "Se descargaron todos los documentos de la fuente" },
@@ -52,12 +53,24 @@ export function buildItemsLiberacion(
   }));
 }
 
+export interface AnalisisIaPendiente {
+  id: string;
+  tipo_analisis: string;
+  documento_id: string | null;
+  created_at: string;
+}
+
 export interface GateStatus {
   rojos: number;
   amarillosCriticos: number;
   pendientesLiberacion: number;
   itemsLiberacion: ChecklistLiberacionItem[];
   jerarquiaAutorizada: boolean;
+  /** B5 (D5) — versiones activas de `ai_results` que siguen en PENDIENTE. */
+  analisisIaSinRevisar: AnalisisIaPendiente[];
+  /** true si el flag `ai.gate_aprobacion` está activo para la organización;
+   * solo entonces `analisisIaSinRevisar` cuenta para `bloqueado`. */
+  gateAprobacionIaActivo: boolean;
   bloqueado: boolean;
 }
 
@@ -70,26 +83,37 @@ export interface GateStatus {
 export async function getGateStatus(
   supabase: SupabaseClient,
   licitacionId: string,
+  organizationId?: string,
 ): Promise<GateStatus> {
-  const [{ data: checklist }, { data: liberacion }, { data: licitacion }, { data: jerarquia }] =
-    await Promise.all([
-      supabase.from("checklist_items").select("estado, critico").eq("licitacion_id", licitacionId),
-      supabase
-        .from("checklist_liberacion")
-        .select("items_json")
-        .eq("licitacion_id", licitacionId)
-        .maybeSingle(),
-      supabase
-        .from("licitaciones")
-        .select("es_investigacion_mercado")
-        .eq("id", licitacionId)
-        .maybeSingle(),
-      supabase
-        .from("licitacion_jerarquia")
-        .select("supervisor_autorizado_at")
-        .eq("licitacion_id", licitacionId)
-        .maybeSingle(),
-    ]);
+  const [
+    { data: checklist },
+    { data: liberacion },
+    { data: licitacion },
+    { data: jerarquia },
+    { data: analisisPendientes },
+    gateAprobacionIaActivo,
+  ] = await Promise.all([
+    supabase.from("checklist_items").select("estado, critico").eq("licitacion_id", licitacionId),
+    supabase
+      .from("checklist_liberacion")
+      .select("items_json")
+      .eq("licitacion_id", licitacionId)
+      .maybeSingle(),
+    supabase
+      .from("licitaciones")
+      .select("es_investigacion_mercado")
+      .eq("id", licitacionId)
+      .maybeSingle(),
+    supabase
+      .from("licitacion_jerarquia")
+      .select("supervisor_autorizado_at")
+      .eq("licitacion_id", licitacionId)
+      .maybeSingle(),
+    supabase.rpc("licitacion_analisis_ia_pendientes", { p_licitacion_id: licitacionId }),
+    organizationId
+      ? isEnabled(supabase, "ai.gate_aprobacion", { organizationId })
+      : Promise.resolve(false),
+  ]);
 
   const items = checklist ?? [];
   const rojos = items.filter((i) => i.estado === "ROJO").length;
@@ -101,6 +125,7 @@ export async function getGateStatus(
   );
   const pendientesLiberacion = itemsLiberacion.filter((i) => !i.checked).length;
   const jerarquiaAutorizada = !!jerarquia?.supervisor_autorizado_at;
+  const analisisIaSinRevisar = (analisisPendientes ?? []) as AnalisisIaPendiente[];
 
   return {
     rojos,
@@ -108,7 +133,13 @@ export async function getGateStatus(
     pendientesLiberacion,
     itemsLiberacion,
     jerarquiaAutorizada,
+    analisisIaSinRevisar,
+    gateAprobacionIaActivo,
     bloqueado:
-      rojos > 0 || amarillosCriticos > 0 || pendientesLiberacion > 0 || !jerarquiaAutorizada,
+      rojos > 0 ||
+      amarillosCriticos > 0 ||
+      pendientesLiberacion > 0 ||
+      !jerarquiaAutorizada ||
+      (gateAprobacionIaActivo && analisisIaSinRevisar.length > 0),
   };
 }

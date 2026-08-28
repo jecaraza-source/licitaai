@@ -129,6 +129,36 @@ export type Database = {
           },
         ]
       }
+      ai_cache: {
+        Row: {
+          clave: string
+          created_at: string
+          hits: number
+          last_hit_at: string | null
+          resultado_json: Json
+          tokens_input: number
+          tokens_output: number
+        }
+        Insert: {
+          clave: string
+          created_at?: string
+          hits?: number
+          last_hit_at?: string | null
+          resultado_json: Json
+          tokens_input?: number
+          tokens_output?: number
+        }
+        Update: {
+          clave?: string
+          created_at?: string
+          hits?: number
+          last_hit_at?: string | null
+          resultado_json?: Json
+          tokens_input?: number
+          tokens_output?: number
+        }
+        Relationships: []
+      }
       ai_model_pricing: {
         Row: {
           actualizado_at: string
@@ -833,6 +863,7 @@ export type Database = {
         Row: {
           chunk_index: number
           contenido: string
+          contenido_sha256: string | null
           documento_id: string
           embedding: string | null
           id: string
@@ -841,6 +872,7 @@ export type Database = {
         Insert: {
           chunk_index: number
           contenido: string
+          contenido_sha256?: string | null
           documento_id: string
           embedding?: string | null
           id?: string
@@ -849,6 +881,7 @@ export type Database = {
         Update: {
           chunk_index?: number
           contenido?: string
+          contenido_sha256?: string | null
           documento_id?: string
           embedding?: string | null
           id?: string
@@ -2594,6 +2627,16 @@ export type Database = {
         Returns: undefined
       }
       aceptar_terminos: { Args: { p_version: string }; Returns: undefined }
+      ai_cache_buscar: { Args: { p_clave: string }; Returns: Json }
+      ai_cache_guardar: {
+        Args: {
+          p_clave: string
+          p_resultado: Json
+          p_tokens_input?: number
+          p_tokens_output?: number
+        }
+        Returns: undefined
+      }
       ai_policy_de_org: {
         Args: { p_org: string }
         Returns: {
@@ -2907,6 +2950,7 @@ export type Database = {
         Args: { p_forzar_dry_run?: boolean }
         Returns: Json
       }
+      embedding_por_hash: { Args: { p_hash: string }; Returns: string }
       estimar_costo_ia: {
         Args: {
           p_modelo: string
@@ -3001,6 +3045,15 @@ export type Database = {
       liberar_reserva_ia: {
         Args: { p_organization_id: string; p_reserva_id: string }
         Returns: undefined
+      }
+      licitacion_analisis_ia_pendientes: {
+        Args: { p_licitacion_id: string }
+        Returns: {
+          created_at: string
+          documento_id: string
+          id: string
+          tipo_analisis: string
+        }[]
       }
       licitacion_org_matches: {
         Args: { p_licitacion_id: string }
@@ -3239,6 +3292,14 @@ export type Database = {
       }
       reservar_presupuesto_ia: {
         Args: { p_estimado_usd: number; p_job_id?: string; p_tipo: string }
+        Returns: string
+      }
+      resolver_modelo_ia: {
+        Args: {
+          p_confianza_baja?: boolean
+          p_modelo_deseado: string
+          p_org: string
+        }
         Returns: string
       }
       revocar_sesiones_organizacion: {
