@@ -3241,6 +3241,14 @@ export type Database = {
         Args: { p_estimado_usd: number; p_job_id?: string; p_tipo: string }
         Returns: string
       }
+      resolver_modelo_ia: {
+        Args: {
+          p_confianza_baja?: boolean
+          p_modelo_deseado: string
+          p_org: string
+        }
+        Returns: string
+      }
       revocar_sesiones_organizacion: {
         Args: { p_org: string }
         Returns: number
