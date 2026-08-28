@@ -138,11 +138,18 @@ Construida en `src/lib/api/` (`errors.ts`, `response.ts`, `log.ts`, `context.ts`
 - `POST /api/documentos/[docId]/firmar`: el caso "RFC distinto" pasó de `{error: "rfc_distinto", detalle}` a un `VALIDATION_ERROR` con `error.details.motivo === "rfc_distinto"`.
 - `POST /api/organizacion/staff/invitar`: ahora tiene rate limit (`max: 10`/min) y valida el correo con `z.string().email()` en vez de `includes("@")`.
 
-## Recomendaciones para P1.2 (integridad — commit siguiente)
+## P1.2 — integridad y transacciones (migración `20260906000000_p1_integridad.sql`)
 
-1. Envolver en una transacción/RPC el patrón delete-then-insert de `propuesta-economica` PUT.
-2. Corregir el orden de la operación compensatoria en `empresa-perfil/[id]/documentos/[docId]` DELETE.
-3. Añadir una restricción de integridad para que `docId` en `empresa-perfil/[id]/documentos/[docId]*` pertenezca al `empresa_perfil_id` de la URL.
-4. Escapar/parametrizar el filtro `search` de `licitaciones/route.ts` en vez de interpolarlo en `.or()`.
+| Recomendación | Estado |
+|---|---|
+| Envolver en transacción/RPC el delete-then-insert de `propuesta-economica` PUT | ✅ RPC `guardar_propuesta_economica(uuid, jsonb, jsonb)` — upsert de config + reemplazo de partidas atómico; la ruta ya no hace delete/insert sueltos |
+| Corregir el orden de la compensación en `empresa-perfil/[id]/documentos/[docId]` DELETE | ✅ ahora borra la fila de la base primero y luego el objeto de Storage; si Storage falla se registra (barrido de huérfanos) en vez de dejar la fila |
+| `docId` de `empresa-perfil/[id]/documentos/[docId]` debe pertenecer al `empresa_perfil_id` de la URL | ✅ ya se verifica en la ruta (`.eq("empresa_perfil_id", params.id)`) desde la migración P1.1 del bloque 3 |
+| Escapar el filtro `search` de `licitaciones/route.ts` en `.or()` | ✅ `escaparValorOr()` — ya resuelto en el bloque 1 |
+| `requiereIA: true` en `generar-preguntas-junta` / `generar-propuesta-tecnica` | ✅ confirmado en el código actual de ambas Edge Functions |
 
-**Ya resuelto** (P1.1): `requiereIA: true` añadido a `generar-preguntas-junta` y `generar-propuesta-tecnica` — ver commits P2 (`e24e269`); confirmado en el código actual de ambas funciones.
+**Consistencia cross-recurso dentro de la misma organización** (la RLS ya cubre cross-organización; esto cierra el hueco #5 del resumen ejecutivo): triggers `BEFORE INSERT OR UPDATE` que exigen que un `documento_id` / `partida_id` referenciado pertenezca a la MISMA licitación que la fila que lo referencia — en `checklist_items`, `requisitos_tecnicos` y `propuesta_economica_partidas`.
+
+**Índices añadidos**: `checklist_items(documento_id)`, `requisitos_tecnicos(licitacion_id)`, `requisitos_tecnicos(documento_id)`, `propuesta_economica_partidas(partida_id)` — todos parciales `where ... is not null` salvo el de `licitacion_id`.
+
+Tests: `tests/integration/p1-integridad.test.mjs` (9 casos — atomicidad del RPC con rollback, rechazo de referencias cross-licitación).
