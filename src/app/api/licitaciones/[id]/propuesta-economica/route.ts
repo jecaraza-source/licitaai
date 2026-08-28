@@ -97,47 +97,24 @@ export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
 export const PUT = apiRoute({ paramsSchema, bodySchema: putBodySchema }, async ({ ctx, params, body }) => {
   requireWriteRole(ctx);
 
-  // Sin transacción: si el insert de partidas falla tras el delete, se
-  // pierden las partidas capturadas — mismo comportamiento que el código
-  // original; envolver esto en una operación atómica es alcance de P1.2.
-  if (body.config) {
-    const { data: existente } = await ctx.supabase
-      .from("propuesta_economica_config")
-      .select("id")
-      .eq("licitacion_id", params.id)
-      .maybeSingle();
-
-    if (existente) {
-      await ctx.supabase.from("propuesta_economica_config").update(body.config).eq("id", existente.id);
-    } else {
-      await ctx.supabase
-        .from("propuesta_economica_config")
-        .insert({ licitacion_id: params.id, ...body.config });
-    }
+  if (!body.config && !body.partidas) {
+    return { data: { ok: true } };
   }
 
-  if (body.partidas) {
-    await ctx.supabase.from("propuesta_economica_partidas").delete().eq("licitacion_id", params.id);
-    if (body.partidas.length > 0) {
-      const filas = body.partidas.map((p) => ({
-        licitacion_id: params.id,
-        partida_id: p.partida_id ?? null,
-        descripcion: p.descripcion,
-        cantidad: p.cantidad,
-        unidad: p.unidad,
-        precio_unitario_ofertado: p.precio_unitario_ofertado,
-        subtotal: p.subtotal,
-        iva: p.iva,
-        total: p.total,
-        margen_porcentaje: p.margen_porcentaje,
-        precio_referencia_mercado: p.precio_referencia_mercado,
-        cantidad_compras_mx: p.cantidad_compras_mx ?? null,
-        precio_unitario_compras_mx: p.precio_unitario_compras_mx ?? null,
-        total_compras_mx: p.total_compras_mx ?? null,
-      }));
-      const { error } = await ctx.supabase.from("propuesta_economica_partidas").insert(filas);
-      if (error) throw ApiError.internal();
-    }
+  // P1.2 — un solo RPC transaccional: el upsert de config y el
+  // reemplazo (delete + insert) de partidas ocurren atómicamente. Si el
+  // insert de partidas falla, el delete se revierte y no se pierde lo
+  // capturado (antes era delete-then-insert sin transacción).
+  const { error } = await ctx.supabase.rpc("guardar_propuesta_economica", {
+    p_licitacion_id: params.id,
+    p_config: body.config ?? null,
+    p_partidas: body.partidas ?? null,
+  });
+
+  if (error) {
+    // 42501 = RLS/permiso; el resto (check de partida ajena, tipos) → 400.
+    if (error.code === "42501") throw ApiError.forbidden();
+    throw ApiError.validation("No se pudo guardar la propuesta económica");
   }
 
   return { data: { ok: true } };

@@ -33,8 +33,22 @@ export const empresaPerfilSchema = z.object({
   certificaciones_json: arrayJson,
   clientes_referencia_json: arrayJson,
   logo_url: z.string().trim().max(2000).nullable().optional(),
-  color_primario: z.string().trim().max(20).nullable().optional(),
-  color_secundario: z.string().trim().max(20).nullable().optional(),
+  // Formato hex estricto: estos colores se interpolan en un bloque <style>
+  // del layout (P1.6 — evita inyección de CSS a nivel de organización).
+  color_primario: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/, "Debe ser un color hex (#rgb o #rrggbb)")
+    .nullable()
+    .optional()
+    .or(z.literal("").transform(() => null)),
+  color_secundario: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/, "Debe ser un color hex (#rgb o #rrggbb)")
+    .nullable()
+    .optional()
+    .or(z.literal("").transform(() => null)),
   objeto_social: textoNullable,
   acta_escritura_numero: textoNullable,
   acta_escritura_fecha: textoNullable,

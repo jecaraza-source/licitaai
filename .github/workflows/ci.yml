@@ -9,6 +9,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Mínimo necesario: checkout + subida de artefactos. Sin escritura al repo,
+# a issues, ni a deployments (P1.6 — CodeQL actions/missing-workflow-permissions).
+permissions:
+  contents: read
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -20,7 +25,14 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run lint:migrations
+      - run: npm run test:hygiene
       - run: npm audit --omit=dev --audit-level=high
+      - name: Licencias de dependencias de producción (P1.8)
+        run: npm run licenses
+      - name: SBOM (CycloneDX)
+        run: npm run sbom
+      - uses: actions/upload-artifact@v4
+        with: { name: sbom, path: sbom.cyclonedx.json, retention-days: 90 }
       - run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
@@ -47,7 +59,13 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
-      - run: npm run test:unit
+      # test:coverage corre los mismos tests unitarios + falla si la
+      # cobertura de los módulos de src/lib bajo prueba cae del umbral
+      # (.c8rc.json). P1.3 — "CI debe fallar si cae cobertura".
+      - run: npm run test:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: coverage, path: coverage/, retention-days: 14 }
 
   supabase-tests:
     runs-on: ubuntu-latest
@@ -73,6 +91,15 @@ jobs:
             echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
           } >> "$GITHUB_ENV"
 
+      - name: Tipos de Supabase al día (P1.4)
+        # Regenera los tipos desde el esquema real (todas las migraciones
+        # aplicadas por `supabase start`) y falla si el archivo committeado
+        # quedó desincronizado respecto a las migraciones.
+        run: |
+          npm run typegen
+          git diff --exit-code src/lib/supabase/database.types.ts \
+            || { echo "::error::database.types.ts desactualizado — corre 'npm run typegen' y commitea"; exit 1; }
+
       - name: Esperar a las Edge Functions
         run: |
           for i in $(seq 1 40); do
@@ -91,7 +118,9 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: E2E (Playwright, contra Supabase local)
-        run: npx playwright test
+        # --forbid-only: un test.only olvidado hace fallar CI en vez de
+        # pasar ejecutando una sola prueba (P1.3).
+        run: npx playwright test --forbid-only
         env:
           CI: true
 

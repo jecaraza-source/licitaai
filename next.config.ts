@@ -12,11 +12,16 @@ const SUPABASE_URL = new URL(
 const SUPABASE_ORIGIN = SUPABASE_URL.origin;
 const SUPABASE_WS_ORIGIN = `${SUPABASE_URL.protocol === "https:" ? "wss:" : "ws:"}//${SUPABASE_URL.host}`;
 
+const ES_PROD = process.env.NODE_ENV === "production";
+
+// P1.6 — `'unsafe-eval'` solo lo necesita el runtime de desarrollo (HMR de
+// Turbopack, React Refresh). En producción se quita: los bundles de Next
+// no evalúan strings. `'unsafe-inline'` para scripts sigue por el bootstrap
+// inline de Next; migrar a nonces es el siguiente paso (requiere leer el
+// nonce que Next inyecta desde un middleware).
 const CSP = [
   "default-src 'self'",
-  // 'unsafe-inline'/'unsafe-eval' son necesarios por cómo Next.js hidrata y
-  // hace HMR; una CSP basada en nonces es un endurecimiento posible a futuro.
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  `script-src 'self' 'unsafe-inline'${ES_PROD ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${SUPABASE_ORIGIN}`,
   "font-src 'self' data:",
@@ -24,6 +29,8 @@ const CSP = [
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
+  "object-src 'none'",
+  ...(ES_PROD ? ["upgrade-insecure-requests"] : []),
 ].join("; ");
 
 const nextConfig: NextConfig = {
@@ -50,6 +57,14 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          // P1.6 — HSTS: solo tiene efecto sobre HTTPS (el navegador lo
+          // ignora en http://localhost), así que es seguro emitirlo
+          // siempre. 2 años + preload, alineado con los requisitos de la
+          // lista de preload de HSTS.
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
         ],
       },
     ];

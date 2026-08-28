@@ -115,7 +115,7 @@ Estos 10 puntos son exactamente lo que P1.1 (capa común) y P1.2 (integridad) es
 
 ---
 
-## Estado de la capa común (P1.1, en progreso)
+## Estado de la capa común (P1.1 — completa)
 
 Construida en `src/lib/api/` (`errors.ts`, `response.ts`, `log.ts`, `context.ts`, `validate.ts`, `handler.ts`, barrel en `index.ts`):
 
@@ -125,13 +125,43 @@ Construida en `src/lib/api/` (`errors.ts`, `response.ts`, `log.ts`, `context.ts`
 - **Manejo de excepciones + IDs de correlación + registro seguro**: `apiRoute()` genera un `request_id` por request, captura cualquier excepción (mapea `ApiError` a su código/status; cualquier otro throw se convierte en `INTERNAL_ERROR` sin exponer el mensaje real), y `logApiError()` registra server-side con el `request_id`, redactando campos con nombres sensibles.
 - **Rate limiting y presupuesto de IA**: opciones `rateLimit`/`aiBudget` en la config de `apiRoute()`, reutilizando `checkRateLimit`/`checkAiBudget` ya existentes de P0.6.
 
-**Migradas a la capa común como implementación de referencia**: `licitaciones/[id]/route.ts` (GET/PUT/PATCH/DELETE — params con UUID, body con Zod, rol de escritura, mapeo de errores de Postgres a 404/500 seguros). Las 58 rutas restantes **aún no están migradas** — quedan con su implementación manual actual, documentada arriba. Migrarlas todas es un esfuerzo grande y mecánico una vez que el patrón está probado; se recomienda hacerlo por bloques temáticos (los mismos 4 bloques de esta auditoría), cada uno como su propio commit con sus propios tests, en vez de un solo commit masivo.
+**Estado de la migración (todas las rutas con sesión de usuario migradas a `apiRoute()`):**
 
-## Recomendaciones priorizadas para el resto de P1.1/P1.2 (no ejecutadas aún)
+- Bloques 1–4 de licitaciones, junta/propuesta, empresa-perfil/checklist: migrados en los commits `4b3120c` / `d443c60` / `147445a`.
+- Rutas de dominio restantes migradas en este commit: `organizacion/usuarios`, `organizacion/staff` (+ `[userId]`, `invitar`), `empresa-perfil/reiniciar`, `empresa-perfil/seleccionar`, `requisitos-tecnicos/[itemId]`, `dashboard/stats`, `efirma/validar-certificado`, `auth/bienvenida`, `referencias-legales` (+ `buscar`, `preguntar`), `documentos/[docId]/firmar`.
+- **No migradas por diseño** (no tienen sesión de usuario — usan otro mecanismo de autorización): `health`, `ready`, `estado` (públicas, sin auth), `cron/*` (`estaAutorizadoCron` con `CRON_SECRET`), `admin/salud` (gate por `PLATFORM_ADMIN_EMAILS`).
 
-1. Migrar el resto de rutas a `apiRoute()`, empezando por las que ya tienen Zod parcial (`licitaciones/route.ts`) y las de mayor riesgo (`empresa-perfil` POST/PUT — cero validación; `requisitos-tecnicos/[itemId]` — cero capa de aplicación).
-2. Añadir `requiereIA: true` a `generar-preguntas-junta` y `generar-propuesta-tecnica` (Edge Functions) — son las dos únicas funciones que llaman a un modelo de IA sin el tope de presupuesto diario que sí tienen las demás desde P0.6.
-3. Envolver en una transacción/RPC el patrón delete-then-insert de `propuesta-economica` PUT (P1.2).
-4. Corregir el orden de la operación compensatoria en `empresa-perfil/[id]/documentos/[docId]` DELETE (borrar de DB primero condicionado al resultado, o usar una acción compensatoria explícita si Storage falla) (P1.2).
-5. Añadir una restricción de integridad (SQL o verificación en la ruta) para que `docId` en `empresa-perfil/[id]/documentos/[docId]*` pertenezca al `empresa_perfil_id` de la URL (P1.2).
-6. Escapar o parametrizar correctamente el filtro `search` de `licitaciones/route.ts` en vez de interpolarlo en `.or()`.
+**Cambios incompatibles introducidos por la migración** (el frontend ya se actualizó en el mismo commit):
+
+- Toda ruta migrada responde ahora con el sobre `{data, error: {code, message, details?}, meta: {request_id}}`. Las respuestas de error ya no traen el `error.message` crudo de Postgres/Supabase/un SDK.
+- `GET /api/organizacion/staff`: `invitacionesPendientes` y `puedeInvitar` pasaron de campos de nivel superior a `data.invitacionesPendientes` / `data.puedeInvitar`; la lista de personas pasó de `data` a `data.miembros`.
+- `POST /api/documentos/[docId]/firmar`: el caso "RFC distinto" pasó de `{error: "rfc_distinto", detalle}` a un `VALIDATION_ERROR` con `error.details.motivo === "rfc_distinto"`.
+- `POST /api/organizacion/staff/invitar`: ahora tiene rate limit (`max: 10`/min) y valida el correo con `z.string().email()` en vez de `includes("@")`.
+
+## P1.2 — integridad y transacciones (migración `20260906000000_p1_integridad.sql`)
+
+| Recomendación | Estado |
+|---|---|
+| Envolver en transacción/RPC el delete-then-insert de `propuesta-economica` PUT | ✅ RPC `guardar_propuesta_economica(uuid, jsonb, jsonb)` — upsert de config + reemplazo de partidas atómico; la ruta ya no hace delete/insert sueltos |
+| Corregir el orden de la compensación en `empresa-perfil/[id]/documentos/[docId]` DELETE | ✅ ahora borra la fila de la base primero y luego el objeto de Storage; si Storage falla se registra (barrido de huérfanos) en vez de dejar la fila |
+| `docId` de `empresa-perfil/[id]/documentos/[docId]` debe pertenecer al `empresa_perfil_id` de la URL | ✅ ya se verifica en la ruta (`.eq("empresa_perfil_id", params.id)`) desde la migración P1.1 del bloque 3 |
+| Escapar el filtro `search` de `licitaciones/route.ts` en `.or()` | ✅ `escaparValorOr()` — ya resuelto en el bloque 1 |
+| `requiereIA: true` en `generar-preguntas-junta` / `generar-propuesta-tecnica` | ✅ confirmado en el código actual de ambas Edge Functions |
+
+**Consistencia cross-recurso dentro de la misma organización** (la RLS ya cubre cross-organización; esto cierra el hueco #5 del resumen ejecutivo): triggers `BEFORE INSERT OR UPDATE` que exigen que un `documento_id` / `partida_id` referenciado pertenezca a la MISMA licitación que la fila que lo referencia — en `checklist_items`, `requisitos_tecnicos` y `propuesta_economica_partidas`.
+
+**Índices añadidos**: `checklist_items(documento_id)`, `requisitos_tecnicos(licitacion_id)`, `requisitos_tecnicos(documento_id)`, `propuesta_economica_partidas(partida_id)` — todos parciales `where ... is not null` salvo el de `licitacion_id`.
+
+Tests: `tests/integration/p1-integridad.test.mjs` (9 casos — atomicidad del RPC con rollback, rechazo de referencias cross-licitación).
+
+## P1.4 — TypeScript y contratos de datos
+
+| Punto del brief | Estado |
+|---|---|
+| Scripts `typegen` / `typecheck` / `test` / `test:*` / `test:coverage` | ✅ todos presentes en `package.json` |
+| `next typegen` antes de `tsc --noEmit` | ✅ ya en el script `typecheck` |
+| Generar tipos Supabase desde el esquema real | ✅ `src/lib/supabase/database.types.ts` (`npm run typegen`, `supabase gen types --local`); CI (`supabase-tests`) lo regenera y falla con `git diff --exit-code` si quedó desincronizado de las migraciones |
+| Eliminar `any` y casts inseguros | ✅ `grep -rn ": any\| as any" src` → 0 resultados (ya era así desde antes) |
+| Helpers de tipos para consumo | ✅ `src/lib/supabase/tipos.ts` — `Fila<T>` / `Insert<T>` / `Update<T>` / `FuncionArgs<T>` sobre el `Database` generado |
+| Validar respuestas de IA con esquema en runtime | ⚠️ parcial — `analizar-bases` valida contra su JSON Schema (`validarContraEsquema`, P0.6); `ai_results` con Zod (P2·D1). Las otras Edge Functions de IA dependen de `tool_choice` (documentado en `docs/security-p0-hardening.md` §7) |
+| Cliente Supabase tipado (`createServerClient<Database>`) end-to-end | ⏳ **pendiente** — enhebrar `Database` por `createClient()` / `ApiContext.supabase` destapa ~43 desajustes de contrato reales (columnas de enum que Postgres da como `text`, columnas JSONB que la app trata con interfaces de dominio). Es exactamente el trabajo de "alinear tipos" del brief, pero cada arreglo es una frontera de `as` que hay que revisar 1×1 y validar con la suite e2e — se hace como su propio paso enfocado. Inventario: `src/app/(dashboard)/licitaciones/[id]/page.tsx` (5), `src/components/licitaciones/documentos-tab.tsx` (2), `src/lib/jobs.ts` (7), y sitios de escritura JSONB en ~15 rutas de `src/app/api` (`seguimiento`, `viabilidad`, `responsabilidades`, `liberacion`, `junta-aclaraciones*`, `propuesta-tecnica`, `jerarquia`, `empresa-perfil*`, `checklist-items`, `ai-results/*/revision`). Reconciliar requiere que los tipos de `@/types` deriven de `database.types.ts` en vez de duplicarlo.

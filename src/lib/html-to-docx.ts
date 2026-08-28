@@ -24,12 +24,15 @@ function parseInline(html: string): TextRun[] {
 }
 
 function decodeEntities(text: string): string {
+  // `&amp;` se decodifica AL FINAL: si se hiciera primero, un `&amp;lt;`
+  // legítimo se convertiría en `<` (doble decodificación). Al dejarlo
+  // último, `&amp;lt;` → `&lt;` y ahí se detiene.
   return text
-    .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
     .trim();
 }
 

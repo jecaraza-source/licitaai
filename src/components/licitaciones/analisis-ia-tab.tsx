@@ -24,7 +24,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
+import { useRealtimeLista } from "@/hooks/use-realtime-lista";
 import { AvisoRevisionIA } from "@/components/aviso-revision-ia";
 import type { AnalisisBases, FechasAnalisis, NivelConfianza } from "@/types";
 
@@ -113,7 +113,20 @@ const FECHA_LABELS: Record<string, string> = {
 
 export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
   const [analisis, setAnalisis] = useState<AnalisisBases | null | undefined>(undefined);
-  const [documentos, setDocumentos] = useState<DocumentoProcesado[]>([]);
+  // P1.5 — la lista de documentos procesados + su suscripción Realtime
+  // (aparecen aquí en cuanto termina el chunking/embeddings) vive en el
+  // hook compartido; la limpieza del canal está garantizada.
+  const { items: documentos } = useRealtimeLista<
+    { id: string; nombre: string; procesado: boolean },
+    DocumentoProcesado
+  >({
+    tabla: "documentos",
+    filtro: `licitacion_id=eq.${licitacionId}`,
+    select: "id, nombre, procesado",
+    orden: { columna: "created_at" },
+    incluir: (d) => d.procesado === true,
+    mapear: (d) => ({ id: d.id, nombre: d.nombre }),
+  });
   const [documentoId, setDocumentoId] = useState(TODOS_LOS_DOCUMENTOS);
   const [analizando, setAnalizando] = useState(false);
   const { iaDisponible } = useEstadoIA();
@@ -145,51 +158,6 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     cargarAnalisis(documentoId);
   }, [documentoId, cargarAnalisis]);
-
-  useEffect(() => {
-    const supabase = createClient();
-    supabase
-      .from("documentos")
-      .select("id, nombre")
-      .eq("licitacion_id", licitacionId)
-      .eq("procesado", true)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => setDocumentos(data ?? []));
-
-    // Un documento subido en la pestaña Documentos puede tardar unos
-    // segundos en procesarse (chunking + embeddings). Esta suscripción
-    // hace que aparezca aquí en cuanto termina, sin tener que salir y
-    // volver a entrar a la pestaña.
-    const channel = supabase
-      .channel(`documentos-procesados-${licitacionId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "documentos",
-          filter: `licitacion_id=eq.${licitacionId}`,
-        },
-        (payload) => {
-          if (payload.eventType === "DELETE") {
-            const eliminado = payload.old as { id: string };
-            setDocumentos((prev) => prev.filter((d) => d.id !== eliminado.id));
-            return;
-          }
-          const doc = payload.new as { id: string; nombre: string; procesado: boolean };
-          setDocumentos((prev) => {
-            if (!doc.procesado) return prev.filter((d) => d.id !== doc.id);
-            if (prev.some((d) => d.id === doc.id)) return prev;
-            return [{ id: doc.id, nombre: doc.nombre }, ...prev];
-          });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [licitacionId]);
 
   async function handleAnalizar() {
     setConfirmandoSobreescritura(false);

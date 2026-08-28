@@ -75,7 +75,7 @@ export function FirmaDigitalDialog({
     const json = await res.json();
     setValidando(false);
     if (!res.ok) {
-      toast.error("Certificado inválido", { description: json.error });
+      toast.error("Certificado inválido", { description: json.error?.message });
       return;
     }
     setCertInfo(json.data);
@@ -130,11 +130,13 @@ export function FirmaDigitalDialog({
       const json = await res.json();
 
       if (!res.ok) {
-        if (json.error === "rfc_distinto") {
-          setRfcDistintoError(json.detalle ?? "El RFC del certificado no coincide con la empresa activa");
+        if (json.error?.details?.motivo === "rfc_distinto") {
+          setRfcDistintoError(
+            json.error.message ?? "El RFC del certificado no coincide con la empresa activa",
+          );
           return;
         }
-        toast.error("No se pudo firmar el documento", { description: json.error });
+        toast.error("No se pudo firmar el documento", { description: json.error?.message });
         return;
       }
 

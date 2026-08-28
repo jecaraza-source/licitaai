@@ -1,5 +1,5 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
 import {
   certPermiteFirmar,
@@ -14,169 +14,124 @@ import {
 // casos legítimos límite.
 const MAX_CER_BASE64 = 32 * 1024;
 const MAX_FIRMA_BASE64 = 4 * 1024;
-const HASH_HEX_RE = /^[0-9a-f]{64}$/;
+
+const paramsSchema = z.object({ docId: z.string().uuid("docId debe ser un UUID válido") });
+
+const bodySchema = z
+  .object({
+    cer_base64: z.string().min(1, "cer_base64 requerido").max(MAX_CER_BASE64, "Certificado demasiado grande"),
+    firma_base64: z.string().min(1, "firma_base64 requerido").max(MAX_FIRMA_BASE64, "Firma demasiado grande"),
+    documento_hash_sha256: z.string().regex(/^[0-9a-f]{64}$/, "documento_hash_sha256 inválido"),
+    confirmar_rfc_distinto: z.boolean().optional(),
+  })
+  .strict();
 
 function normalizarRfc(rfc: string | null): string {
   return (rfc ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ docId: string }> },
-) {
-  const { docId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const { data: perfil } = await supabase
-    .from("users")
-    .select("organization_id, rol")
-    .eq("id", user.id)
-    .single();
-  if (!perfil) {
-    return NextResponse.json({ error: "Perfil no encontrado" }, { status: 403 });
-  }
-  if (perfil.rol === "VIEWER") {
-    return NextResponse.json(
-      { error: "Tu rol (VIEWER) no permite firmar documentos" },
-      { status: 403 },
-    );
-  }
-
-  const body = await request.json().catch(() => null);
-  if (!body) {
-    return NextResponse.json({ error: "Cuerpo de la solicitud inválido" }, { status: 400 });
-  }
-  const { cer_base64, firma_base64, documento_hash_sha256, confirmar_rfc_distinto } = body;
-
-  if (typeof cer_base64 !== "string" || cer_base64.length === 0) {
-    return NextResponse.json({ error: "cer_base64 requerido" }, { status: 400 });
-  }
-  if (cer_base64.length > MAX_CER_BASE64) {
-    return NextResponse.json({ error: "Certificado demasiado grande" }, { status: 400 });
-  }
-  if (typeof firma_base64 !== "string" || firma_base64.length === 0) {
-    return NextResponse.json({ error: "firma_base64 requerido" }, { status: 400 });
-  }
-  if (firma_base64.length > MAX_FIRMA_BASE64) {
-    return NextResponse.json({ error: "Firma demasiado grande" }, { status: 400 });
-  }
-  if (typeof documento_hash_sha256 !== "string" || !HASH_HEX_RE.test(documento_hash_sha256)) {
-    return NextResponse.json({ error: "documento_hash_sha256 inválido" }, { status: 400 });
-  }
+export const POST = apiRoute({ paramsSchema, bodySchema }, async ({ ctx, params, body }) => {
+  // La firma modifica el documento — VIEWER no puede (mismo criterio P0.3).
+  requireWriteRole(ctx);
 
   // RLS ya filtra: una fila de otra organización simplemente no aparece.
-  const { data: documento } = await supabase
+  const { data: documento } = await ctx.supabase
     .from("documentos")
     .select("id, storage_path, licitacion_id")
-    .eq("id", docId)
-    .single();
-  if (!documento) {
-    return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
-  }
+    .eq("id", params.docId)
+    .maybeSingle();
+  if (!documento) throw ApiError.notFound("Documento no encontrado");
 
   let certInfo;
   try {
-    certInfo = parseCertificado(cer_base64);
+    certInfo = parseCertificado(body.cer_base64);
   } catch {
-    return NextResponse.json({ error: "No se pudo leer el certificado (.cer)" }, { status: 400 });
+    throw ApiError.validation("No se pudo leer el certificado (.cer)");
   }
-  if (!certInfo.vigente) {
-    return NextResponse.json({ error: "El certificado no está vigente" }, { status: 400 });
-  }
-  if (!certPermiteFirmar(cer_base64)) {
-    return NextResponse.json(
-      { error: "El certificado no está autorizado para firmar (keyUsage no incluye digitalSignature)" },
-      { status: 400 },
+  if (!certInfo.vigente) throw ApiError.validation("El certificado no está vigente");
+  if (!certPermiteFirmar(body.cer_base64)) {
+    throw ApiError.validation(
+      "El certificado no está autorizado para firmar (keyUsage no incluye digitalSignature)",
     );
   }
 
-  const empresa = await getEmpresaPerfilActiva(supabase, perfil.organization_id, user.id, {
+  const empresa = await getEmpresaPerfilActiva(ctx.supabase, ctx.organizationId, ctx.userId, {
     fallbackToFirst: true,
   });
   const rfcCoincide =
-    !empresa?.rfc || !certInfo.rfc ? null : normalizarRfc(empresa.rfc) === normalizarRfc(certInfo.rfc);
-  if (rfcCoincide === false && confirmar_rfc_distinto !== true) {
-    return NextResponse.json(
-      {
-        error: "rfc_distinto",
-        detalle: `El RFC del certificado (${certInfo.rfc}) no coincide con el de la empresa activa (${empresa?.rfc}). Confirma explícitamente si esto es correcto.`,
-      },
-      { status: 400 },
+    !empresa?.rfc || !certInfo.rfc
+      ? null
+      : normalizarRfc(empresa.rfc) === normalizarRfc(certInfo.rfc);
+  if (rfcCoincide === false && body.confirmar_rfc_distinto !== true) {
+    throw ApiError.validation(
+      `El RFC del certificado (${certInfo.rfc}) no coincide con el de la empresa activa (${empresa?.rfc}). Confirma explícitamente si esto es correcto.`,
+      { motivo: "rfc_distinto" },
     );
   }
 
   // Se descarga el documento del lado del servidor de forma independiente
-  // (no se confía ciegamente en el hash que mandó el cliente) para
-  // recalcular el hash y verificar la firma sobre el contenido real.
-  const { data: archivo, error: downloadError } = await supabase.storage
+  // (no se confía en el hash que mandó el cliente) para recalcular el hash
+  // y verificar la firma sobre el contenido real.
+  const { data: archivo, error: downloadError } = await ctx.supabase.storage
     .from("documentos-originales")
     .download(documento.storage_path);
-  if (downloadError || !archivo) {
-    return NextResponse.json({ error: "No se pudo descargar el documento" }, { status: 500 });
-  }
+  if (downloadError || !archivo) throw ApiError.internal();
   const documentBytes = await archivo.arrayBuffer();
 
   const hashServidor = hashDocumentoHex(documentBytes);
-  if (hashServidor !== documento_hash_sha256) {
-    return NextResponse.json(
-      { error: "El documento cambió entre que se calculó la firma y llegó al servidor" },
-      { status: 409 },
+  if (hashServidor !== body.documento_hash_sha256) {
+    throw ApiError.conflict(
+      "El documento cambió entre que se calculó la firma y llegó al servidor",
     );
   }
 
-  // Esta es la verificación central: prueba criptográficamente que
-  // firma_base64 fue generada por la llave privada correspondiente a la
-  // llave pública de cer_base64, sobre exactamente este documento. Nunca
-  // se recibió ni se procesó la llave privada ni la contraseña.
-  if (!verificarFirma(cer_base64, firma_base64, documentBytes)) {
-    return NextResponse.json(
-      { error: "La firma no es válida para este certificado y documento" },
-      { status: 400 },
-    );
+  // Verificación central: prueba criptográficamente que firma_base64 fue
+  // generada por la llave privada correspondiente a la llave pública de
+  // cer_base64, sobre exactamente este documento. Nunca se recibió ni se
+  // procesó la llave privada ni la contraseña.
+  if (!verificarFirma(body.cer_base64, body.firma_base64, documentBytes)) {
+    throw ApiError.validation("La firma no es válida para este certificado y documento");
   }
 
   const firmaDigitalJson = {
     tipo: "interna",
     algoritmo: "RSA-SHA256",
-    firma_base64,
+    firma_base64: body.firma_base64,
     documento_hash_sha256: hashServidor,
-    certificado_base64: cer_base64,
+    certificado_base64: body.cer_base64,
     firmado_por: certInfo.nombre_comun,
     rfc: certInfo.rfc,
     numero_serie: certInfo.numero_serie,
     rfc_coincide_empresa: rfcCoincide,
     firmado_at: new Date().toISOString(),
-    firmado_por_user_id: user.id,
+    firmado_por_user_id: ctx.userId,
     empresa_perfil_id: empresa?.id ?? null,
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await ctx.supabase
     .from("documentos")
     .update({ firma_digital_json: firmaDigitalJson })
-    .eq("id", docId)
+    .eq("id", params.docId)
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) throw ApiError.internal();
 
-  const { error: logError } = await supabase.from("actividad_log").insert({
+  const { error: logError } = await ctx.supabase.from("actividad_log").insert({
     licitacion_id: data.licitacion_id,
-    user_id: user.id,
+    user_id: ctx.userId,
     accion: "documento_firmado",
-    metadata_json: { documento_id: docId, rfc: certInfo.rfc, rfc_coincide_empresa: rfcCoincide },
+    metadata_json: { documento_id: params.docId, rfc: certInfo.rfc, rfc_coincide_empresa: rfcCoincide },
   });
   if (logError) {
-    console.error("No se pudo registrar actividad_log para documento_firmado:", logError.message);
+    console.error(
+      "[api] no se pudo registrar actividad_log para documento_firmado:",
+      JSON.stringify({ request_id: ctx.requestId }),
+    );
   }
 
-  return NextResponse.json({ data });
-}
+  return { data };
+});
 
 /**
  * Verificación bajo demanda: re-descarga el documento actual, recalcula su
@@ -184,53 +139,45 @@ export async function POST(
  * archivo cambió después de firmarse, la verificación falla aquí sin
  * necesidad de mantener un flag de invalidación que se pueda desincronizar.
  */
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ docId: string }> },
-) {
-  const { docId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const { data: documento } = await supabase
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data: documento } = await ctx.supabase
     .from("documentos")
     .select("id, storage_path, firma_digital_json")
-    .eq("id", docId)
-    .single();
-  if (!documento) {
-    return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
-  }
+    .eq("id", params.docId)
+    .maybeSingle();
+  if (!documento) throw ApiError.notFound("Documento no encontrado");
 
   const firma = documento.firma_digital_json as
     | { certificado_base64?: string; firma_base64?: string; documento_hash_sha256?: string }
     | null;
+
+  type VerificacionFirma = {
+    firmado: boolean;
+    valida?: boolean;
+    documento_sin_cambios?: boolean;
+    firma_criptograficamente_valida?: boolean;
+  };
+
   if (!firma?.certificado_base64 || !firma.firma_base64) {
-    return NextResponse.json({ data: { firmado: false } });
+    return { data: { firmado: false } as VerificacionFirma };
   }
 
-  const { data: archivo, error: downloadError } = await supabase.storage
+  const { data: archivo, error: downloadError } = await ctx.supabase.storage
     .from("documentos-originales")
     .download(documento.storage_path);
-  if (downloadError || !archivo) {
-    return NextResponse.json({ error: "No se pudo descargar el documento" }, { status: 500 });
-  }
+  if (downloadError || !archivo) throw ApiError.internal();
   const documentBytes = await archivo.arrayBuffer();
   const hashActual = hashDocumentoHex(documentBytes);
 
   const documentoSinCambios = hashActual === firma.documento_hash_sha256;
   const firmaValida = verificarFirma(firma.certificado_base64, firma.firma_base64, documentBytes);
 
-  return NextResponse.json({
+  return {
     data: {
       firmado: true,
       valida: documentoSinCambios && firmaValida,
       documento_sin_cambios: documentoSinCambios,
       firma_criptograficamente_valida: firmaValida,
-    },
-  });
-}
+    } as VerificacionFirma,
+  };
+});

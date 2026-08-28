@@ -9,7 +9,7 @@ test.describe("Propuesta económica", () => {
 
     // Usa la primera licitación existente con partidas ya extraídas.
     await page.goto("/licitaciones");
-    await page.locator("a").filter({ hasText: /^E2E|LA-/ }).first().click();
+    await page.locator("a").filter({ hasText: /^(E2E|LA-)/ }).first().click();
     await page.getByRole("tab", { name: "Propuesta Económica" }).click();
 
     const primerInput = page.locator('input[type="number"]').first();

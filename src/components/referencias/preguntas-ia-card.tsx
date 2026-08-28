@@ -28,7 +28,10 @@ export function PreguntasIaCard() {
         body: JSON.stringify({ pregunta }),
       });
 
-      let json: { data?: { respuesta: string; fuentes?: ReferenciaLegalFuente[] }; error?: string };
+      let json: {
+        data?: { respuesta: string; fuentes?: ReferenciaLegalFuente[] };
+        error?: { message?: string };
+      };
       try {
         json = await res.json();
       } catch {
@@ -36,7 +39,7 @@ export function PreguntasIaCard() {
       }
 
       if (!res.ok) {
-        toast.error("No se pudo obtener respuesta", { description: json.error });
+        toast.error("No se pudo obtener respuesta", { description: json.error?.message });
         return;
       }
       setRespuesta(json.data?.respuesta ?? "");

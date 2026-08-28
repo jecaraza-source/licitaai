@@ -1,44 +1,25 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError } from "@/lib/api";
 
-export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const bodySchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
 
-  const { id } = await request.json();
-  if (!id) {
-    return NextResponse.json({ error: "id requerido" }, { status: 400 });
-  }
-
-  const { data: perfil } = await supabase
-    .from("users")
-    .select("organization_id")
-    .eq("id", user.id)
-    .single();
-  if (!perfil) {
-    return NextResponse.json({ error: "Perfil no encontrado" }, { status: 403 });
-  }
-
-  const { data: empresa } = await supabase
+export const POST = apiRoute({ bodySchema }, async ({ ctx, body }) => {
+  // El scope por organización lo aplica RLS, pero se re-verifica aquí para
+  // devolver un 404 claro (no un update silencioso de 0 filas) si la
+  // empresa no pertenece a la organización del llamante.
+  const { data: empresa } = await ctx.supabase
     .from("empresa_perfil")
     .select("id")
-    .eq("id", id)
-    .eq("organization_id", perfil.organization_id)
+    .eq("id", body.id)
+    .eq("organization_id", ctx.organizationId)
     .maybeSingle();
-  if (!empresa) {
-    return NextResponse.json({ error: "Empresa no encontrada" }, { status: 404 });
-  }
+  if (!empresa) throw ApiError.notFound("Empresa no encontrada");
 
-  const { error } = await supabase
+  const { error } = await ctx.supabase
     .from("users")
-    .update({ empresa_perfil_id: id })
-    .eq("id", user.id);
+    .update({ empresa_perfil_id: body.id })
+    .eq("id", ctx.userId);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
-}
+  if (error) throw ApiError.internal();
+  return { data: { ok: true } };
+});

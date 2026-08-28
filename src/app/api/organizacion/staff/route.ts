@@ -1,50 +1,38 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { apiRoute, ApiError } from "@/lib/api";
 
-export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const { data: perfil } = await supabase
-    .from("users")
-    .select("organization_id, rol")
-    .eq("id", user.id)
-    .single();
-  if (!perfil) {
-    return NextResponse.json({ error: "Perfil no encontrado" }, { status: 403 });
-  }
-
+export const GET = apiRoute({}, async ({ ctx }) => {
   // El email es información sensible: solo un ADMIN (que es quien invita y
   // asigna rangos) lo necesita. Cualquier otro miembro solo ve nombre y rango.
-  const esAdmin = perfil.rol === "ADMIN";
+  const esAdmin = ctx.rol === "ADMIN";
 
   const [{ data: staff, error }, { data: invitaciones }] = await Promise.all([
-    supabase
+    ctx.supabase
       .from("users")
-      .select(esAdmin ? "id, nombre, email, rol_jerarquico, created_at" : "id, nombre, rol_jerarquico, created_at")
-      .eq("organization_id", perfil.organization_id)
+      .select(
+        esAdmin
+          ? "id, nombre, email, rol_jerarquico, created_at"
+          : "id, nombre, rol_jerarquico, created_at",
+      )
+      .eq("organization_id", ctx.organizationId)
       .order("nombre"),
     esAdmin
-      ? supabase
+      ? ctx.supabase
           .from("invitaciones_staff")
           .select("id, email, rol_jerarquico, created_at, expires_at")
-          .eq("organization_id", perfil.organization_id)
+          .eq("organization_id", ctx.organizationId)
           .is("aceptada_at", null)
           .gt("expires_at", new Date().toISOString())
           .order("created_at", { ascending: false })
       : Promise.resolve({ data: [] as never[] }),
   ]);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) throw ApiError.internal();
 
-  return NextResponse.json({
-    data: staff ?? [],
-    invitacionesPendientes: invitaciones ?? [],
-    puedeInvitar: esAdmin,
-  });
-}
+  return {
+    data: {
+      miembros: staff ?? [],
+      invitacionesPendientes: invitaciones ?? [],
+      puedeInvitar: esAdmin,
+    },
+  };
+});

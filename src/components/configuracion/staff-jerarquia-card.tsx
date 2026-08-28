@@ -61,9 +61,9 @@ export function StaffJerarquiaCard() {
     fetch("/api/organizacion/staff")
       .then((res) => res.json())
       .then((json) => {
-        setStaff(json.data ?? []);
-        setInvitaciones(json.invitacionesPendientes ?? []);
-        setPuedeInvitar(!!json.puedeInvitar);
+        setStaff(json.data?.miembros ?? []);
+        setInvitaciones(json.data?.invitacionesPendientes ?? []);
+        setPuedeInvitar(!!json.data?.puedeInvitar);
       });
   }
 
@@ -100,7 +100,7 @@ export function StaffJerarquiaCard() {
     const json = await res.json();
     setInvitando(false);
     if (!res.ok) {
-      toast.error("No se pudo enviar la invitación", { description: json.error });
+      toast.error("No se pudo enviar la invitación", { description: json.error?.message });
       return;
     }
     toast.success(`Invitación enviada a ${email}`);

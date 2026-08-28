@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ShieldAlert, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -284,19 +284,18 @@ export function AuditoriaTab({ licitacionId }: { licitacionId: string }) {
   const [usuarios, setUsuarios] = useState<UsuarioOrg[]>([]);
   const [auditando, setAuditando] = useState(false);
 
-  function cargar() {
+  const cargar = useCallback(() => {
     fetch(`/api/licitaciones/${licitacionId}/auditoria`)
       .then((res) => res.json())
       .then((json) => setData(json.data));
-  }
+  }, [licitacionId]);
 
   useEffect(() => {
     cargar();
     fetch("/api/organizacion/usuarios")
       .then((res) => res.json())
       .then((json) => setUsuarios(json.data ?? []));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [licitacionId]);
+  }, [cargar]);
 
   async function handleAuditarTodos() {
     setAuditando(true);

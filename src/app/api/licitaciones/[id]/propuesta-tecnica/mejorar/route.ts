@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { apiRoute } from "@/lib/api";
 import { logAiUsage } from "@/lib/ai-usage";
 import { conGuardia } from "@/lib/ai-guard";
+import { sanitizarHtml } from "@/lib/sanitize-html";
 
 const bodySchema = z.object({ html: z.string().min(1, "html requerido") });
 
@@ -34,6 +35,9 @@ export const POST = apiRoute(
 
     const textBlock = response.content.find((b): b is Anthropic.TextBlock => b.type === "text");
 
-    return { data: { html: textBlock?.text ?? body.html } };
+    // P1.6 — se sanea la salida del modelo por allowlist antes de
+    // devolverla (no se confía en que el modelo respete "solo estas
+    // etiquetas"). El body de entrada también se sanea como fallback.
+    return { data: { html: sanitizarHtml(textBlock?.text ?? body.html) } };
   },
 );
