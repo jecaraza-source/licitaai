@@ -3046,6 +3046,15 @@ export type Database = {
         Args: { p_organization_id: string; p_reserva_id: string }
         Returns: undefined
       }
+      licitacion_analisis_ia_pendientes: {
+        Args: { p_licitacion_id: string }
+        Returns: {
+          created_at: string
+          documento_id: string
+          id: string
+          tipo_analisis: string
+        }[]
+      }
       licitacion_org_matches: {
         Args: { p_licitacion_id: string }
         Returns: boolean

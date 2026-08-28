@@ -11,12 +11,44 @@ export const POST = apiRoute(
     requireWriteRole(ctx);
 
     if (body.estado_licitacion === "ENVIADA") {
-      const gate = await getGateStatus(ctx.supabase, params.id);
-      if (gate.bloqueado) {
+      const gate = await getGateStatus(ctx.supabase, params.id, ctx.organizationId);
+
+      const bloqueoBase =
+        gate.rojos > 0 ||
+        gate.amarillosCriticos > 0 ||
+        gate.pendientesLiberacion > 0 ||
+        !gate.jerarquiaAutorizada;
+      if (bloqueoBase) {
         throw ApiError.conflict(
-          "No se puede marcar como enviada: hay requisitos en rojo, requisitos críticos en amarillo o pendientes en el checklist de liberación.",
+          "No se puede marcar como enviada: hay requisitos en rojo, requisitos críticos en amarillo, pendientes en el checklist de liberación o falta la autorización del supervisor.",
           { gate },
         );
+      }
+
+      // B5 (D5) — gate duro de aprobación de IA. Solo un ADMIN puede
+      // omitirlo, y queda en la bitácora inmutable.
+      if (gate.gateAprobacionIaActivo && gate.analisisIaSinRevisar.length > 0) {
+        const puedeOmitir = body.omitir_revision_ia === true && ctx.rol === "ADMIN";
+        if (!puedeOmitir) {
+          throw ApiError.conflict(
+            `No se puede enviar: hay ${gate.analisisIaSinRevisar.length} análisis de IA sin revisar. ` +
+              "Cada uno debe aprobarse o rechazarse en la pestaña de análisis, o un administrador " +
+              "debe autorizar el envío explícitamente.",
+            { analisisIaSinRevisar: gate.analisisIaSinRevisar },
+          );
+        }
+        await ctx.supabase
+          .rpc("registrar_auditoria", {
+            p_accion: "licitacion_enviada_ia_sin_revisar",
+            p_recurso_tipo: "licitacion",
+            p_recurso_id: params.id,
+            p_detalle: {
+              analisis_sin_revisar: gate.analisisIaSinRevisar.map((a) => a.tipo_analisis),
+              cantidad: gate.analisisIaSinRevisar.length,
+              autorizado_por: ctx.userId,
+            },
+          })
+          .then(() => {}, () => {});
       }
     }
 

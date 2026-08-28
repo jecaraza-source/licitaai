@@ -22,6 +22,8 @@ interface GateStatus {
   pendientesLiberacion: number;
   itemsLiberacion: ChecklistLiberacionItem[];
   jerarquiaAutorizada: boolean;
+  analisisIaSinRevisar: { id: string; tipo_analisis: string; documento_id: string | null }[];
+  gateAprobacionIaActivo: boolean;
   bloqueado: boolean;
 }
 
@@ -246,7 +248,21 @@ export function LiberacionTab({
               {gate.rojos} requisito(s) en rojo · {gate.amarillosCriticos} crítico(s) en amarillo ·{" "}
               {gate.pendientesLiberacion} punto(s) de este checklist sin confirmar ·{" "}
               {gate.jerarquiaAutorizada ? "Supervisor autorizó" : "falta autorización del Supervisor"}
+              {gate.gateAprobacionIaActivo && (
+                <>
+                  {" · "}
+                  {gate.analisisIaSinRevisar.length === 0
+                    ? "análisis de IA revisados"
+                    : `${gate.analisisIaSinRevisar.length} análisis de IA sin revisar`}
+                </>
+              )}
             </p>
+            {gate.gateAprobacionIaActivo && gate.analisisIaSinRevisar.length > 0 && (
+              <p className="mt-1 text-sm text-destructive">
+                Revisa (aprobar/rechazar) los análisis de IA en la pestaña Análisis IA antes de
+                enviar: {gate.analisisIaSinRevisar.map((a) => a.tipo_analisis).join(", ")}.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
