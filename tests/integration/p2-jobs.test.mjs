@@ -64,6 +64,13 @@ async function main() {
   const licA = await makeLicitacion(orgA.orgId);
   const licB = await makeLicitacion(orgB.orgId);
 
+  // El cupo de concurrencia por org (B1, migración 20260907000000) es 3 por
+  // defecto. Estos tests ejercen el CICLO del worker, no el cupo — varios
+  // subtests dejan jobs RUNNING en orgA que consumirían ese cupo y harían
+  // que reclamos posteriores no tomen nada. Se sube el cupo de orgA para
+  // aislar. El cupo tiene su propia suite: p2-b1-b2-concurrencia.test.mjs.
+  await admin.from("ai_org_policy").upsert({ organization_id: orgA.orgId, max_concurrent_jobs: 100 });
+
   // --- RLS: sin INSERT/UPDATE/DELETE directo ---
   {
     const { error } = await orgA.asUser.from("jobs").insert({

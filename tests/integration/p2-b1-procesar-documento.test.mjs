@@ -66,6 +66,7 @@ async function setup() {
   const asUser = createClient(URL, ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${sess.session.access_token}` } },
   });
+  await admin.from("ai_org_policy").upsert({ organization_id: org.id, max_concurrent_jobs: 100 }); // B1 cupo — no interferir
   const { data: lic } = await admin.from("licitaciones").insert({
     organization_id: org.id, numero_expediente: `EXP-${rnd()}`, titulo: "Lic", institucion: "I",
     tipo: "SERVICIOS", estado_id: "FEDERAL", sistema: "COMPRANET",
