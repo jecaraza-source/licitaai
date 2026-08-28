@@ -52,7 +52,7 @@ jobs:
           BACKUP_UPLOAD_CMD: ${{ secrets.BACKUP_UPLOAD_CMD }}
         run: node scripts/backup-db.mjs
       - name: Guardar como artifact (retención 30 d) si no hay destino externo
-        if: steps.guard.outputs.listo == '1' && secrets.BACKUP_UPLOAD_CMD == ''
+        if: steps.guard.outputs.listo == '1'
         uses: actions/upload-artifact@v4
         with:
           name: pg-backup
