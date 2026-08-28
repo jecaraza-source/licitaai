@@ -9,6 +9,7 @@ import { authenticate, jsonError, registrarUsoIA, requireDocumentoCorporativo } 
 import { contenidoCoincideConNombre } from "../_shared/file-validation.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
 import { bloqueDocumentoParaClaude } from "../_shared/anthropic-content-block.ts";
+import { modeloInicial, obtenerPoliticaModelo } from "../_shared/model-policy.ts";
 
 const SYSTEM_PROMPT = conGuardia(`Eres un asistente que extrae datos de documentos oficiales mexicanos
 (actas, poderes, constancias fiscales, opiniones de cumplimiento, identificaciones, etc.).
@@ -289,7 +290,7 @@ Deno.serve(async (req) => {
 
     const { data: empresa } = await supabase
       .from("empresa_perfil")
-      .select("rfc, razon_social")
+      .select("rfc, razon_social, organization_id")
       .eq("id", documento.empresa_perfil_id)
       .maybeSingle();
 
@@ -330,9 +331,12 @@ Deno.serve(async (req) => {
       ? "application/pdf"
       : "image/jpeg";
 
+    const politicaModelo = await obtenerPoliticaModelo(supabase, empresa?.organization_id ?? "");
+    const modelo = modeloInicial(politicaModelo);
+
     const response = await withRetry(() =>
       anthropic.messages.create({
-        model: "claude-sonnet-5",
+        model: modelo,
         max_tokens: 1000,
         system: SYSTEM_PROMPT,
         tools: [
@@ -357,7 +361,7 @@ Deno.serve(async (req) => {
 
     await registrarUsoIA(ctx, {
       funcion: "analizar-documento-corporativo",
-      modelo: "claude-sonnet-5",
+      modelo,
       inputTokens: response.usage?.input_tokens ?? 0,
       outputTokens: response.usage?.output_tokens ?? 0,
     });
@@ -425,7 +429,7 @@ Deno.serve(async (req) => {
         _usage: {
           tokens_input: response.usage?.input_tokens ?? 0,
           tokens_output: response.usage?.output_tokens ?? 0,
-          modelo: "claude-sonnet-5",
+          modelo,
           provider: "anthropic",
         },
       }),

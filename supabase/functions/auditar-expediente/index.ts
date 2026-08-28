@@ -12,6 +12,7 @@ import { withRetry } from "../_shared/retry.ts";
 import { getEmpresaPerfilActiva } from "../_shared/empresa-perfil.ts";
 import { authenticate, jsonError, registrarUsoIA, requireLicitacion } from "../_shared/auth.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
+import { modeloInicial, obtenerPoliticaModelo } from "../_shared/model-policy.ts";
 
 const SYSTEM_PROMPT = conGuardia(`Eres un auditor experto en expedientes de licitaciones públicas mexicanas.
 Recibes los datos de la empresa participante, la propuesta económica y los resultados de auditoría
@@ -116,9 +117,12 @@ Checklist y auditorías de documentos:
 ${JSON.stringify(checklistItems, null, 2)}
 `.trim();
 
+    const politicaModelo = await obtenerPoliticaModelo(supabase, licitacion?.organization_id ?? "");
+    const modelo = modeloInicial(politicaModelo);
+
     const response = await withRetry(() =>
       anthropic.messages.create({
-        model: "claude-sonnet-5",
+        model: modelo,
         max_tokens: 4000,
         system: SYSTEM_PROMPT,
         tools: [
@@ -140,7 +144,7 @@ ${JSON.stringify(checklistItems, null, 2)}
 
     await registrarUsoIA(ctx, {
       funcion: "auditar-expediente",
-      modelo: "claude-sonnet-5",
+      modelo,
       inputTokens: response.usage?.input_tokens ?? 0,
       outputTokens: response.usage?.output_tokens ?? 0,
     });
@@ -162,7 +166,7 @@ ${JSON.stringify(checklistItems, null, 2)}
     });
 
     return new Response(
-      JSON.stringify({ ...{ ok: true, data: reporte }, _usage: { tokens_input: response.usage?.input_tokens ?? 0, tokens_output: response.usage?.output_tokens ?? 0, modelo: "claude-sonnet-5", provider: "anthropic" } }),
+      JSON.stringify({ ...{ ok: true, data: reporte }, _usage: { tokens_input: response.usage?.input_tokens ?? 0, tokens_output: response.usage?.output_tokens ?? 0, modelo, provider: "anthropic" } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

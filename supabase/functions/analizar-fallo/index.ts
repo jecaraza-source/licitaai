@@ -11,6 +11,7 @@ import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
 import { authenticate, jsonError, registrarUsoIA, requireLicitacion } from "../_shared/auth.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
+import { modeloInicial, obtenerPoliticaModelo } from "../_shared/model-policy.ts";
 
 const SYSTEM_PROMPT = conGuardia(
   "Eres un experto en licitaciones públicas mexicanas. Extrae del acta de fallo adjunta: la empresa ganadora, el precio adjudicado, nuestra posición en el fallo (si se menciona), y los motivos de descalificación si nuestra empresa fue descalificada. Usa siempre la herramienta proporcionada.",
@@ -93,10 +94,13 @@ Deno.serve(async (req) => {
 
     const base64 = uint8ToBase64(new Uint8Array(await archivo.arrayBuffer()));
 
+    const politicaModelo = await obtenerPoliticaModelo(supabase, licitacion.organization_id);
+    const modelo = modeloInicial(politicaModelo);
+
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
     const response = (await withRetry(() =>
       anthropic.messages.create({
-        model: "claude-sonnet-5",
+        model: modelo,
         max_tokens: 2000,
         system: SYSTEM_PROMPT,
         tools: [
@@ -126,7 +130,7 @@ Deno.serve(async (req) => {
     const tokOut = response.usage?.output_tokens ?? 0;
     await registrarUsoIA(ctx, {
       funcion: "seguimiento-analizar-fallo",
-      modelo: "claude-sonnet-5",
+      modelo,
       inputTokens: tokIn,
       outputTokens: tokOut,
     });
@@ -175,7 +179,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         ok: true,
         data: result.data,
-        _usage: { tokens_input: tokIn, tokens_output: tokOut, modelo: "claude-sonnet-5", provider: "anthropic" },
+        _usage: { tokens_input: tokIn, tokens_output: tokOut, modelo, provider: "anthropic" },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

@@ -18,6 +18,13 @@ import {
 } from "../_shared/auth.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
 import { validarContraEsquema } from "../_shared/schema-validate.ts";
+import {
+  debeEscalar,
+  MODELO_AVANZADO,
+  modeloEscalado,
+  modeloInicial,
+  obtenerPoliticaModelo,
+} from "../_shared/model-policy.ts";
 
 const SYSTEM_PROMPT = conGuardia(`Eres un experto en licitaciones públicas mexicanas con 20 años de experiencia.
 Analizas documentos de bases de licitación conforme a la Ley de Adquisiciones,
@@ -284,10 +291,11 @@ async function analizarSeccion(
   anthropic: Anthropic,
   seccion: Seccion,
   contexto: string,
+  modelo: string,
 ): Promise<ResultadoSeccion> {
   const response = await withRetry(() =>
     anthropic.messages.create({
-      model: "claude-sonnet-5",
+      model: modelo,
       max_tokens: 8000,
       system: SYSTEM_PROMPT,
       tools: [
@@ -389,10 +397,23 @@ Deno.serve(async (req) => {
       );
     }
 
+    // B4 — política de modelo por plan: económico por defecto, o escalar a
+    // avanzado solo en las secciones que salgan con confianza baja (PRO), o
+    // siempre avanzado (ENTERPRISE).
+    const politicaModelo = await obtenerPoliticaModelo(supabase, licitacion.organization_id);
+    const modeloBase = modeloInicial(politicaModelo);
+    let huboEscalamiento = false;
+
     const resultados: Record<string, unknown> = {};
     const confianzas: Record<string, string> = {};
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
+    const tokensPorModelo = new Map<string, { input: number; output: number }>();
+    const acumular = (modelo: string, inputTokens: number, outputTokens: number) => {
+      const previo = tokensPorModelo.get(modelo) ?? { input: 0, output: 0 };
+      tokensPorModelo.set(modelo, {
+        input: previo.input + inputTokens,
+        output: previo.output + outputTokens,
+      });
+    };
 
     for (const seccion of SECCIONES) {
       const embedding = await embedQuery(openai, seccion.query);
@@ -406,13 +427,27 @@ Deno.serve(async (req) => {
       if (searchError) throw new Error(`Error en búsqueda semántica: ${searchError.message}`);
 
       const contexto = (chunks ?? []).map((c: { contenido: string }) => c.contenido).join("\n---\n");
-      const { input: resultado, inputTokens, outputTokens } = await analizarSeccion(
+
+      let { input: resultado, inputTokens, outputTokens } = await analizarSeccion(
         anthropic,
         seccion,
         contexto || "(sin contenido)",
+        modeloBase,
       );
-      totalInputTokens += inputTokens;
-      totalOutputTokens += outputTokens;
+      acumular(modeloBase, inputTokens, outputTokens);
+
+      // Reintento con el modelo avanzado si la política lo pide y la
+      // primera pasada salió con confianza baja — solo para esta sección,
+      // no para todo el análisis.
+      if (debeEscalar(politicaModelo, resultado?.nivel_confianza)) {
+        const modeloAlto = modeloEscalado(politicaModelo);
+        const reintento = await analizarSeccion(anthropic, seccion, contexto || "(sin contenido)", modeloAlto);
+        acumular(modeloAlto, reintento.inputTokens, reintento.outputTokens);
+        if (reintento.input) {
+          resultado = reintento.input;
+          huboEscalamiento = true;
+        }
+      }
 
       if (resultado) {
         const { nivel_confianza, ...resto } = resultado;
@@ -421,12 +456,26 @@ Deno.serve(async (req) => {
       }
     }
 
-    await registrarUsoIA(ctx, {
-      funcion: "analizar-bases",
-      modelo: "claude-sonnet-5",
-      inputTokens: totalInputTokens,
-      outputTokens: totalOutputTokens,
-    });
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    for (const [modelo, tokens] of tokensPorModelo) {
+      totalInputTokens += tokens.input;
+      totalOutputTokens += tokens.output;
+      await registrarUsoIA(ctx, {
+        funcion: "analizar-bases",
+        modelo,
+        inputTokens: tokens.input,
+        outputTokens: tokens.output,
+      });
+    }
+
+    // Para la conciliación de presupuesto del job (un solo modelo + total de
+    // tokens, ver job-runner.ts), se reporta el modelo más caro realmente
+    // usado con el total combinado — sobreestima el costo de las secciones
+    // que sí corrieron en el modelo económico cuando hubo escalamiento
+    // parcial, nunca lo subestima. El detalle correcto por modelo ya quedó
+    // en ai_usage_log vía los registrarUsoIA de arriba.
+    const modeloReportado = huboEscalamiento ? MODELO_AVANZADO : modeloBase;
 
     const generales = (resultados.generales ?? {}) as Record<string, unknown>;
     const fechas = (resultados.fechas ?? {}) as Record<string, unknown>;
@@ -557,7 +606,7 @@ Deno.serve(async (req) => {
         _usage: {
           tokens_input: totalInputTokens,
           tokens_output: totalOutputTokens,
-          modelo: "claude-sonnet-5",
+          modelo: modeloReportado,
           provider: "anthropic",
         },
         _nivel_confianza: nivelGeneral,

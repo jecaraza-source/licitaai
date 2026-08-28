@@ -11,6 +11,13 @@ import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
 import { authenticate, jsonError, registrarUsoIA, requireLicitacion } from "../_shared/auth.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
+import {
+  debeEscalar,
+  MODELO_AVANZADO,
+  modeloEscalado,
+  modeloInicial,
+  obtenerPoliticaModelo,
+} from "../_shared/model-policy.ts";
 
 const SYSTEM_PROMPT_INVESTIGACION = conGuardia(`Eres un analista de mercado especializado en compras gubernamentales mexicanas.
 Investiga precios de referencia reales para la partida indicada usando búsqueda web.
@@ -83,14 +90,18 @@ interface InvestigacionResultado {
   outputTokens: number;
 }
 
-async function investigarPartida(anthropic: Anthropic, partida: Partida): Promise<InvestigacionResultado> {
+async function investigarPartida(
+  anthropic: Anthropic,
+  partida: Partida,
+  modelo: string,
+): Promise<InvestigacionResultado> {
   // Streaming es obligatorio aquí: con web_search la llamada puede tardar más
   // de 150s sin emitir bytes, y el gateway de Edge Functions de Supabase
   // cierra la conexión por IDLE_TIMEOUT en llamadas no streaming.
   const response = await withRetry(() =>
     anthropic.messages
       .stream({
-        model: "claude-sonnet-5",
+        model: modelo,
         max_tokens: 4000,
         system: SYSTEM_PROMPT_INVESTIGACION,
         tools: [{ type: "web_search_20260209", name: "web_search", max_uses: 4 }],
@@ -121,10 +132,14 @@ interface EstructuraResultado {
   outputTokens: number;
 }
 
-async function estructurarEstudio(anthropic: Anthropic, investigacion: string): Promise<EstructuraResultado> {
+async function estructurarEstudio(
+  anthropic: Anthropic,
+  investigacion: string,
+  modelo: string,
+): Promise<EstructuraResultado> {
   const response = await withRetry(() =>
     anthropic.messages.create({
-      model: "claude-sonnet-5",
+      model: modelo,
       max_tokens: 2000,
       system: SYSTEM_PROMPT_ESTRUCTURA,
       tools: [
@@ -182,17 +197,36 @@ Deno.serve(async (req) => {
       return jsonError(400, "No hay partidas para analizar");
     }
 
+    // B4 — política de modelo por plan.
+    const politicaModelo = await obtenerPoliticaModelo(supabase, licitacionCheck.organization_id);
+    const modeloBase = modeloInicial(politicaModelo);
+    let huboEscalamiento = false;
+
     const resultados = [];
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     for (const partida of partidas as Partida[]) {
-      const investigacion = await investigarPartida(anthropic, partida);
+      const investigacion = await investigarPartida(anthropic, partida, modeloBase);
       totalInputTokens += investigacion.inputTokens;
       totalOutputTokens += investigacion.outputTokens;
 
-      const estructura = await estructurarEstudio(anthropic, investigacion.texto);
+      let estructura = await estructurarEstudio(anthropic, investigacion.texto, modeloBase);
       totalInputTokens += estructura.inputTokens;
       totalOutputTokens += estructura.outputTokens;
+
+      // Si la estructuración salió con confianza baja, se reintenta solo ese
+      // paso (no la investigación completa) con el modelo avanzado.
+      if (debeEscalar(politicaModelo, estructura.data?.nivel_confianza)) {
+        const modeloAlto = modeloEscalado(politicaModelo);
+        const reintento = await estructurarEstudio(anthropic, investigacion.texto, modeloAlto);
+        totalInputTokens += reintento.inputTokens;
+        totalOutputTokens += reintento.outputTokens;
+        if (reintento.data) {
+          estructura = reintento;
+          huboEscalamiento = true;
+        }
+      }
+
       if (!estructura.data) continue;
       const datos = estructura.data;
 
@@ -217,9 +251,10 @@ Deno.serve(async (req) => {
       resultados.push(fila);
     }
 
+    const modeloReportado = huboEscalamiento ? MODELO_AVANZADO : modeloBase;
     await registrarUsoIA(ctx, {
       funcion: "generar-estudio-mercado",
-      modelo: "claude-sonnet-5",
+      modelo: modeloReportado,
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
     });
@@ -231,7 +266,7 @@ Deno.serve(async (req) => {
     });
 
     return new Response(
-      JSON.stringify({ ...{ ok: true, data: resultados }, _usage: { tokens_input: totalInputTokens, tokens_output: totalOutputTokens, modelo: "claude-sonnet-5", provider: "anthropic" } }),
+      JSON.stringify({ ...{ ok: true, data: resultados }, _usage: { tokens_input: totalInputTokens, tokens_output: totalOutputTokens, modelo: modeloReportado, provider: "anthropic" } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

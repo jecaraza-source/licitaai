@@ -12,6 +12,7 @@ import {
 } from "../_shared/auth.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
 import { bloqueDocumentoParaClaude } from "../_shared/anthropic-content-block.ts";
+import { modeloInicial, obtenerPoliticaModelo } from "../_shared/model-policy.ts";
 
 const SYSTEM_PROMPT = conGuardia(`Eres un auditor experto en documentación legal y fiscal para licitaciones
 públicas mexicanas. Verifica el documento adjunto contra el requisito esperado y los datos
@@ -124,9 +125,12 @@ Razón social: ${empresa?.razon_social ?? "N/D"}
 RFC: ${empresa?.rfc ?? "N/D"}
 `.trim();
 
+    const politicaModelo = await obtenerPoliticaModelo(supabase, licitacion?.organization_id ?? "");
+    const modelo = modeloInicial(politicaModelo);
+
     const response = await withRetry(() =>
       anthropic.messages.create({
-        model: "claude-sonnet-5",
+        model: modelo,
         max_tokens: 2000,
         system: SYSTEM_PROMPT,
         tools: [
@@ -151,7 +155,7 @@ RFC: ${empresa?.rfc ?? "N/D"}
 
     await registrarUsoIA(ctx, {
       funcion: "auditar-documento",
-      modelo: "claude-sonnet-5",
+      modelo,
       inputTokens: response.usage?.input_tokens ?? 0,
       outputTokens: response.usage?.output_tokens ?? 0,
     });
@@ -184,7 +188,7 @@ RFC: ${empresa?.rfc ?? "N/D"}
     });
 
     return new Response(
-      JSON.stringify({ ...{ ok: true, data: auditoria }, _usage: { tokens_input: response.usage?.input_tokens ?? 0, tokens_output: response.usage?.output_tokens ?? 0, modelo: "claude-sonnet-5", provider: "anthropic" } }),
+      JSON.stringify({ ...{ ok: true, data: auditoria }, _usage: { tokens_input: response.usage?.input_tokens ?? 0, tokens_output: response.usage?.output_tokens ?? 0, modelo, provider: "anthropic" } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

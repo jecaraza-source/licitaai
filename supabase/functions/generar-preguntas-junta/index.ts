@@ -5,6 +5,7 @@ import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
 import { authenticate, registrarUsoIA, requireLicitacion } from "../_shared/auth.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
+import { modeloInicial, obtenerPoliticaModelo } from "../_shared/model-policy.ts";
 
 const SYSTEM_PROMPT = conGuardia(`Eres un experto licitante con 20 años de experiencia en licitaciones públicas mexicanas.
 Tu objetivo es identificar puntos ambiguos, contradictorios o poco claros en las bases
@@ -90,9 +91,12 @@ Deno.serve(async (req) => {
       .filter(Boolean)
       .join("\n\n");
 
+    const politicaModelo = await obtenerPoliticaModelo(supabase, licitacionCheck.organization_id);
+    const modelo = modeloInicial(politicaModelo);
+
     const response = await withRetry(() =>
       anthropic.messages.create({
-        model: "claude-sonnet-5",
+        model: modelo,
         max_tokens: 8000,
         system: SYSTEM_PROMPT,
         tools: [
@@ -114,7 +118,7 @@ Deno.serve(async (req) => {
 
     await registrarUsoIA(ctx, {
       funcion: "generar-preguntas-junta",
-      modelo: "claude-sonnet-5",
+      modelo,
       inputTokens: response.usage?.input_tokens ?? 0,
       outputTokens: response.usage?.output_tokens ?? 0,
     });
@@ -164,7 +168,7 @@ Deno.serve(async (req) => {
     });
 
     return new Response(
-      JSON.stringify({ ...{ ok: true, data: junta }, _usage: { tokens_input: response.usage?.input_tokens ?? 0, tokens_output: response.usage?.output_tokens ?? 0, modelo: "claude-sonnet-5", provider: "anthropic" } }),
+      JSON.stringify({ ...{ ok: true, data: junta }, _usage: { tokens_input: response.usage?.input_tokens ?? 0, tokens_output: response.usage?.output_tokens ?? 0, modelo, provider: "anthropic" } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
