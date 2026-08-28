@@ -9,6 +9,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Mínimo necesario: checkout + subida de artefactos. Sin escritura al repo,
+# a issues, ni a deployments (P1.6 — CodeQL actions/missing-workflow-permissions).
+permissions:
+  contents: read
+
 jobs:
   quality:
     runs-on: ubuntu-latest

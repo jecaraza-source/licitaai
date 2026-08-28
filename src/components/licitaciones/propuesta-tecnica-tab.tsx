@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RequisitosTecnicosCard } from "@/components/licitaciones/requisitos-tecnicos-card";
 import { RevisorPropuestaCard } from "@/components/licitaciones/revisor-propuesta-card";
 import { cn } from "@/lib/utils";
+import { soloTexto } from "@/lib/sanitize-html";
 
 interface Seccion {
   id: string;
@@ -110,7 +111,7 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
 
   const porcentajeCompleto = useMemo(() => {
     if (secciones.length === 0) return 0;
-    const completas = secciones.filter((s) => s.html && s.html.replace(/<[^>]+>/g, "").trim().length > 20);
+    const completas = secciones.filter((s) => s.html && soloTexto(s.html).length > 20);
     return Math.round((completas.length / secciones.length) * 100);
   }, [secciones]);
 

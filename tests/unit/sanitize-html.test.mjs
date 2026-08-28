@@ -1,5 +1,5 @@
 // P1.6 — saneado de HTML por allowlist para la salida de IA.
-import { sanitizarHtml } from "../../src/lib/sanitize-html.ts";
+import { sanitizarHtml, soloTexto } from "../../src/lib/sanitize-html.ts";
 
 let pass = 0;
 let fail = 0;
@@ -67,6 +67,25 @@ check(
   sanitizarHtml('<p>antes</p><img src="x" onerror="alert(1)"><p>después</p>') ===
     "<p>antes</p><p>después</p>",
 );
+
+// Sanitización multi-carácter incompleta (CodeQL js/incomplete-multi-character-sanitization)
+check(
+  "no se puede reconstruir <script> anidando (<scr<script>ipt>)",
+  !/<script>/i.test(sanitizarHtml("<scr<script>ipt>alert(1)</scr</script>ipt>")),
+);
+check(
+  "javascript: entrelazado no sobrevive (javajavascript:script:)",
+  !sanitizarHtml("<p>javajavascript:script:alert(1)</p>").includes("javascript:"),
+);
+check(
+  "on-handler entrelazado no sobrevive",
+  !/\son\w+=/i.test(sanitizarHtml('<p oonnclick="x" onclick="y">t</p>')),
+);
+
+// soloTexto
+check("soloTexto quita todas las etiquetas", soloTexto("<p>Hola <strong>mundo</strong></p>") === "Hola mundo");
+check("soloTexto es robusto ante <a<b>c> (no deja brackets)", !/[<>]/.test(soloTexto("x<a<b>c>y")));
+check("soloTexto convierte &nbsp; en espacio", soloTexto("a&nbsp;b") === "a b");
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail > 0 ? 1 : 0);

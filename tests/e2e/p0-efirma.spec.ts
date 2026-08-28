@@ -193,7 +193,7 @@ test.describe("P0.3 — firma interna de integridad", () => {
       data: { cer_base64: cerBase64, firma_base64, documento_hash_sha256 },
     });
     expect(res.status()).toBe(400);
-    expect((await res.json()).error).toContain("vigente");
+    expect((await res.json()).error.message).toContain("vigente");
   });
 
   test("RFC del certificado distinto al de la empresa activa requiere confirmación explícita", async ({
@@ -214,7 +214,7 @@ test.describe("P0.3 — firma interna de integridad", () => {
       data: { cer_base64: cerBase64, firma_base64, documento_hash_sha256 },
     });
     expect(sinConfirmar.status()).toBe(400);
-    expect((await sinConfirmar.json()).error).toBe("rfc_distinto");
+    expect((await sinConfirmar.json()).error.details.motivo).toBe("rfc_distinto");
 
     const conConfirmacion = await page.request.post(`/api/documentos/${documentoId}/firmar`, {
       data: {

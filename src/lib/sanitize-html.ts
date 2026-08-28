@@ -29,24 +29,41 @@ const ETIQUETAS_PERMITIDAS = new Set([
 // Etiquetas cuyo contenido completo se elimina (no solo la etiqueta).
 const ETIQUETAS_CON_CONTENIDO_PELIGROSO = /<(script|style|iframe|object|embed|noscript)\b[\s\S]*?<\/\1\s*>/gi;
 
+/** Aplica un reemplazo hasta que la cadena deja de cambiar. Necesario para
+ * los patrones donde quitar una coincidencia puede formar otra
+ * (`<scr<script>ipt>` → `<script>`). */
+function reemplazarHastaEstable(texto: string, re: RegExp, con: string): string {
+  let anterior;
+  let actual = texto;
+  do {
+    anterior = actual;
+    actual = actual.replace(re, con);
+  } while (actual !== anterior);
+  return actual;
+}
+
 export function sanitizarHtml(html: string): string {
   if (!html) return "";
 
-  let salida = html
-    // 1. Elimina script/style/iframe/… junto con su contenido.
-    .replace(ETIQUETAS_CON_CONTENIDO_PELIGROSO, "")
-    // 2. Elimina comentarios (pueden esconder condicionales de IE, payloads).
-    .replace(/<!--[\s\S]*?-->/g, "")
-    // 3. Elimina cualquier etiqueta de apertura/cierre restante:
-    //    - si está en la allowlist, la re-emite SIN atributos (o solo con
-    //      colspan/rowspan acotados en celdas),
-    //    - si no, se descarta (su texto interno se conserva).
-    .replace(/<\/?([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>/g, (_m, nombre, attrs) => {
+  let salida = html;
+  // 1. Elimina script/style/iframe/… junto con su contenido — en bucle:
+  //    quitar un par puede revelar otro que estaba anidado/entrelazado.
+  salida = reemplazarHastaEstable(salida, ETIQUETAS_CON_CONTENIDO_PELIGROSO, "");
+  // 2. Elimina comentarios (pueden esconder condicionales de IE, payloads).
+  salida = reemplazarHastaEstable(salida, /<!--[\s\S]*?-->/g, "");
+  // 3. Reescribe cada etiqueta restante — en bucle, porque descartar una
+  //    puede unir dos trozos y formar otra (`<scr<script>ipt>`):
+  //    - allowlist → se re-emite SIN atributos (o solo colspan/rowspan
+  //      acotados en celdas),
+  //    - fuera de la lista → se descarta (su texto interno se conserva).
+  const RE_ETIQUETA = /<\/?([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>/g;
+  let anterior: string;
+  do {
+    anterior = salida;
+    salida = salida.replace(RE_ETIQUETA, (m, nombre, attrs) => {
       const tag = String(nombre).toLowerCase();
       if (!ETIQUETAS_PERMITIDAS.has(tag)) return "";
-      const esCierre = _m.startsWith("</");
-      if (esCierre) return `</${tag}>`;
-
+      if (m.startsWith("</")) return `</${tag}>`;
       if ((tag === "td" || tag === "th") && typeof attrs === "string") {
         const span = [];
         const col = /\bcolspan\s*=\s*["']?(\d{1,2})/i.exec(attrs);
@@ -57,10 +74,23 @@ export function sanitizarHtml(html: string): string {
       }
       return `<${tag}>`;
     });
+  } while (salida !== anterior);
 
-  // 4. Neutraliza restos de manejadores/URIs peligrosas en texto plano
-  //    (por si algo quedó fuera de una etiqueta).
-  salida = salida.replace(/javascript:/gi, "").replace(/\son\w+\s*=/gi, " data-x=");
+  // 4. Neutraliza restos de manejadores/URIs peligrosas en texto plano,
+  //    también en bucle (`javajavascript:script:` → `javascript:`).
+  salida = reemplazarHastaEstable(salida, /javascript:/gi, "");
+  salida = reemplazarHastaEstable(salida, /\son\w+\s*=/gi, " data-x=");
 
   return salida.trim();
+}
+
+/** Quita TODAS las etiquetas y devuelve solo el texto — para estimaciones
+ * (¿esta sección está redactada?), nunca para mostrar como HTML. Robusto
+ * ante `<a<b>c>` gracias al bucle. */
+export function soloTexto(html: string): string {
+  if (!html) return "";
+  return reemplazarHastaEstable(html, /<[^>]*>/g, "")
+    .replace(/[<>]/g, "") // restos de etiquetas malformadas (`<a<b>c>`)
+    .replace(/&nbsp;/g, " ")
+    .trim();
 }
