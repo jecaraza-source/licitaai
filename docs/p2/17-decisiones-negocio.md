@@ -123,7 +123,7 @@ externos:
 
 ### Para firmar
 
-> ☐ Legal ha revisado el texto de términos de uso y la cláusula de DPA
+> ☑ Legal ha revisado el texto de términos de uso y la cláusula de DPA
 > anteriores, o ha provisto la redacción definitiva.
 >
 > ☐ Se han firmado los DPA de Anthropic y OpenAI en modo retención
@@ -132,5 +132,11 @@ externos:
 > ☐ Se ha contratado el plan/opción de API que garantiza lo anterior.
 >
 > Responsable legal: ________________  Fecha: __________
+
+**Decisión registrada (2026-08-28):** Legal aprueba el texto propuesto de
+términos de uso + cláusula de DPA (o entregará la redacción final). Quedan
+pendientes de acción, antes del lanzamiento a clientes: firmar los DPA de
+Anthropic y OpenAI en modo retención-cero/no-entrenamiento y contratar el
+plan de API correspondiente.
 
 Riesgo asociado: R7.

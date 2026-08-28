@@ -10,6 +10,7 @@ import {
   requireChecklistItem,
   requireDocumentoById,
 } from "../_shared/auth.ts";
+import { resolverModelo } from "../_shared/modelo-politica.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
 import { bloqueDocumentoParaClaude } from "../_shared/anthropic-content-block.ts";
 
@@ -89,6 +90,7 @@ Deno.serve(async (req) => {
     }
 
     const supabase = ctx.service;
+    const modeloIA = await resolverModelo(supabase, ctx.organizationId, "claude-sonnet-5");
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
 
     const { data: licitacion } = await supabase
@@ -126,7 +128,7 @@ RFC: ${empresa?.rfc ?? "N/D"}
 
     const response = await withRetry(() =>
       anthropic.messages.create({
-        model: "claude-sonnet-5",
+        model: modeloIA,
         max_tokens: 2000,
         system: SYSTEM_PROMPT,
         tools: [
@@ -151,7 +153,7 @@ RFC: ${empresa?.rfc ?? "N/D"}
 
     await registrarUsoIA(ctx, {
       funcion: "auditar-documento",
-      modelo: "claude-sonnet-5",
+      modelo: modeloIA,
       inputTokens: response.usage?.input_tokens ?? 0,
       outputTokens: response.usage?.output_tokens ?? 0,
     });
@@ -184,7 +186,7 @@ RFC: ${empresa?.rfc ?? "N/D"}
     });
 
     return new Response(
-      JSON.stringify({ ...{ ok: true, data: auditoria }, _usage: { tokens_input: response.usage?.input_tokens ?? 0, tokens_output: response.usage?.output_tokens ?? 0, modelo: "claude-sonnet-5", provider: "anthropic" } }),
+      JSON.stringify({ ...{ ok: true, data: auditoria }, _usage: { tokens_input: response.usage?.input_tokens ?? 0, tokens_output: response.usage?.output_tokens ?? 0, modelo: modeloIA, provider: "anthropic" } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

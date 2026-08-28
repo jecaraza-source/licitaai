@@ -5,6 +5,7 @@ import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
 import { getEmpresaPerfilActiva } from "../_shared/empresa-perfil.ts";
 import { authenticate, registrarUsoIA, requireLicitacion } from "../_shared/auth.ts";
+import { resolverModelo } from "../_shared/modelo-politica.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
 
 const SECCIONES_BASE = [
@@ -54,13 +55,14 @@ async function generarSeccion(
   anthropic: Anthropic,
   seccion: { id: string; titulo: string },
   contexto: string,
+  modelo: string,
 ): Promise<SeccionResultado> {
   // Streaming evita que el gateway de Edge Functions cierre la conexión por
   // IDLE_TIMEOUT (150s) en generaciones largas con thinking adaptativo.
   const response = await withRetry(() =>
     anthropic.messages
       .stream({
-        model: "claude-sonnet-5",
+        model: modelo,
         max_tokens: 4000,
         system: SYSTEM_PROMPT,
         messages: [
@@ -102,6 +104,7 @@ Deno.serve(async (req) => {
     if (licitacionCheck instanceof Response) return licitacionCheck;
 
     const supabase = ctx.service;
+    const modeloIA = await resolverModelo(supabase, ctx.organizationId, "claude-sonnet-5");
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
 
     const { data: licitacion, error: licError } = await supabase
@@ -145,7 +148,7 @@ Clientes de referencia: ${JSON.stringify(empresa?.clientes_referencia_json ?? []
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     for (const seccion of secciones) {
-      const { html, inputTokens, outputTokens } = await generarSeccion(anthropic, seccion, contextoBase);
+      const { html, inputTokens, outputTokens } = await generarSeccion(anthropic, seccion, contextoBase, modeloIA);
       totalInputTokens += inputTokens;
       totalOutputTokens += outputTokens;
       resultado.push({ id: seccion.id, titulo: seccion.titulo, html, origen: "ia" });
@@ -153,7 +156,7 @@ Clientes de referencia: ${JSON.stringify(empresa?.clientes_referencia_json ?? []
 
     await registrarUsoIA(ctx, {
       funcion: "generar-propuesta-tecnica",
-      modelo: "claude-sonnet-5",
+      modelo: modeloIA,
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
     });
@@ -180,7 +183,7 @@ Clientes de referencia: ${JSON.stringify(empresa?.clientes_referencia_json ?? []
     });
 
     return new Response(
-      JSON.stringify({ ...{ ok: true, data: propuesta }, _usage: { tokens_input: totalInputTokens, tokens_output: totalOutputTokens, modelo: "claude-sonnet-5", provider: "anthropic" } }),
+      JSON.stringify({ ...{ ok: true, data: propuesta }, _usage: { tokens_input: totalInputTokens, tokens_output: totalOutputTokens, modelo: modeloIA, provider: "anthropic" } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

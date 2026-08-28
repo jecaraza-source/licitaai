@@ -16,6 +16,7 @@ import {
   requireDocumento,
   requireLicitacion,
 } from "../_shared/auth.ts";
+import { resolverModelo } from "../_shared/modelo-politica.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
 import { validarContraEsquema } from "../_shared/schema-validate.ts";
 
@@ -284,10 +285,11 @@ async function analizarSeccion(
   anthropic: Anthropic,
   seccion: Seccion,
   contexto: string,
+  modelo: string,
 ): Promise<ResultadoSeccion> {
   const response = await withRetry(() =>
     anthropic.messages.create({
-      model: "claude-sonnet-5",
+      model: modelo,
       max_tokens: 8000,
       system: SYSTEM_PROMPT,
       tools: [
@@ -361,6 +363,7 @@ Deno.serve(async (req) => {
     if (licitacion instanceof Response) return licitacion;
 
     const supabase = ctx.service;
+    const modeloIA = await resolverModelo(supabase, ctx.organizationId, "claude-sonnet-5");
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
     const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 
@@ -410,6 +413,7 @@ Deno.serve(async (req) => {
         anthropic,
         seccion,
         contexto || "(sin contenido)",
+        modeloIA,
       );
       totalInputTokens += inputTokens;
       totalOutputTokens += outputTokens;
@@ -423,7 +427,7 @@ Deno.serve(async (req) => {
 
     await registrarUsoIA(ctx, {
       funcion: "analizar-bases",
-      modelo: "claude-sonnet-5",
+      modelo: modeloIA,
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
     });
@@ -557,7 +561,7 @@ Deno.serve(async (req) => {
         _usage: {
           tokens_input: totalInputTokens,
           tokens_output: totalOutputTokens,
-          modelo: "claude-sonnet-5",
+          modelo: modeloIA,
           provider: "anthropic",
         },
         _nivel_confianza: nivelGeneral,

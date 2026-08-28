@@ -10,6 +10,7 @@ import Anthropic from "npm:@anthropic-ai/sdk@^0.68";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
 import { authenticate, jsonError, registrarUsoIA, requireLicitacion } from "../_shared/auth.ts";
+import { resolverModelo } from "../_shared/modelo-politica.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
 
 const SYSTEM_PROMPT = conGuardia(
@@ -68,6 +69,7 @@ Deno.serve(async (req) => {
     if (licitacion instanceof Response) return licitacion;
 
     const supabase = ctx.service;
+    const modeloIA = await resolverModelo(supabase, ctx.organizationId, "claude-sonnet-5");
 
     const { data: documento } = await supabase
       .from("documentos")
@@ -96,7 +98,7 @@ Deno.serve(async (req) => {
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
     const response = (await withRetry(() =>
       anthropic.messages.create({
-        model: "claude-sonnet-5",
+        model: modeloIA,
         max_tokens: 2000,
         system: SYSTEM_PROMPT,
         tools: [
@@ -126,7 +128,7 @@ Deno.serve(async (req) => {
     const tokOut = response.usage?.output_tokens ?? 0;
     await registrarUsoIA(ctx, {
       funcion: "seguimiento-analizar-fallo",
-      modelo: "claude-sonnet-5",
+      modelo: modeloIA,
       inputTokens: tokIn,
       outputTokens: tokOut,
     });
@@ -175,7 +177,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         ok: true,
         data: result.data,
-        _usage: { tokens_input: tokIn, tokens_output: tokOut, modelo: "claude-sonnet-5", provider: "anthropic" },
+        _usage: { tokens_input: tokIn, tokens_output: tokOut, modelo: modeloIA, provider: "anthropic" },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

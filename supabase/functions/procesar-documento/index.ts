@@ -11,6 +11,7 @@ import { RecursiveCharacterTextSplitter } from "npm:@langchain/textsplitters@^0.
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
 import { authenticate, jsonError, registrarUsoIA, requireDocumentoById } from "../_shared/auth.ts";
+import { resolverModelo } from "../_shared/modelo-politica.ts";
 import { contenidoCoincideConNombre } from "../_shared/file-validation.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
 
@@ -37,10 +38,10 @@ interface ExtraccionResultado {
   outputTokens: number;
 }
 
-async function extraerTextoConClaude(anthropic: Anthropic, pdfBase64: string): Promise<ExtraccionResultado> {
+async function extraerTextoConClaude(anthropic: Anthropic, pdfBase64: string, modelo: string): Promise<ExtraccionResultado> {
   const response = await withRetry(() =>
     anthropic.messages.create({
-      model: "claude-sonnet-5",
+      model: modelo,
       max_tokens: 16000,
       system: SYSTEM_PROMPT_EXTRACCION,
       messages: [
@@ -94,6 +95,7 @@ Deno.serve(async (req) => {
     if (documento instanceof Response) return documento;
 
     const supabase = ctx.service;
+    const modeloIA = await resolverModelo(supabase, ctx.organizationId, "claude-sonnet-5");
 
     const { data: archivo, error: downloadError } = await supabase.storage
       .from("documentos-originales")
@@ -140,11 +142,11 @@ Deno.serve(async (req) => {
       if (charsPorPagina < MIN_CHARS_POR_PAGINA) {
         escaneado = true;
         const base64 = uint8ArrayToBase64(buffer);
-        const extraccion = await extraerTextoConClaude(anthropic, base64);
+        const extraccion = await extraerTextoConClaude(anthropic, base64, modeloIA);
         texto = extraccion.texto;
         await registrarUsoIA(ctx, {
           funcion: "procesar-documento",
-          modelo: "claude-sonnet-5",
+          modelo: modeloIA,
           inputTokens: extraccion.inputTokens,
           outputTokens: extraccion.outputTokens,
         });

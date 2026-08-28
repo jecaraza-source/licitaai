@@ -26,6 +26,7 @@ import { conBreaker } from "../circuit-breaker.ts";
 import { conGuardia } from "../ai-guard.ts";
 import { contenidoCoincideConNombre } from "../file-validation.ts";
 import { ErrorNoReintentable, type JobContext, type StepResult } from "../job-runner.ts";
+import { resolverModelo } from "../modelo-politica.ts";
 
 const CHARS_POR_CHUNK = 4000;
 const OVERLAP_CHARS = 800;
@@ -117,6 +118,7 @@ async function registrarUso(
 async function extraerTextoEscaneado(
   pdfB64: string,
   ctx: JobContext,
+  modelo: string,
 ): Promise<{ texto: string; tokIn: number; tokOut: number }> {
   if (MOCK_AI) {
     console.warn("[procesar-documento] MOCK_AI: extracción de escaneado simulada");
@@ -126,7 +128,7 @@ async function extraerTextoEscaneado(
   const res = (await conBreaker(ctx.service, "anthropic", () =>
     withRetry(() =>
       anthropic.messages.create({
-        model: "claude-sonnet-5",
+        model: modelo,
         max_tokens: 16000,
         system: SYSTEM_PROMPT_EXTRACCION,
         messages: [{
@@ -141,7 +143,7 @@ async function extraerTextoEscaneado(
   const bloque = res.content.find((b) => b.type === "text");
   const tokIn = res.usage?.input_tokens ?? 0;
   const tokOut = res.usage?.output_tokens ?? 0;
-  await registrarUso(ctx, "claude-sonnet-5", tokIn, tokOut);
+  await registrarUso(ctx, modelo, tokIn, tokOut);
   return { texto: bloque?.text ?? "", tokIn, tokOut };
 }
 
@@ -204,7 +206,12 @@ async function stepExtraer(ctx: JobContext): Promise<StepResult> {
     if (texto.length / paginas < MIN_CHARS_POR_PAGINA) {
       escaneado = true;
       await ctx.reportarProgreso(15, "documento escaneado, extrayendo texto con IA");
-      const r = await extraerTextoEscaneado(uint8ToBase64(buffer), ctx);
+      const modeloEscaneado = await resolverModelo(
+        ctx.service,
+        ctx.job.organization_id,
+        "claude-sonnet-5",
+      );
+      const r = await extraerTextoEscaneado(uint8ToBase64(buffer), ctx, modeloEscaneado);
       texto = r.texto;
       tokIn = r.tokIn;
       tokOut = r.tokOut;
