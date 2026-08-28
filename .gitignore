@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
 
 # next.js
 /.next/
@@ -46,3 +48,7 @@ next-env.d.ts
 
 # supabase CLI local link cache
 supabase/.temp/
+supabase/.branches/
+
+# P2 · H6 — respaldos locales (no se versionan; el destino real es externo)
+/backups/

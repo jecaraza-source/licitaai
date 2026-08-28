@@ -175,8 +175,8 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
     fetch("/api/empresa-perfil")
       .then((res) => res.json())
       .then((json) => {
-        const data = (json.data as EmpresaPerfil[]) ?? [];
-        const activaId = (json.activaId as string | null) ?? null;
+        const data = (json.data?.data as EmpresaPerfil[]) ?? [];
+        const activaId = (json.data?.activaId as string | null) ?? null;
         const activa = data.find((e) => e.id === activaId) ?? data[0] ?? null;
         setEmpresaNombre(activa?.razon_social?.trim() || null);
       });
@@ -200,7 +200,7 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
     setGenerando(false);
 
     if (!res.ok) {
-      toast.error("No se pudieron generar las preguntas", { description: json.error });
+      toast.error("No se pudieron generar las preguntas", { description: json.error?.message ?? json.error });
       return;
     }
 
@@ -330,6 +330,7 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
 
       if (insertError || !doc) {
         setSubiendoActa(false);
+        await supabase.storage.from("documentos-originales").remove([path]);
         toast.error("No se pudo registrar el acta");
         return;
       }
@@ -343,7 +344,7 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
       setSubiendoActa(false);
 
       if (!res.ok) {
-        toast.error("No se pudieron extraer las respuestas", { description: json.error });
+        toast.error("No se pudieron extraer las respuestas", { description: json.error?.message ?? json.error });
         return;
       }
 

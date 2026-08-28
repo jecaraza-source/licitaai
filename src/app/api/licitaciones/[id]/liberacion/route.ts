@@ -1,64 +1,43 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 import { buildItemsLiberacion, getGateStatus } from "@/lib/liberacion";
 import type { ChecklistLiberacionItem } from "@/types";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+const putBodySchema = z.object({
+  itemId: z.string().min(1, "itemId y checked son requeridos"),
+  checked: z.boolean(),
+});
 
-  const data = await getGateStatus(supabase, id);
-  return NextResponse.json({ data });
-}
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const data = await getGateStatus(ctx.supabase, params.id);
+  return { data };
+});
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const { itemId, checked } = await request.json();
-  if (typeof itemId !== "string" || typeof checked !== "boolean") {
-    return NextResponse.json({ error: "itemId y checked son requeridos" }, { status: 400 });
-  }
+export const PUT = apiRoute({ paramsSchema, bodySchema: putBodySchema }, async ({ ctx, params, body }) => {
+  requireWriteRole(ctx);
 
   const [{ data: existente }, { data: licitacion }] = await Promise.all([
-    supabase
+    ctx.supabase
       .from("checklist_liberacion")
       .select("items_json")
-      .eq("licitacion_id", id)
+      .eq("licitacion_id", params.id)
       .maybeSingle(),
-    supabase.from("licitaciones").select("es_investigacion_mercado").eq("id", id).maybeSingle(),
+    ctx.supabase.from("licitaciones").select("es_investigacion_mercado").eq("id", params.id).maybeSingle(),
   ]);
 
   const actuales = buildItemsLiberacion(
     (existente?.items_json as ChecklistLiberacionItem[]) ?? [],
     licitacion?.es_investigacion_mercado ?? false,
   );
-  const actualizados = actuales.map((i) => (i.id === itemId ? { ...i, checked } : i));
+  const actualizados = actuales.map((i) => (i.id === body.itemId ? { ...i, checked: body.checked } : i));
 
-  const { error } = await supabase
+  const { error } = await ctx.supabase
     .from("checklist_liberacion")
-    .upsert({ licitacion_id: id, items_json: actualizados }, { onConflict: "licitacion_id" });
+    .upsert({ licitacion_id: params.id, items_json: actualizados }, { onConflict: "licitacion_id" });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) throw ApiError.internal();
 
-  const data = await getGateStatus(supabase, id);
-  return NextResponse.json({ data });
-}
+  const data = await getGateStatus(ctx.supabase, params.id);
+  return { data };
+});

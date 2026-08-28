@@ -124,6 +124,40 @@ function EmpresaMismatchBadge({ doc }: { doc: DocumentoCorporativo }) {
   );
 }
 
+/** Bajo el nombre del documento: el motivo concreto cuando NO coincide, o
+ * una confirmación cuando sí coincide y hubo datos para verificar. */
+function CoincidenciaEmpresaDetalle({ doc }: { doc: DocumentoCorporativo }) {
+  if (doc.coincide_empresa === false) {
+    const detalle =
+      doc.motivo_no_coincide ??
+      (doc.rfc_detectado
+        ? `El RFC detectado en el documento (${doc.rfc_detectado}) no coincide con el de tu empresa activa.`
+        : doc.razon_social_detectada
+          ? `La razón social detectada ("${doc.razon_social_detectada}") no coincide con la de tu empresa activa.`
+          : "Los datos del documento no coinciden con los de tu empresa activa.");
+    return (
+      <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+        <TriangleAlert className="size-3.5 shrink-0 translate-y-0.5" />
+        <span>{detalle}</span>
+      </div>
+    );
+  }
+
+  if (doc.coincide_empresa === true && (doc.rfc_detectado || doc.razon_social_detectada)) {
+    const que = doc.rfc_detectado
+      ? `el RFC del documento (${doc.rfc_detectado})`
+      : `la razón social del documento ("${doc.razon_social_detectada}")`;
+    return (
+      <div className="flex items-start gap-2 rounded-md bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400">
+        <BadgeCheck className="size-3.5 shrink-0 translate-y-0.5" />
+        <span>Verificado: {que} coincide con tu empresa activa.</span>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 const TIPOS_REPRESENTANTE = ["Poder del representante legal", "Escrito de personalidad"];
 
 function normalizarNombre(nombre: string): string {
@@ -249,7 +283,9 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
         const json = await res.json().catch(() => null);
         if (!fechaEmisionManual && json?.data?.coincide_empresa === false) {
           toast.warning("El documento no coincide con la empresa activa", {
-            description: "El RFC o razón social detectados no corresponden a esta empresa. Verifícalo.",
+            description:
+              json?.data?.motivo_no_coincide ??
+              "El RFC o razón social detectados no corresponden a esta empresa. Verifícalo.",
           });
         }
         if (!fechaEmisionManual) {
@@ -304,6 +340,7 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
       setSubiendo(false);
 
       if (!res.ok || !json?.data?.id) {
+        await supabase.storage.from("documentos-corporativos").remove([path]);
         toast.error("No se pudo registrar el documento");
         return;
       }
@@ -316,6 +353,7 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { "application/pdf": [".pdf"], "image/jpeg": [".jpg", ".jpeg"], "image/png": [".png"] },
     maxFiles: 1,
     onDrop: ([file]) => {
       if (file) subirDocumento(file);
@@ -414,6 +452,11 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
                       <Trash2 className="text-destructive" />
                     </Button>
                   </div>
+                  {!analizando && (
+                    <div className="pl-6">
+                      <CoincidenciaEmpresaDetalle doc={doc} />
+                    </div>
+                  )}
                   {puedeCalcularVigencia && (
                     <div className="flex items-center gap-2 pl-6">
                       <Label className="shrink-0 text-xs text-muted-foreground">

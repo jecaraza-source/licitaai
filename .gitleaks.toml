@@ -1,0 +1,25 @@
+# gitleaks — configuración del repo.
+#
+# Extiende las reglas por defecto y añade un allowlist SOLO para valores de
+# prueba conocidos que no son secretos reales:
+#   - claves por defecto de `supabase start` (universales, publicadas por
+#     Supabase, solo funcionan contra 127.0.0.1)
+#   - el CRON_SECRET falso de los e2e (arranca el webServer de Playwright
+#     contra Supabase local)
+#   - la contraseña de los usuarios de prueba
+#
+# El allowlist es por VALOR EXACTO, no por ruta: un secreto real filtrado
+# en un archivo de test se sigue detectando.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valores de prueba conocidos (no son secretos reales)"
+regexTarget = "match"
+regexes = [
+  '''sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz''',
+  '''sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH''',
+  '''e2e-cron-secret-0123456789abcdef''',
+  '''TestPassword123!''',
+]

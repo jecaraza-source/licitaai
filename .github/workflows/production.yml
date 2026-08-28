@@ -1,0 +1,85 @@
+name: Deploy · production
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # El environment "production" DEBE tener "Required reviewers" configurado
+    # en GitHub (Settings → Environments): el job queda en espera de
+    # aprobación manual antes de tocar producción (ADR 0009 · regla 8/11).
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
+      PROD_REF: ${{ secrets.PRODUCTION_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - run: npm ci
+
+      - name: Verificaciones rápidas
+        run: npm run check
+
+      - name: Verificar migraciones contra una base limpia
+        run: |
+          supabase stop --no-backup || true
+          supabase db start
+          supabase db reset --local --no-seed
+          supabase stop --no-backup || true
+
+      - name: Respaldo previo de la base de producción
+        run: |
+          supabase link --project-ref "$PROD_REF"
+          mkdir -p backup
+          supabase db dump --linked -f "backup/pre-deploy-$(date -u +%Y%m%dT%H%M%SZ).sql"
+          supabase db dump --linked --data-only -f "backup/pre-deploy-data-$(date -u +%Y%m%dT%H%M%SZ).sql"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-pre-deploy
+          path: backup/
+          retention-days: 30
+
+      - name: Aplicar migraciones a producción
+        run: supabase db push --linked
+
+      - name: Desplegar Edge Functions a producción
+        run: supabase functions deploy --project-ref "$PROD_REF"
+
+      - name: Desplegar app a Vercel (producción)
+        run: |
+          npm i -g vercel@latest
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod --token="$VERCEL_TOKEN"
+          echo "DEPLOY_URL=$(vercel deploy --prebuilt --prod --archive=tgz --token="$VERCEL_TOKEN")" >> "$GITHUB_ENV"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Smoke test
+        run: node scripts/smoke.mjs "$DEPLOY_URL"
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+
+      - name: Registrar versión (tag + release)
+        run: |
+          VERSION="v$(date -u +%Y.%m.%d)-$(git rev-parse --short HEAD)"
+          git tag "$VERSION"
+          git push origin "$VERSION"
+          gh release create "$VERSION" --generate-notes --title "$VERSION" \
+            --notes-start-tag "$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo '')" || \
+          gh release create "$VERSION" --generate-notes --title "$VERSION"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

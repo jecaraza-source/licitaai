@@ -497,7 +497,58 @@ export interface DocumentoCorporativo {
   fecha_emision: string | null;
   vigencia_hasta: string | null;
   coincide_empresa: boolean | null;
+  rfc_detectado: string | null;
+  razon_social_detectada: string | null;
+  /** Explicación legible de por qué `coincide_empresa === false`. */
+  motivo_no_coincide: string | null;
   nombre_persona_detectado: string | null;
   datos_extraidos_json: Record<string, unknown>;
   created_at: string;
+}
+
+// P2 · jobs asíncronos — forma pública de un job (la que devuelve /api/jobs
+// y la que llega por Realtime). Nunca incluye input_json ni referencias
+// internas (error_interno_ref, worker_id, reserva_id).
+export type EstadoJob =
+  | "PENDING"
+  | "AUTHORIZED"
+  | "RUNNING"
+  | "RETRYING"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED"
+  | "EXPIRED";
+
+export const ESTADOS_JOB_TERMINALES: EstadoJob[] = [
+  "COMPLETED",
+  "FAILED",
+  "CANCELLED",
+  "EXPIRED",
+];
+
+export interface Job {
+  id: string;
+  tipo: string;
+  recurso_tipo: string | null;
+  recurso_id: string | null;
+  estado: EstadoJob;
+  prioridad: number;
+  progreso: number;
+  progreso_detalle: string | null;
+  step_actual: string | null;
+  intentos: number;
+  max_intentos: number;
+  provider: string | null;
+  modelo: string | null;
+  tokens_input: number | null;
+  tokens_output: number | null;
+  costo_real_usd: number | null;
+  result_ref: unknown;
+  error_seguro: string | null;
+  reused_from: string | null;
+  created_at: string;
+  authorized_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  expires_at: string;
 }

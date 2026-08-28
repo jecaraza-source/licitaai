@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
+import { descargarWorkbook } from "@/lib/exportar-excel";
 import { CheckCircle2, Sparkles, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -138,15 +138,18 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
     const json = await res.json();
     setAnalizando(false);
     if (!res.ok) {
-      toast.error("No se pudo analizar la competitividad", { description: json.error });
+      toast.error("No se pudo analizar la competitividad", { description: json.error?.message ?? json.error });
       return;
     }
     setDictamen(json.data.dictamen);
   }
 
-  function exportarExcel() {
+  async function exportarExcel() {
     if (!filas) return;
-    const headers = [
+    const ExcelJS = (await import("exceljs")).default;
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet("Propuesta Económica");
+    sheet.addRow([
       "#",
       "Descripción",
       "Cantidad",
@@ -156,30 +159,23 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
       "Subtotal",
       "IVA",
       "Total",
-    ];
-    const rows = filas.map((f, i) => [
-      i + 1,
-      f.descripcion,
-      f.cantidad ?? 0,
-      f.unidad ?? "",
-      f.precio_referencia_mercado ?? 0,
-      f.precio_unitario_ofertado ?? 0,
-      0,
-      0,
-      0,
     ]);
-
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    filas.forEach((_, i) => {
+    filas.forEach((f, i) => {
       const row = i + 2; // fila 1 = encabezados
-      ws[`G${row}`] = { t: "n", f: `C${row}*F${row}` };
-      ws[`H${row}`] = { t: "n", f: `G${row}*0.16` };
-      ws[`I${row}`] = { t: "n", f: `G${row}+H${row}` };
+      sheet.addRow([
+        i + 1,
+        f.descripcion,
+        f.cantidad ?? 0,
+        f.unidad ?? "",
+        f.precio_referencia_mercado ?? 0,
+        f.precio_unitario_ofertado ?? 0,
+      ]);
+      sheet.getCell(`G${row}`).value = { formula: `C${row}*F${row}` };
+      sheet.getCell(`H${row}`).value = { formula: `G${row}*0.16` };
+      sheet.getCell(`I${row}`).value = { formula: `G${row}+H${row}` };
     });
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Propuesta Económica");
-    XLSX.writeFile(wb, "propuesta-economica.xlsx");
+    await descargarWorkbook(workbook, "propuesta-economica.xlsx");
   }
 
   if (filas === null) {

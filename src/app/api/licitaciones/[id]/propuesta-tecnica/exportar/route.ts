@@ -1,6 +1,7 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { z } from "zod";
 import { Document, HeadingLevel, Packer, Paragraph, TextRun, AlignmentType } from "docx";
-import { createClient } from "@/lib/supabase/server";
+import { apiRoute, ApiError } from "@/lib/api";
 import { htmlToDocxElements } from "@/lib/html-to-docx";
 import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
 import { sanitizeFilename } from "@/lib/utils";
@@ -10,43 +11,31 @@ interface Seccion {
   html: string;
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const comoAnexoA = request.nextUrl.searchParams.get("anexoA") === "1";
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+const querySchema = z.object({ anexoA: z.string().optional() });
 
-  const { data: licitacion } = await supabase
+export const POST = apiRoute({ paramsSchema, querySchema }, async ({ ctx, params, query }) => {
+  const comoAnexoA = query.anexoA === "1";
+
+  const { data: licitacion, error } = await ctx.supabase
     .from("licitaciones")
     .select("numero_expediente, titulo, institucion, organization_id")
-    .eq("id", id)
-    .single();
-  if (!licitacion) {
-    return NextResponse.json({ error: "Licitación no encontrada" }, { status: 404 });
-  }
+    .eq("id", params.id)
+    .maybeSingle();
+  if (error || !licitacion) throw ApiError.notFound("Licitación no encontrada");
 
-  const { data: propuesta } = await supabase
+  const { data: propuesta } = await ctx.supabase
     .from("propuestas")
     .select("contenido_json")
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .eq("tipo", "TECNICA")
     .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (!propuesta) {
-    return NextResponse.json({ error: "No hay propuesta técnica generada" }, { status: 404 });
-  }
+  if (!propuesta) throw ApiError.notFound("No hay propuesta técnica generada");
 
-  const perfil = await getEmpresaPerfilActiva(supabase, licitacion.organization_id, user.id, {
+  const perfil = await getEmpresaPerfilActiva(ctx.supabase, licitacion.organization_id, ctx.userId, {
     fallbackToFirst: true,
   });
 
@@ -97,4 +86,4 @@ export async function POST(
       "Content-Disposition": `attachment; filename="${comoAnexoA ? "LEG09-anexo-a" : "propuesta-tecnica"}-${sanitizeFilename(licitacion.numero_expediente)}.docx"`,
     },
   });
-}
+});

@@ -6,7 +6,20 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
+    "lint:migrations": "node scripts/lint-migraciones.mjs",
+    "test:unit": "node scripts/test-runner.mjs tests/unit",
+    "test:integration": "node scripts/test-runner.mjs tests/integration",
+    "test:e2e": "playwright test",
+    "deno:check": "cd supabase/functions && deno check $(git ls-files '*.ts')",
+    "check": "npm run typecheck && npm run lint && npm run lint:migrations",
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "test:load": "node tests/load/carga-local.mjs",
+    "backup:db": "node scripts/backup-db.mjs",
+    "backup:config": "node scripts/backup-config.mjs",
+    "backup:storage": "node scripts/backup-storage.mjs",
+    "restore:verify": "node scripts/restore-verify.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
@@ -35,6 +48,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "docx": "^9.7.1",
+    "exceljs": "^4.4.0",
     "langchain": "^1.5.10",
     "lucide-react": "^1.33.0",
     "next": "16.3.2",
@@ -51,7 +65,6 @@
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0",
     "tw-animate-css": "^1.4.0",
-    "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -65,5 +78,8 @@
     "eslint-config-next": "16.3.2",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

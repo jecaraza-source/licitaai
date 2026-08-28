@@ -6,12 +6,12 @@
 // procesar-documento, pero writes a referencia_legal_chunks y conserva la
 // etiqueta de artículo por fragmento.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
 import OpenAI from "npm:openai@^6";
 import pdfParse from "npm:pdf-parse@^1.1.1";
 import { RecursiveCharacterTextSplitter } from "npm:@langchain/textsplitters@^0.1";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { withRetry } from "../_shared/retry.ts";
+import { authenticate, jsonError } from "../_shared/auth.ts";
 
 const CHARS_POR_CHUNK = 3000;
 const OVERLAP_CHARS = 400;
@@ -57,18 +57,22 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const { referencia_documento_id } = await req.json();
-    if (!referencia_documento_id) {
-      return new Response(JSON.stringify({ error: "referencia_documento_id requerido" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // referencia_legal_documentos es contenido global (catálogo de leyes),
+    // no está scoped por organización — pero (re)procesarlo gasta cuota de
+    // OpenAI y puede corromper el RAG compartido, así que se restringe a
+    // ADMIN en vez de a cualquier usuario autenticado.
+    const ctx = await authenticate(req, { ruta: "procesar-referencia-legal", requiereEscritura: true, maxPorMinuto: 5, permitirJob: true });
+    if (ctx instanceof Response) return ctx;
+    if (ctx.rol !== "ADMIN") {
+      return jsonError(403, "Solo un administrador puede reprocesar el catálogo de referencias legales");
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const { referencia_documento_id } = await req.json();
+    if (!referencia_documento_id) {
+      return jsonError(400, "referencia_documento_id requerido");
+    }
+
+    const supabase = ctx.service;
     const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 
     const { data: documento, error: docError } = await supabase
@@ -156,9 +160,10 @@ Deno.serve(async (req) => {
       .update({ procesado: true, procesado_at: new Date().toISOString() })
       .eq("id", referencia_documento_id);
 
-    return new Response(JSON.stringify({ ok: true, chunks: totalInsertados }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ok: true, chunks: totalInsertados, data: { chunks: totalInsertados } }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (error) {
     console.error(error);
     return new Response(

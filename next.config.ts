@@ -1,8 +1,16 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
-const SUPABASE_ORIGIN = "https://xvkgcxpzhkazhnqbtvou.supabase.co";
-const SUPABASE_WS_ORIGIN = "wss://xvkgcxpzhkazhnqbtvou.supabase.co";
+// Derivado de la variable de entorno en vez de estar fijo al proyecto de
+// producción — de lo contrario, apuntar NEXT_PUBLIC_SUPABASE_URL a un
+// stack local (supabase start, http://127.0.0.1:54321) queda bloqueado
+// por esta misma CSP (connect-src) sin ningún error obvio del lado de la
+// app: el navegador simplemente rechaza la petición.
+const SUPABASE_URL = new URL(
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://xvkgcxpzhkazhnqbtvou.supabase.co",
+);
+const SUPABASE_ORIGIN = SUPABASE_URL.origin;
+const SUPABASE_WS_ORIGIN = `${SUPABASE_URL.protocol === "https:" ? "wss:" : "ws:"}//${SUPABASE_URL.host}`;
 
 const CSP = [
   "default-src 'self'",
@@ -25,8 +33,9 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: "https",
-        hostname: "xvkgcxpzhkazhnqbtvou.supabase.co",
+        protocol: SUPABASE_URL.protocol === "https:" ? "https" : "http",
+        hostname: SUPABASE_URL.hostname,
+        port: SUPABASE_URL.port || undefined,
         pathname: "/storage/v1/object/public/**",
       },
     ],

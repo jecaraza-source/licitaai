@@ -1,3 +1,4 @@
+import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
@@ -8,20 +9,27 @@ import { EstadoSelector } from "@/components/licitaciones/estado-selector";
 import { ProcesoTimeline } from "@/components/licitaciones/proceso-timeline";
 import { ResumenAnexoTecnicoCard } from "@/components/licitaciones/resumen-anexo-tecnico-card";
 import { ActividadTimeline, type ActividadLogConUsuario } from "@/components/licitaciones/actividad-timeline";
-import { DocumentosTab } from "@/components/licitaciones/documentos-tab";
 import { AnalisisIaTab } from "@/components/licitaciones/analisis-ia-tab";
 import { ChatDocumento } from "@/components/licitaciones/chat-documento";
-import { PartidasTab } from "@/components/licitaciones/partidas-tab";
 import { JuntaAclaracionesTab } from "@/components/licitaciones/junta-aclaraciones-tab";
 import { ViabilidadTab } from "@/components/licitaciones/viabilidad-tab";
 import { ResponsabilidadesCard } from "@/components/licitaciones/responsabilidades-card";
-import { PropuestaTecnicaTab } from "@/components/licitaciones/propuesta-tecnica-tab";
-import { PropuestaEconomicaTab } from "@/components/licitaciones/propuesta-economica-tab";
-import { DocumentosLegalesTab } from "@/components/licitaciones/documentos-legales-tab";
-import { DocumentosTecnicosTab } from "@/components/licitaciones/documentos-tecnicos-tab";
 import { AuditoriaTab } from "@/components/licitaciones/auditoria-tab";
 import { LiberacionTab } from "@/components/licitaciones/liberacion-tab";
 import { SeguimientoTab } from "@/components/licitaciones/seguimiento-tab";
+
+// P2 · F3 — code-split de las pestañas con dependencias pesadas (react-pdf,
+// TipTap, exceljs, generadores docx). Radix TabsContent solo monta la
+// pestaña activa, así que el chunk se descarga al cambiar de pestaña.
+const cargando = () => (
+  <div className="p-8 text-center text-sm text-muted-foreground">Cargando…</div>
+);
+const DocumentosTab = dynamic(() => import("@/components/licitaciones/documentos-tab").then((m) => m.DocumentosTab), { loading: cargando });
+const PartidasTab = dynamic(() => import("@/components/licitaciones/partidas-tab").then((m) => m.PartidasTab), { loading: cargando });
+const PropuestaTecnicaTab = dynamic(() => import("@/components/licitaciones/propuesta-tecnica-tab").then((m) => m.PropuestaTecnicaTab), { loading: cargando });
+const PropuestaEconomicaTab = dynamic(() => import("@/components/licitaciones/propuesta-economica-tab").then((m) => m.PropuestaEconomicaTab), { loading: cargando });
+const DocumentosLegalesTab = dynamic(() => import("@/components/licitaciones/documentos-legales-tab").then((m) => m.DocumentosLegalesTab), { loading: cargando });
+const DocumentosTecnicosTab = dynamic(() => import("@/components/licitaciones/documentos-tecnicos-tab").then((m) => m.DocumentosTecnicosTab), { loading: cargando });
 const MODALIDAD_LABELS: Record<string, string> = {
   ABIERTA: "Abierta",
   RESTRINGIDA: "Restringida",

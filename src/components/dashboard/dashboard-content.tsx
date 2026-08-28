@@ -58,7 +58,7 @@ export function DashboardContent() {
       .catch(() => {});
     fetch("/api/licitaciones?page=1&pageSize=5")
       .then((res) => res.json())
-      .then((json) => setRecientes(json.data ?? []))
+      .then((json) => setRecientes(json.data?.data ?? []))
       .catch(() => {});
   }, []);
 

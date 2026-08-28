@@ -1,30 +1,29 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
+import { encolarOperacionIA } from "@/lib/jobs";
 
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-  if (!(await checkRateLimit(supabase, "propuesta-tecnica-generar"))) {
-    return rateLimitResponse();
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
 
-  const { data, error } = await supabase.functions.invoke("generar-propuesta-tecnica", {
-    body: { licitacion_id: id },
-  });
+export const POST = apiRoute(
+  { paramsSchema, rateLimit: { ruta: "propuesta-tecnica-generar" } },
+  async ({ ctx, params }) => {
+    requireWriteRole(ctx);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+    const encolado = await encolarOperacionIA(ctx, {
+      flag: "jobs.async_propuesta_tecnica",
+      tipo: "generar-propuesta-tecnica",
+      recursoTipo: "licitacion",
+      recursoId: params.id,
+      input: { licitacion_id: params.id },
+    });
+    if (encolado) return { data: encolado, status: 202 };
 
-  return NextResponse.json({ data: data?.data ?? null });
-}
+    const { data, error } = await ctx.supabase.functions.invoke("generar-propuesta-tecnica", {
+      body: { licitacion_id: params.id },
+    });
+
+    if (error) throw ApiError.upstream();
+
+    return { data: data?.data ?? null };
+  },
+);

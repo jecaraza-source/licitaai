@@ -12,8 +12,16 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local `vercel build`/`vercel deploy` output — generated bundles, not
+    // source. Only listed in .gitignore before, which flat-config ESLint
+    // doesn't consult automatically, so a bare `npm run lint` was silently
+    // linting minified chunks under here.
+    ".vercel/**",
     // Deno edge functions — separate runtime/conventions, linted via `deno lint`.
     "supabase/functions/**",
+    // k6 load scripts — run by the k6 runtime, not Node; its API (default
+    // export, `open()`, `__ENV`) trips the Next/TS rules. See tests/load/README.md.
+    "tests/load/*.k6.js",
   ]),
 ]);
 

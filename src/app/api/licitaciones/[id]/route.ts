@@ -1,134 +1,83 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 import { licitacionSchema } from "@/lib/validations/licitacion";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
 
-  const { data, error } = await supabase.from("licitaciones").select("*").eq("id", id).single();
+const patchSchema = z.object({
+  convocante_representante_nombre: z.string().trim().max(300).nullable().optional(),
+  convocante_representante_cargo: z.string().trim().max(300).nullable().optional(),
+});
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 404 });
-  }
-
-  return NextResponse.json({ data });
-}
-
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const json = await request.json();
-  const parsed = licitacionSchema.partial().safeParse(json);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-  }
-
-  const { data, error } = await supabase
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data, error } = await ctx.supabase
     .from("licitaciones")
-    .update(parsed.data)
-    .eq("id", id)
-    .select()
-    .single();
+    .select("*")
+    .eq("id", params.id)
+    .maybeSingle();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (error) throw ApiError.internal();
+  if (!data) throw ApiError.notFound("Licitación no encontrada");
 
-  await supabase.from("actividad_log").insert({
-    licitacion_id: id,
-    user_id: user.id,
-    accion: "edicion",
-    metadata_json: { campos: Object.keys(parsed.data) },
-  });
+  return { data };
+});
 
-  return NextResponse.json({ data });
-}
+export const PUT = apiRoute(
+  { paramsSchema, bodySchema: licitacionSchema.partial() },
+  async ({ ctx, params, body }) => {
+    requireWriteRole(ctx);
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+    const { data, error } = await ctx.supabase
+      .from("licitaciones")
+      .update(body)
+      .eq("id", params.id)
+      .select()
+      .single();
 
-  const body = await request.json();
-  const { convocante_representante_nombre, convocante_representante_cargo } = body;
-  if (
-    (convocante_representante_nombre !== undefined &&
-      convocante_representante_nombre !== null &&
-      typeof convocante_representante_nombre !== "string") ||
-    (convocante_representante_cargo !== undefined &&
-      convocante_representante_cargo !== null &&
-      typeof convocante_representante_cargo !== "string")
-  ) {
-    return NextResponse.json(
-      { error: "convocante_representante_nombre y convocante_representante_cargo deben ser texto" },
-      { status: 400 },
-    );
-  }
+    if (error) throw ApiError.notFound("Licitación no encontrada");
+
+    await ctx.supabase.from("actividad_log").insert({
+      licitacion_id: params.id,
+      user_id: ctx.userId,
+      accion: "edicion",
+      metadata_json: { campos: Object.keys(body) },
+    });
+
+    return { data };
+  },
+);
+
+export const PATCH = apiRoute({ paramsSchema, bodySchema: patchSchema }, async ({ ctx, params, body }) => {
+  requireWriteRole(ctx);
+
   const update = {
-    convocante_representante_nombre: convocante_representante_nombre ?? null,
-    convocante_representante_cargo: convocante_representante_cargo ?? null,
+    convocante_representante_nombre: body.convocante_representante_nombre ?? null,
+    convocante_representante_cargo: body.convocante_representante_cargo ?? null,
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await ctx.supabase
     .from("licitaciones")
     .update(update)
-    .eq("id", id)
+    .eq("id", params.id)
     .select("convocante_representante_nombre, convocante_representante_cargo")
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (error) throw ApiError.notFound("Licitación no encontrada");
 
-  return NextResponse.json({ data });
-}
+  return { data };
+});
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+export const DELETE = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  requireWriteRole(ctx);
 
-  const { error } = await supabase.from("licitaciones").delete().eq("id", id);
+  // No se registra en actividad_log: licitacion_id ahí tiene
+  // `references licitaciones(id) on delete cascade` — cualquier fila de
+  // actividad_log para esta licitación se borra en cascada junto con ella,
+  // así que un insert posterior al delete violaría la FK (la fila padre ya
+  // no existe) y uno previo dejaría un registro de "eliminación" fantasma
+  // si el delete fallara después.
+  const { error } = await ctx.supabase.from("licitaciones").delete().eq("id", params.id);
+  if (error) throw ApiError.notFound("Licitación no encontrada");
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ ok: true });
-}
+  return { data: { ok: true } };
+});

@@ -1,70 +1,46 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+const putBodySchema = z.object({
+  contenido_json: z.record(z.string(), z.unknown()),
+});
 
-  const { data, error } = await supabase
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data, error } = await ctx.supabase
     .from("propuestas")
     .select("*")
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .eq("tipo", "TECNICA")
     .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
-}
+  if (error) throw ApiError.internal();
+  return { data };
+});
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+export const PUT = apiRoute({ paramsSchema, bodySchema: putBodySchema }, async ({ ctx, params, body }) => {
+  requireWriteRole(ctx);
 
-  const { contenido_json } = await request.json();
-  if (!contenido_json) {
-    return NextResponse.json({ error: "contenido_json requerido" }, { status: 400 });
-  }
-
-  const { data: actual } = await supabase
+  const { data: actual } = await ctx.supabase
     .from("propuestas")
     .select("id")
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .eq("tipo", "TECNICA")
     .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (!actual) {
-    return NextResponse.json({ error: "No hay propuesta técnica generada" }, { status: 404 });
-  }
+  if (!actual) throw ApiError.notFound("No hay propuesta técnica generada");
 
-  const { data, error } = await supabase
+  const { data, error } = await ctx.supabase
     .from("propuestas")
-    .update({ contenido_json })
+    .update({ contenido_json: body.contenido_json })
     .eq("id", actual.id)
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
-}
+  if (error) throw ApiError.internal();
+  return { data };
+});

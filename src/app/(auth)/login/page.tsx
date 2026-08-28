@@ -56,7 +56,7 @@ export default function LoginPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle as="h1" className="flex items-center gap-2">
           <LogIn className="size-4.5 text-primary" />
           Iniciar sesión
         </CardTitle>

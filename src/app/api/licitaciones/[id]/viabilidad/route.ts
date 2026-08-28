@@ -1,5 +1,5 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 import type { EjeViabilidad, RespuestaViabilidad } from "@/types";
 
 const EJES: EjeViabilidad[] = [
@@ -16,72 +16,67 @@ const EJES: EjeViabilidad[] = [
 
 function buildRespuestas(existentes: RespuestaViabilidad[] = []): RespuestaViabilidad[] {
   const previas = new Map(existentes.map((r) => [r.eje, r]));
-  return EJES.map(
-    (eje) => previas.get(eje) ?? { eje, respuesta: null, comentario: "" },
-  );
+  return EJES.map((eje) => previas.get(eje) ?? { eje, respuesta: null, comentario: "" });
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+// Igual que responsabilidades/route.ts: antes respuestas_json se pasaba sin
+// verificar que fuera un array, arriesgando un TypeError no controlado
+// dentro de buildRespuestas.
+const putBodySchema = z.object({
+  respuestas_json: z
+    .array(
+      z.object({
+        eje: z.enum(EJES as [EjeViabilidad, ...EjeViabilidad[]]),
+        respuesta: z.enum(["SI", "PARCIAL", "NO"]).nullable(),
+        comentario: z.string(),
+      }),
+    )
+    .optional()
+    .default([]),
+  decision: z.enum(["GO", "NO_GO"]).nullable().optional(),
+});
 
-  const { data: existente } = await supabase
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data: existente, error } = await ctx.supabase
     .from("viabilidad")
     .select("*")
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .maybeSingle();
 
-  return NextResponse.json({
+  if (error) throw ApiError.internal();
+
+  return {
     data: {
       respuestas_json: buildRespuestas(existente?.respuestas_json ?? []),
       decision: existente?.decision ?? null,
       decidido_at: existente?.decidido_at ?? null,
     },
-  });
-}
+  };
+});
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+export const PUT = apiRoute({ paramsSchema, bodySchema: putBodySchema }, async ({ ctx, params, body }) => {
+  requireWriteRole(ctx);
 
-  const body = await request.json();
-  const respuestas = buildRespuestas(body.respuestas_json ?? []);
-  const decision = body.decision === "GO" || body.decision === "NO_GO" ? body.decision : null;
+  const respuestas = buildRespuestas(body.respuestas_json);
+  const decision = body.decision ?? null;
 
   const update: Record<string, unknown> = {
-    licitacion_id: id,
+    licitacion_id: params.id,
     respuestas_json: respuestas,
     decision,
   };
   if (decision) {
-    update.decidido_por = user.id;
+    update.decidido_por = ctx.userId;
     update.decidido_at = new Date().toISOString();
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await ctx.supabase
     .from("viabilidad")
     .upsert(update, { onConflict: "licitacion_id" })
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
-}
+  if (error) throw ApiError.internal();
+  return { data };
+});

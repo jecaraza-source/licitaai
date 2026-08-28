@@ -22,9 +22,18 @@ export default async function DashboardLayout({
 
   const { data: perfil } = await supabase
     .from("users")
-    .select("nombre, email, rol, organization_id")
+    .select("nombre, email, rol, organization_id, terminos_version")
     .eq("id", user.id)
     .single();
+
+  // P2 · I6 — gate de consentimiento de términos (TERMINOS_GATE=off lo
+  // desactiva, p. ej. en los e2e que crean usuarios vía la admin API).
+  if (process.env.TERMINOS_GATE !== "off") {
+    const { TERMINOS_VERSION } = await import("@/lib/terminos");
+    if (perfil && perfil.terminos_version !== TERMINOS_VERSION) {
+      redirect("/terminos");
+    }
+  }
 
   const nombre = perfil?.nombre ?? user.email ?? "Usuario";
   const email = perfil?.email ?? user.email ?? "";

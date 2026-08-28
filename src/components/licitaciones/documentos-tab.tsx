@@ -11,7 +11,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, sanitizeFilename } from "@/lib/utils";
 import { CATEGORIA_LABELS, ESTADO_DOT, ESTADO_LABELS } from "@/lib/checklist-labels";
-import { PdfViewer } from "@/components/licitaciones/pdf-viewer";
+import dynamic from "next/dynamic";
+
+// P2 · F3 — react-pdf (~pdf.js) es pesado y solo se usa al abrir el visor.
+// Carga diferida + sin SSR (usa `window`).
+const PdfViewer = dynamic(
+  () => import("@/components/licitaciones/pdf-viewer").then((m) => m.PdfViewer),
+  { ssr: false, loading: () => <div className="p-8 text-center text-sm text-muted-foreground">Cargando visor…</div> },
+);
 import { FirmaDigitalDialog } from "@/components/licitaciones/firma-digital-dialog";
 import type { Documento, EstadoChecklistItem, ModalidadProcedimiento } from "@/types";
 
@@ -124,6 +131,7 @@ function RequisitoRow({
 
       if (insertError || !doc) {
         setAnalizando(false);
+        await supabase.storage.from("documentos-requeridos").remove([path]);
         toast.error("No se pudo registrar el documento");
         return;
       }
@@ -370,6 +378,7 @@ function DocumentoConvocanteRow({
       setSubiendo(false);
 
       if (insertError || !doc) {
+        await supabase.storage.from(BUCKET).remove([path]);
         toast.error("No se pudo registrar el documento");
         return;
       }
@@ -517,7 +526,7 @@ export function DocumentosTab({
   const [uploads, setUploads] = useState<UploadState[]>([]);
   const [viewerDoc, setViewerDoc] = useState<Documento | null>(null);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
-  const [firmandoDoc, setFirmandoDoc] = useState<string | null>(null);
+  const [firmandoDoc, setFirmandoDoc] = useState<Documento | null>(null);
   const [convocanteNoAplican, setConvocanteNoAplican] = useState<string[]>(
     initialDocumentosConvocanteNoAplica,
   );
@@ -627,6 +636,7 @@ export function DocumentosTab({
           .single();
 
         if (insertError) {
+          await supabase.storage.from(BUCKET).remove([path]);
           toast.error(`No se pudo registrar "${file.name}"`, { description: insertError.message });
           setUploads((prev) =>
             prev.map((u) => (u.name === file.name ? { ...u, status: "error" } : u)),
@@ -793,7 +803,7 @@ export function DocumentosTab({
                     </p>
                   </button>
                   {doc.nombre.toLowerCase().endsWith(".pdf") && (
-                    <Button variant="ghost" size="icon-sm" onClick={() => setFirmandoDoc(doc.id)}>
+                    <Button variant="ghost" size="icon-sm" onClick={() => setFirmandoDoc(doc)}>
                       <ShieldCheck className="text-muted-foreground" />
                     </Button>
                   )}
@@ -809,7 +819,8 @@ export function DocumentosTab({
 
       {firmandoDoc && (
         <FirmaDigitalDialog
-          documentoId={firmandoDoc}
+          documentoId={firmandoDoc.id}
+          storagePath={firmandoDoc.storage_path}
           open={!!firmandoDoc}
           onOpenChange={(open) => !open && setFirmandoDoc(null)}
           onFirmado={() => {

@@ -65,15 +65,17 @@ export default function InvitacionPage({ params }: { params: Promise<{ token: st
     setLoading(true);
     const supabase = createClient();
 
+    // organization_id, rol y rol_jerarquico se resuelven server-side en
+    // handle_new_user() a partir de la fila de invitaciones_staff (token +
+    // correo autenticado), nunca desde este payload — un cliente no puede
+    // elegir su propia organización ni rol enviando otros valores aquí.
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email: invitacion.email,
       password: values.password,
       options: {
         data: {
           nombre: values.nombre,
-          organization_id: invitacion.organizacion_id,
-          rol: "ANALYST",
-          rol_jerarquico: invitacion.rol_jerarquico,
+          invite_token: token,
         },
       },
     });

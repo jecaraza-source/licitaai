@@ -1,5 +1,6 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 
 const NIVELES = ["ejecutor", "integrador", "supervisor"] as const;
 type Nivel = (typeof NIVELES)[number];
@@ -20,10 +21,17 @@ const VACIA = {
   supervisor_autorizado_at: null,
 };
 
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
+const putBodySchema = z.object({
+  nivel: z.enum(NIVELES),
+  usuario_id: z.string().uuid().nullable().optional(),
+});
+const postBodySchema = z.object({ nivel: z.enum(NIVELES) });
+
 // Solo crea la fila cuando hace falta escribir en ella (asignar/autorizar).
 // El GET nunca inserta — así un usuario de solo lectura (VIEWER) puede ver
 // la cadena vacía sin chocar con la política de escritura de la tabla.
-async function obtenerOCrear(supabase: Awaited<ReturnType<typeof createClient>>, licitacionId: string) {
+async function obtenerOCrear(supabase: SupabaseClient, licitacionId: string) {
   const { data: existente } = await supabase
     .from("licitacion_jerarquia")
     .select("*")
@@ -38,137 +46,91 @@ async function obtenerOCrear(supabase: Awaited<ReturnType<typeof createClient>>,
     .select("*")
     .single();
 
+  // apiRoute() captura cualquier throw no controlado y lo convierte en un
+  // 500 seguro (INTERNAL_ERROR) — antes, esto escapaba sin capturar fuera
+  // del patrón {error} del resto de la ruta.
   if (error) throw new Error(error.message);
   return creado;
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const { data: existente } = await supabase
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data: existente } = await ctx.supabase
     .from("licitacion_jerarquia")
     .select("*")
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .maybeSingle();
 
-  return NextResponse.json({ data: existente ?? { ...VACIA, licitacion_id: id }, userId: user.id });
-}
+  return { data: { ...(existente ?? { ...VACIA, licitacion_id: params.id }), userId: ctx.userId } };
+});
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+export const PUT = apiRoute({ paramsSchema, bodySchema: putBodySchema }, async ({ ctx, params, body }) => {
+  requireWriteRole(ctx);
 
-  const { nivel, usuario_id } = await request.json();
-  if (!NIVELES.includes(nivel)) {
-    return NextResponse.json({ error: "nivel inválido" }, { status: 400 });
-  }
-
-  if (usuario_id) {
-    const { data: usuarioAsignado } = await supabase
+  if (body.usuario_id) {
+    const { data: usuarioAsignado } = await ctx.supabase
       .from("users")
       .select("rol_jerarquico")
-      .eq("id", usuario_id)
-      .single();
-    if (usuarioAsignado?.rol_jerarquico !== nivel.toUpperCase()) {
-      return NextResponse.json(
-        { error: `Esa persona no tiene el rango de ${nivel} asignado en Configuración` },
-        { status: 400 },
-      );
+      .eq("id", body.usuario_id)
+      .maybeSingle();
+    if (usuarioAsignado?.rol_jerarquico !== body.nivel.toUpperCase()) {
+      throw ApiError.validation(`Esa persona no tiene el rango de ${body.nivel} asignado en Configuración`);
     }
   }
 
-  await obtenerOCrear(supabase, id);
+  await obtenerOCrear(ctx.supabase, params.id);
 
   // Reasignar un nivel invalida su autorización y la de los niveles
   // posteriores en la cadena — la autorización dada era para la persona
   // anterior, no para quien entra ahora.
-  const patch: Record<string, unknown> = { [`${nivel}_id`]: usuario_id || null };
-  const idxNivel = NIVELES.indexOf(nivel as Nivel);
+  const patch: Record<string, unknown> = { [`${body.nivel}_id`]: body.usuario_id || null };
+  const idxNivel = NIVELES.indexOf(body.nivel);
   for (let i = idxNivel; i < NIVELES.length; i++) {
     patch[`${NIVELES[i]}_autorizado_at`] = null;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await ctx.supabase
     .from("licitacion_jerarquia")
     .update(patch)
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .select("*")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
-}
+  if (error) throw ApiError.internal();
+  return { data };
+});
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+export const POST = apiRoute(
+  { paramsSchema, bodySchema: postBodySchema },
+  async ({ ctx, params, body }) => {
+    requireWriteRole(ctx);
 
-  const { nivel } = await request.json();
-  if (!NIVELES.includes(nivel)) {
-    return NextResponse.json({ error: "nivel inválido" }, { status: 400 });
-  }
+    const jerarquia = await obtenerOCrear(ctx.supabase, params.id);
 
-  const jerarquia = await obtenerOCrear(supabase, id);
-  const nivelTyped = nivel as Nivel;
+    if (jerarquia[`${body.nivel}_id`] !== ctx.userId) {
+      throw ApiError.forbidden("Solo la persona asignada a ese nivel puede autorizarlo");
+    }
 
-  if (jerarquia[`${nivelTyped}_id`] !== user.id) {
-    return NextResponse.json(
-      { error: "Solo la persona asignada a ese nivel puede autorizarlo" },
-      { status: 403 },
-    );
-  }
+    const anterior = NIVEL_ANTERIOR[body.nivel];
+    if (anterior && !jerarquia[`${anterior}_autorizado_at`]) {
+      throw ApiError.conflict(`El nivel anterior (${anterior}) todavía no ha autorizado`);
+    }
 
-  const anterior = NIVEL_ANTERIOR[nivelTyped];
-  if (anterior && !jerarquia[`${anterior}_autorizado_at`]) {
-    return NextResponse.json(
-      { error: `El nivel anterior (${anterior}) todavía no ha autorizado` },
-      { status: 409 },
-    );
-  }
+    const { data, error } = await ctx.supabase
+      .from("licitacion_jerarquia")
+      .update({ [`${body.nivel}_autorizado_at`]: new Date().toISOString() })
+      .eq("licitacion_id", params.id)
+      .select("*")
+      .single();
 
-  const { data, error } = await supabase
-    .from("licitacion_jerarquia")
-    .update({ [`${nivelTyped}_autorizado_at`]: new Date().toISOString() })
-    .eq("licitacion_id", id)
-    .select("*")
-    .single();
+    if (error) throw ApiError.internal();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await ctx.supabase.from("actividad_log").insert({
+      licitacion_id: params.id,
+      user_id: ctx.userId,
+      accion: "autorizacion_jerarquia",
+      metadata_json: { nivel: body.nivel },
+    });
 
-  await supabase.from("actividad_log").insert({
-    licitacion_id: id,
-    user_id: user.id,
-    accion: "autorizacion_jerarquia",
-    metadata_json: { nivel: nivelTyped },
-  });
-
-  return NextResponse.json({ data });
-}
+    return { data };
+  },
+);

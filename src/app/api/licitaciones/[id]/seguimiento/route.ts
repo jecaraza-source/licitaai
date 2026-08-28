@@ -1,82 +1,61 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
 
-  const { data, error } = await supabase
+// Todos opcionales — es una actualización parcial, solo se aplican los
+// campos que el cliente realmente envía. A diferencia del código original
+// (que silenciosamente OMITÍA un campo con el tipo incorrecto en vez de
+// rechazar la solicitud), aquí un campo presente pero mal tipado hace que
+// Zod rechace toda la solicitud con 400 — más predecible que aplicar una
+// actualización parcial sin avisar al cliente qué se ignoró.
+const putBodySchema = z.object({
+  lecciones_aprendidas: z.string().optional(),
+  tags_json: z.array(z.unknown()).optional(),
+  acta_apertura_tecnica_documento_id: z.string().optional(),
+  acta_apertura_economica_documento_id: z.string().optional(),
+  contrato_documento_id: z.string().nullable().optional(),
+  garantia_documento_id: z.string().nullable().optional(),
+  fianza_documento_id: z.string().nullable().optional(),
+  administrador_contrato_id: z.string().nullable().optional(),
+  vigencia_inicio: z.string().nullable().optional(),
+  vigencia_fin: z.string().nullable().optional(),
+  orden_suministro: z.string().nullable().optional(),
+  lugar_entrega: z.string().nullable().optional(),
+  penalizaciones: z.string().nullable().optional(),
+  niveles_servicio: z.string().nullable().optional(),
+});
+
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data, error } = await ctx.supabase
     .from("seguimiento")
     .select("*")
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .maybeSingle();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
-}
+  if (error) throw ApiError.internal();
+  return { data };
+});
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+export const PUT = apiRoute({ paramsSchema, bodySchema: putBodySchema }, async ({ ctx, params, body }) => {
+  requireWriteRole(ctx);
 
-  const body = await request.json();
-  const update: Record<string, unknown> = {};
-  if (typeof body.lecciones_aprendidas === "string") update.lecciones_aprendidas = body.lecciones_aprendidas;
-  if (Array.isArray(body.tags_json)) update.tags_json = body.tags_json;
-  if (typeof body.acta_apertura_tecnica_documento_id === "string")
-    update.acta_apertura_tecnica_documento_id = body.acta_apertura_tecnica_documento_id;
-  if (typeof body.acta_apertura_economica_documento_id === "string")
-    update.acta_apertura_economica_documento_id = body.acta_apertura_economica_documento_id;
-  for (const campo of [
-    "contrato_documento_id",
-    "garantia_documento_id",
-    "fianza_documento_id",
-    "administrador_contrato_id",
-  ]) {
-    if (typeof body[campo] === "string" || body[campo] === null) update[campo] = body[campo];
-  }
-  for (const campo of ["vigencia_inicio", "vigencia_fin"]) {
-    if (typeof body[campo] === "string" || body[campo] === null) update[campo] = body[campo];
-  }
-  for (const campo of ["orden_suministro", "lugar_entrega", "penalizaciones", "niveles_servicio"]) {
-    if (typeof body[campo] === "string" || body[campo] === null) update[campo] = body[campo];
-  }
+  const update = Object.fromEntries(Object.entries(body).filter(([, v]) => v !== undefined));
 
-  const { data: existente } = await supabase
+  const { data: existente } = await ctx.supabase
     .from("seguimiento")
     .select("id")
-    .eq("licitacion_id", id)
+    .eq("licitacion_id", params.id)
     .maybeSingle();
 
-  let result;
-  if (existente) {
-    result = await supabase.from("seguimiento").update(update).eq("id", existente.id).select().single();
-  } else {
-    result = await supabase
-      .from("seguimiento")
-      .insert({ licitacion_id: id, ...update })
-      .select()
-      .single();
-  }
+  const result = existente
+    ? await ctx.supabase.from("seguimiento").update(update).eq("id", existente.id).select().single()
+    : await ctx.supabase
+        .from("seguimiento")
+        .insert({ licitacion_id: params.id, ...update })
+        .select()
+        .single();
 
-  if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
-  return NextResponse.json({ data: result.data });
-}
+  if (result.error) throw ApiError.internal();
+  return { data: result.data };
+});

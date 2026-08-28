@@ -1,28 +1,20 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError } from "@/lib/api";
 import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
 import { camposFaltantes, TEC_TITULOS, TIPOS_DOCUMENTO_TECNICO } from "@/lib/documentos-tecnicos";
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
 
-  const { data: licitacion } = await supabase
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data: licitacion, error } = await ctx.supabase
     .from("licitaciones")
     .select("organization_id, numero_expediente, titulo, institucion, modalidad_procedimiento")
-    .eq("id", id)
-    .single();
-  if (!licitacion) {
-    return NextResponse.json({ error: "Licitación no encontrada" }, { status: 404 });
-  }
+    .eq("id", params.id)
+    .maybeSingle();
 
-  const empresa = await getEmpresaPerfilActiva(supabase, licitacion.organization_id, user.id, {
+  if (error || !licitacion) throw ApiError.notFound("Licitación no encontrada");
+
+  const empresa = await getEmpresaPerfilActiva(ctx.supabase, licitacion.organization_id, ctx.userId, {
     fallbackToFirst: true,
   });
 
@@ -31,7 +23,5 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return { tipo, titulo: TEC_TITULOS[tipo], listo: faltantes.length === 0, faltantes };
   });
 
-  return NextResponse.json({
-    data: { documentos, empresaId: empresa?.id ?? null },
-  });
-}
+  return { data: { documentos, empresaId: empresa?.id ?? null } };
+});

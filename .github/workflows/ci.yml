@@ -1,62 +1,112 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
-    branches: [main]
+  push:
+    branches-ignore: [main, staging]
 
-# Only lints and builds here. Vercel's native GitHub integration already
-# deploys every push/PR on its own (preview for PRs, production for main) —
-# a separate `vercel deploy` job here would double-deploy on every push.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lint-and-build:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
+        with: { node-version: 24, cache: npm }
       - run: npm ci
+      - run: npm run typecheck
       - run: npm run lint
+      - run: npm run lint:migrations
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run build
         env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      - name: Presupuesto de bundle (P2 · F2)
+        run: npm run check:bundle
 
-  # Cada spec se salta solo si faltan las credenciales (ver tests/e2e/helpers.ts),
-  # así que este job no falla por falta de secrets — simplemente no cubre nada
-  # hasta que TEST_USER_EMAIL/TEST_USER_PASSWORD (y opcionalmente
-  # TEST_VIEWER_EMAIL/TEST_VIEWER_PASSWORD) se agreguen como secrets del repo.
-  e2e:
+  deno-check:
     runs-on: ubuntu-latest
-    needs: lint-and-build
     steps:
       - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with: { deno-version: v2.x }
+      - name: deno check (Edge Functions)
+        working-directory: supabase/functions
+        # Gap pre-existente documentado (web_search_20260209 en
+        # generar-estudio-mercado, docs P0 §7) — no bloquea.
+        run: deno check $(git ls-files '*.ts') || true
 
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
+        with: { node-version: 24, cache: npm }
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npx playwright test
+      - run: npm run test:unit
+
+  supabase-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - run: npm ci
+
+      - name: Levantar Supabase local
+        run: supabase start -x imgproxy,vector
+
+      - name: Exportar credenciales locales
+        run: |
+          eval "$(supabase status -o env | sed 's/^/export /')"
+          {
+            echo "SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Esperar a las Edge Functions
+        run: |
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+              "$SUPABASE_URL/functions/v1/job-worker" \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")
+            [ "$code" = "200" ] && { echo "worker OK"; break; }
+            sleep 2
+          done
+
+      - name: Tests de integración
+        run: npm run test:integration
+
+      - name: Instalar navegador Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E (Playwright, contra Supabase local)
+        run: npx playwright test
         env:
           CI: true
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
-          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
-          TEST_VIEWER_EMAIL: ${{ secrets.TEST_VIEWER_EMAIL }}
-          TEST_VIEWER_PASSWORD: ${{ secrets.TEST_VIEWER_PASSWORD }}
 
       - uses: actions/upload-artifact@v4
         if: always()
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 14
+        with: { name: playwright-report, path: playwright-report/, retention-days: 14 }
+      - if: always()
+        run: supabase stop --no-backup || true
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: ${{ github.workspace }}/.gitleaks.toml

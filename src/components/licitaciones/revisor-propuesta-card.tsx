@@ -54,7 +54,7 @@ export function RevisorPropuestaCard({
     const json = await res.json();
     setGuardando(false);
     if (!res.ok) {
-      toast.error("No se pudo asignar el revisor", { description: json.error });
+      toast.error("No se pudo asignar el revisor", { description: json.error?.message ?? json.error });
       return;
     }
     toast.success("Revisor asignado");
@@ -71,7 +71,7 @@ export function RevisorPropuestaCard({
     const json = await res.json();
     setGuardando(false);
     if (!res.ok) {
-      toast.error("No se pudo confirmar la revisión", { description: json.error });
+      toast.error("No se pudo confirmar la revisión", { description: json.error?.message ?? json.error });
       return;
     }
     toast.success("Revisión confirmada");

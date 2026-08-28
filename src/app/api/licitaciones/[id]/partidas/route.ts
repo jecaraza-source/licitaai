@@ -1,27 +1,16 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError } from "@/lib/api";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
 
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
   const [{ data: partidas, error: partidasError }, { data: estudios, error: estudiosError }] =
     await Promise.all([
-      supabase.from("partidas").select("*").eq("licitacion_id", id).order("numero"),
-      supabase.from("estudio_mercado").select("*").eq("licitacion_id", id),
+      ctx.supabase.from("partidas").select("*").eq("licitacion_id", params.id).order("numero"),
+      ctx.supabase.from("estudio_mercado").select("*").eq("licitacion_id", params.id),
     ]);
 
-  if (partidasError) return NextResponse.json({ error: partidasError.message }, { status: 500 });
-  if (estudiosError) return NextResponse.json({ error: estudiosError.message }, { status: 500 });
+  if (partidasError || estudiosError) throw ApiError.internal();
 
   const estudiosPorPartida = new Map((estudios ?? []).map((e) => [e.partida_id, e]));
   const data = (partidas ?? []).map((p) => ({
@@ -29,5 +18,5 @@ export async function GET(
     estudio_mercado: estudiosPorPartida.get(p.id) ?? null,
   }));
 
-  return NextResponse.json({ data });
-}
+  return { data };
+});

@@ -1,30 +1,25 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError } from "@/lib/api";
 import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
 import { camposFaltantes, LEG_TITULOS, TIPOS_DOCUMENTO_LEGAL } from "@/lib/documentos-legales";
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
 
-  const { data: licitacion } = await supabase
+export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  const { data: licitacion, error } = await ctx.supabase
     .from("licitaciones")
     .select(
       "organization_id, numero_expediente, titulo, institucion, modalidad_procedimiento, convocante_representante_nombre, convocante_representante_cargo",
     )
-    .eq("id", id)
-    .single();
-  if (!licitacion) {
-    return NextResponse.json({ error: "Licitación no encontrada" }, { status: 404 });
-  }
+    .eq("id", params.id)
+    .maybeSingle();
 
-  const empresa = await getEmpresaPerfilActiva(supabase, licitacion.organization_id, user.id, {
+  // Colapsa cualquier error de consulta a "no encontrada" en vez de
+  // distinguirlo — mismo comportamiento defensivo que el código original
+  // (no revela si el fallo fue por RLS, conexión, o ausencia real de fila).
+  if (error || !licitacion) throw ApiError.notFound("Licitación no encontrada");
+
+  const empresa = await getEmpresaPerfilActiva(ctx.supabase, licitacion.organization_id, ctx.userId, {
     fallbackToFirst: true,
   });
 
@@ -33,12 +28,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return { tipo, titulo: LEG_TITULOS[tipo], listo: faltantes.length === 0, faltantes };
   });
 
-  return NextResponse.json({
+  return {
     data: {
       documentos,
       empresaId: empresa?.id ?? null,
       convocanteRepresentanteNombre: licitacion.convocante_representante_nombre,
       convocanteRepresentanteCargo: licitacion.convocante_representante_cargo,
     },
-  });
-}
+  };
+});
