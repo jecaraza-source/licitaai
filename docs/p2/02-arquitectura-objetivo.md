@@ -236,7 +236,7 @@ sequenceDiagram
 
 ## 8. Datos, privacidad, retención, DR (P2.6 / P2.7)
 
-- **Clasificación** de cada tabla/bucket (públicos / internos / confidenciales / personales / fiscales / corporativos / propuestas económicas / llaves / resultados IA / logs) en [08-clasificacion-datos.md](08-clasificacion-datos.md).
+- **Clasificación** de cada tabla/bucket (públicos / internos / confidenciales / personales / fiscales / corporativos / propuestas económicas / llaves / resultados IA / logs) en [13-clasificacion-datos.md](13-clasificacion-datos.md).
 - **`data_retention_policy`**: retención por clase; jobs de limpieza (Vercel Cron) para `rate_limit_hits` (7 d), `ai_usage_log`/`ai_budget_ledger` (13 meses fiscales), `jobs` COMPLETED/FAILED (90 d, luego a `jobs_archive`), `document_chunks` de licitaciones CERRADAS antiguas.
 - **`deletion_requests`** + job `borrar-organizacion`: export previo → borrado ordenado (Postgres en orden de FK → Storage por prefijo → embeddings → jobs → verificación en proveedores → registro en `audit_log`). **`ON DELETE CASCADE` deja de ser el único plan.**
 - **Export/portabilidad**: job `exportar-organizacion` → ZIP (JSON + documentos) a un bucket temporal con URL firmada de corta vida.

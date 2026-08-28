@@ -27,7 +27,7 @@ select * from public.actividad_log
  where created_at between '<inicio>' and '<fin>' order by created_at;
 ```
 
-- ¿Qué datos (clasificación en `08-clasificacion-datos.md`)? Personales /
+- ¿Qué datos (clasificación en `13-clasificacion-datos.md`)? Personales /
   fiscales / propuestas económicas / llaves → obligaciones legales.
 - ¿Cuántas organizaciones? ¿Datos efectivamente accedidos o solo
   potencialmente expuestos?
