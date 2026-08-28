@@ -2,10 +2,11 @@
 //
 //   node tests/load/gen-tokens.mjs 20 > /tmp/tokens.json
 import { createClient } from "@supabase/supabase-js";
+import { LOCAL } from "../helpers/local-supabase.mjs";
 
-const URL = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
-const ANON = process.env.SUPABASE_ANON_KEY ?? "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH";
-const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz";
+const URL = process.env.SUPABASE_URL ?? LOCAL.url;
+const ANON = process.env.SUPABASE_ANON_KEY ?? LOCAL.anonKey;
+const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY ?? LOCAL.serviceRoleKey;
 
 if (URL.includes("supabase.co")) {
   console.error("Solo local.");

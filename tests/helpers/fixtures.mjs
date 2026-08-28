@@ -10,12 +10,13 @@
 // apuntar a un proyecto remoto: crea y borra auth.users / organizations
 // reales con la service role key.
 import { createClient } from "@supabase/supabase-js";
+import { LOCAL } from "./local-supabase.mjs";
 
-export const URL = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
+export const URL = process.env.SUPABASE_URL ?? LOCAL.url;
 export const ANON_KEY =
-  process.env.SUPABASE_ANON_KEY ?? "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH";
+  process.env.SUPABASE_ANON_KEY ?? LOCAL.anonKey;
 const SERVICE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz";
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? LOCAL.serviceRoleKey;
 
 if (URL.includes("supabase.co")) {
   throw new Error("fixtures: SUPABASE_URL apunta a un proyecto remoto — solo local.");

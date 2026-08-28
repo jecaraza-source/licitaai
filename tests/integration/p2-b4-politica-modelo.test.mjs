@@ -5,9 +5,10 @@
 //   npx supabase start
 //   node tests/integration/p2-b4-politica-modelo.test.mjs
 import { createClient } from "@supabase/supabase-js";
+import { LOCAL } from "../helpers/local-supabase.mjs";
 
-const URL = process.env.SUPABASE_URL ?? "http://127.0.0.1:54321";
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz";
+const URL = process.env.SUPABASE_URL ?? LOCAL.url;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? LOCAL.serviceRoleKey;
 if (URL.includes("supabase.co")) { console.error("local only"); process.exit(1); }
 
 const admin = createClient(URL, SERVICE_KEY);
