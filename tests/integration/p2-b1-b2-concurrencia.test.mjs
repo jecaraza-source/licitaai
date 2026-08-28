@@ -133,6 +133,40 @@ async function main() {
     await admin.from("organizations").delete().eq("id", org.orgId);
   }
 
+  // ── carrera: N workers concurrentes NUNCA reclaman el mismo job ──────
+  {
+    const org = await orgConUsuario(100);
+    await crearNoop(org.asUser, 30);
+
+    // 6 llamadas concurrentes a reclamar_jobs (como 6 workers).
+    const lotes = await Promise.all(
+      Array.from({ length: 6 }, (_, i) =>
+        admin.rpc("reclamar_jobs", { p_worker_id: `race-w${i}`, p_limite: 8 }).then((r) => r.data ?? []),
+      ),
+    );
+    const todos = lotes.flat();
+    const ids = todos.map((j) => j.id);
+    check(
+      "RACE 1. ningún job fue reclamado por dos workers a la vez",
+      new Set(ids).size === ids.length,
+      `${ids.length} reclamos, ${new Set(ids).size} únicos`,
+    );
+
+    const { data: filas } = await admin
+      .from("jobs")
+      .select("intentos")
+      .eq("organization_id", org.orgId)
+      .eq("estado", "RUNNING");
+    check(
+      "RACE 2. ningún job RUNNING tiene intentos > 1 (no doble arranque)",
+      (filas ?? []).every((f) => f.intentos === 1),
+      `intentos: ${(filas ?? []).map((f) => f.intentos).join(",")}`,
+    );
+
+    await admin.from("jobs").delete().eq("organization_id", org.orgId);
+    await admin.from("organizations").delete().eq("id", org.orgId);
+  }
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail > 0 ? 1 : 0);
 }

@@ -27,6 +27,13 @@ import { conGuardia } from "../ai-guard.ts";
 import { contenidoCoincideConNombre } from "../file-validation.ts";
 import { ErrorNoReintentable, type JobContext, type StepResult } from "../job-runner.ts";
 import { resolverModelo } from "../modelo-politica.ts";
+import { isEnabled } from "../flags.ts";
+
+/** sha256 hex de un texto (para el dedup de embeddings, B3). */
+async function sha256Hex(texto: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 const CHARS_POR_CHUNK = 4000;
 const OVERLAP_CHARS = 800;
@@ -246,13 +253,16 @@ async function stepExtraer(ctx: JobContext): Promise<StepResult> {
 
   const BATCH = 500;
   for (let i = 0; i < chunks.length; i += BATCH) {
-    const filas = chunks.slice(i, i + BATCH).map((contenido, j) => ({
-      documento_id: id,
-      chunk_index: i + j,
-      contenido,
-      embedding: null,
-      metadata_json: { escaneado },
-    }));
+    const filas = await Promise.all(
+      chunks.slice(i, i + BATCH).map(async (contenido, j) => ({
+        documento_id: id,
+        chunk_index: i + j,
+        contenido,
+        contenido_sha256: await sha256Hex(contenido), // B3 — clave de dedup
+        embedding: null,
+        metadata_json: { escaneado },
+      })),
+    );
     const { error } = await ctx.service.from("document_chunks").insert(filas);
     if (error) throw new Error(`Error guardando fragmentos: ${error.message}`);
   }
@@ -269,7 +279,7 @@ async function stepEmbeddings(ctx: JobContext): Promise<StepResult> {
 
   const { data: pendientes, error } = await ctx.service
     .from("document_chunks")
-    .select("id, chunk_index, contenido")
+    .select("id, chunk_index, contenido, contenido_sha256")
     .eq("documento_id", id)
     .is("embedding", null)
     .order("chunk_index", { ascending: true })
@@ -280,15 +290,42 @@ async function stepEmbeddings(ctx: JobContext): Promise<StepResult> {
     return { siguienteStep: { step: "finalizar", resultParcial: parcial, progreso: 95 } };
   }
 
-  const { embeddings, tokens } = await generarEmbeddings(
-    pendientes.map((c) => c.contenido as string),
-    ctx,
-  );
-  await Promise.all(
-    pendientes.map((c, i) =>
+  // B3 — dedup: si otro documento ya tiene el embedding de este contenido
+  // exacto, se reutiliza y no se llama a OpenAI. Detrás del flag `ai.cache`.
+  const cacheActiva = await isEnabled(ctx.service, "ai.cache", {
+    organizationId: ctx.job.organization_id,
+  });
+  const reusados = new Map<string, number[]>();
+  let porGenerar = pendientes;
+  if (cacheActiva) {
+    porGenerar = [];
+    for (const c of pendientes) {
+      const hash = (c.contenido_sha256 as string) ?? (await sha256Hex(c.contenido as string));
+      const { data: vec } = await ctx.service.rpc("embedding_por_hash", { p_hash: hash });
+      if (vec) {
+        reusados.set(
+          c.id as string,
+          typeof vec === "string" ? JSON.parse(vec) : (vec as number[]),
+        );
+      } else {
+        porGenerar.push(c);
+      }
+    }
+  }
+
+  const { embeddings, tokens } =
+    porGenerar.length > 0
+      ? await generarEmbeddings(porGenerar.map((c) => c.contenido as string), ctx)
+      : { embeddings: [] as number[][], tokens: 0 };
+
+  await Promise.all([
+    ...[...reusados.entries()].map(([chunkId, vec]) =>
+      ctx.service.from("document_chunks").update({ embedding: vec }).eq("id", chunkId)
+    ),
+    ...porGenerar.map((c, i) =>
       ctx.service.from("document_chunks").update({ embedding: embeddings[i] }).eq("id", c.id)
     ),
-  );
+  ]);
   parcial.tok_in = (parcial.tok_in ?? 0) + tokens;
 
   const total = parcial.chunks_total || 1;

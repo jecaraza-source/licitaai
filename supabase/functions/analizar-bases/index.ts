@@ -17,8 +17,15 @@ import {
   requireLicitacion,
 } from "../_shared/auth.ts";
 import { resolverModelo } from "../_shared/modelo-politica.ts";
+import { isEnabled } from "../_shared/flags.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
 import { validarContraEsquema } from "../_shared/schema-validate.ts";
+
+/** sha256 hex de un texto (clave de caché B3). */
+async function sha256Hex(texto: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
 
 const SYSTEM_PROMPT = conGuardia(`Eres un experto en licitaciones públicas mexicanas con 20 años de experiencia.
 Analizas documentos de bases de licitación conforme a la Ley de Adquisiciones,
@@ -364,6 +371,7 @@ Deno.serve(async (req) => {
 
     const supabase = ctx.service;
     const modeloIA = await resolverModelo(supabase, ctx.organizationId, "claude-sonnet-5");
+    const cacheActiva = await isEnabled(supabase, "ai.cache", { organizationId: ctx.organizationId });
     const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY") });
     const openai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
 
@@ -409,17 +417,36 @@ Deno.serve(async (req) => {
       if (searchError) throw new Error(`Error en búsqueda semántica: ${searchError.message}`);
 
       const contexto = (chunks ?? []).map((c: { contenido: string }) => c.contenido).join("\n---\n");
-      const { input: resultado, inputTokens, outputTokens } = await analizarSeccion(
-        anthropic,
-        seccion,
-        contexto || "(sin contenido)",
-        modeloIA,
-      );
-      totalInputTokens += inputTokens;
-      totalOutputTokens += outputTokens;
+
+      // B3 — caché por (hash del contexto : sección : modelo). Dos
+      // organizaciones que analizan el mismo documento con el mismo modelo
+      // comparten el resultado (el contexto idéntico garantiza que es
+      // válido). Detrás del flag `ai.cache`.
+      const claveCache = cacheActiva
+        ? `${await sha256Hex(contexto || "")}:analizar-bases-${seccion.key}:1:${modeloIA}`
+        : null;
+      let resultado: Record<string, unknown> | null = null;
+      if (claveCache) {
+        const { data: cacheado } = await supabase.rpc("ai_cache_buscar", { p_clave: claveCache });
+        if (cacheado) resultado = cacheado as Record<string, unknown>;
+      }
+      if (!resultado) {
+        const r = await analizarSeccion(anthropic, seccion, contexto || "(sin contenido)", modeloIA);
+        resultado = r.input;
+        totalInputTokens += r.inputTokens;
+        totalOutputTokens += r.outputTokens;
+        if (claveCache && resultado) {
+          await supabase.rpc("ai_cache_guardar", {
+            p_clave: claveCache,
+            p_resultado: resultado,
+            p_tokens_input: r.inputTokens,
+            p_tokens_output: r.outputTokens,
+          });
+        }
+      }
 
       if (resultado) {
-        const { nivel_confianza, ...resto } = resultado;
+        const { nivel_confianza, ...resto } = resultado as { nivel_confianza?: string };
         resultados[seccion.key] = resto;
         confianzas[seccion.key] = nivel_confianza ?? "BAJO";
       }
