@@ -1,73 +1,51 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireRole } from "@/lib/api";
 import { sendEmail } from "@/lib/resend";
 import { InvitacionStaffEmail } from "@/emails/invitacion-staff";
 
-const ROLES_VALIDOS = ["EJECUTOR", "INTEGRADOR", "SUPERVISOR"];
+const bodySchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email("Correo inválido").max(320),
+    rol_jerarquico: z.enum(["EJECUTOR", "INTEGRADOR", "SUPERVISOR"]),
+  })
+  .strict();
 
-export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+export const POST = apiRoute(
+  // Enviar una invitación manda un correo — sin límite es un vector de spam.
+  { bodySchema, rateLimit: { ruta: "organizacion-staff-invitar", max: 10 } },
+  async ({ ctx, body }) => {
+    requireRole(ctx, ["ADMIN"]);
 
-  const { data: perfil } = await supabase
-    .from("users")
-    .select("organization_id, rol")
-    .eq("id", user.id)
-    .single();
-  if (!perfil) {
-    return NextResponse.json({ error: "Perfil no encontrado" }, { status: 403 });
-  }
-  if (perfil.rol !== "ADMIN") {
-    return NextResponse.json(
-      { error: "Solo un administrador puede invitar personas a la organización" },
-      { status: 403 },
-    );
-  }
+    const { data: organizacion } = await ctx.supabase
+      .from("organizations")
+      .select("nombre")
+      .eq("id", ctx.organizationId)
+      .maybeSingle();
 
-  const { email, rol_jerarquico } = await request.json();
-  if (typeof email !== "string" || !email.includes("@")) {
-    return NextResponse.json({ error: "Correo inválido" }, { status: 400 });
-  }
-  if (!ROLES_VALIDOS.includes(rol_jerarquico)) {
-    return NextResponse.json({ error: "Rol jerárquico inválido" }, { status: 400 });
-  }
+    const { data: invitacion, error } = await ctx.supabase
+      .from("invitaciones_staff")
+      .insert({
+        organization_id: ctx.organizationId,
+        email: body.email,
+        rol_jerarquico: body.rol_jerarquico,
+        invitado_por: ctx.userId,
+      })
+      .select("token")
+      .single();
 
-  const { data: organizacion } = await supabase
-    .from("organizations")
-    .select("nombre")
-    .eq("id", perfil.organization_id)
-    .single();
+    if (error || !invitacion) throw ApiError.internal();
 
-  const { data: invitacion, error } = await supabase
-    .from("invitaciones_staff")
-    .insert({
-      organization_id: perfil.organization_id,
-      email: email.toLowerCase().trim(),
-      rol_jerarquico,
-      invitado_por: user.id,
-    })
-    .select("token")
-    .single();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    await sendEmail({
+      to: body.email,
+      subject: `Te invitaron a unirte a ${organizacion?.nombre ?? "una organización"} en LicitaAI`,
+      react: InvitacionStaffEmail({
+        organizacionNombre: organizacion?.nombre ?? "tu organización",
+        rolJerarquico: body.rol_jerarquico,
+        url: `${appUrl}/invitacion/${invitacion.token}`,
+      }),
+    });
 
-  if (error || !invitacion) {
-    return NextResponse.json({ error: error?.message ?? "No se pudo crear la invitación" }, { status: 500 });
-  }
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  await sendEmail({
-    to: email,
-    subject: `Te invitaron a unirte a ${organizacion?.nombre ?? "una organización"} en LicitaAI`,
-    react: InvitacionStaffEmail({
-      organizacionNombre: organizacion?.nombre ?? "tu organización",
-      rolJerarquico: rol_jerarquico,
-      url: `${appUrl}/invitacion/${invitacion.token}`,
-    }),
-  });
-
-  return NextResponse.json({ ok: true });
-}
+    return { data: { ok: true } };
+  },
+);

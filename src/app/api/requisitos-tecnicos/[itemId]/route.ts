@@ -1,59 +1,52 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ itemId: string }> },
-) {
-  const { itemId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const paramsSchema = z.object({ itemId: z.string().uuid("itemId debe ser un UUID válido") });
 
-  const body = await request.json();
-  const update: Record<string, unknown> = {};
-  if (typeof body.requisito === "string") update.requisito = body.requisito;
-  if (typeof body.obligatorio === "boolean") update.obligatorio = body.obligatorio;
-  if (typeof body.cumple === "boolean" || body.cumple === null) update.cumple = body.cumple;
-  if (typeof body.como_cumple === "string" || body.como_cumple === null) {
-    update.como_cumple = body.como_cumple;
-  }
-  if (typeof body.evidencia === "string" || body.evidencia === null) {
-    update.evidencia = body.evidencia;
-  }
-  if (typeof body.documento_id === "string" || body.documento_id === null) {
-    update.documento_id = body.documento_id;
-  }
+const patchSchema = z
+  .object({
+    requisito: z.string().trim().min(1).max(2000).optional(),
+    obligatorio: z.boolean().optional(),
+    cumple: z.boolean().nullable().optional(),
+    como_cumple: z.string().trim().max(5000).nullable().optional(),
+    evidencia: z.string().trim().max(5000).nullable().optional(),
+    documento_id: z.string().uuid().nullable().optional(),
+  })
+  .strict();
 
-  const { data, error } = await supabase
+export const PATCH = apiRoute(
+  { paramsSchema, bodySchema: patchSchema },
+  async ({ ctx, params, body }) => {
+    requireWriteRole(ctx);
+
+    if (Object.keys(body).length === 0) {
+      throw ApiError.validation("No se enviaron campos para actualizar");
+    }
+
+    const { data, error } = await ctx.supabase
+      .from("requisitos_tecnicos")
+      .update(body)
+      .eq("id", params.itemId)
+      .select()
+      .maybeSingle();
+
+    if (error) throw ApiError.internal();
+    if (!data) throw ApiError.notFound("Requisito técnico no encontrado");
+    return { data };
+  },
+);
+
+export const DELETE = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
+  requireWriteRole(ctx);
+
+  const { data, error } = await ctx.supabase
     .from("requisitos_tecnicos")
-    .update(update)
-    .eq("id", itemId)
-    .select()
-    .single();
+    .delete()
+    .eq("id", params.itemId)
+    .select("id")
+    .maybeSingle();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
-}
-
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ itemId: string }> },
-) {
-  const { itemId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
-  const { error } = await supabase.from("requisitos_tecnicos").delete().eq("id", itemId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
-}
+  if (error) throw ApiError.internal();
+  if (!data) throw ApiError.notFound("Requisito técnico no encontrado");
+  return { data: { ok: true } };
+});

@@ -1,31 +1,19 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError } from "@/lib/api";
 import { parseCertificado } from "@/lib/efirma";
 
-export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const bodySchema = z
+  .object({
+    cer_base64: z.string().min(1, "cer_base64 requerido").max(32 * 1024, "Certificado demasiado grande"),
+  })
+  .strict();
 
-  const { cer_base64 } = await request.json();
-  if (typeof cer_base64 !== "string" || cer_base64.length === 0) {
-    return NextResponse.json({ error: "cer_base64 requerido" }, { status: 400 });
-  }
-  if (cer_base64.length > 32 * 1024) {
-    return NextResponse.json({ error: "Certificado demasiado grande" }, { status: 400 });
-  }
-
+export const POST = apiRoute({ bodySchema }, async ({ body }) => {
   try {
-    const info = parseCertificado(cer_base64);
-    return NextResponse.json({ data: info });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "No se pudo leer el certificado" },
-      { status: 400 },
-    );
+    return { data: parseCertificado(body.cer_base64) };
+  } catch {
+    // El mensaje crudo del parser puede exponer detalles de la librería —
+    // se devuelve un mensaje genérico y seguro.
+    throw ApiError.validation("No se pudo leer el certificado (.cer)");
   }
-}
+});

@@ -115,7 +115,7 @@ Estos 10 puntos son exactamente lo que P1.1 (capa común) y P1.2 (integridad) es
 
 ---
 
-## Estado de la capa común (P1.1, en progreso)
+## Estado de la capa común (P1.1 — completa)
 
 Construida en `src/lib/api/` (`errors.ts`, `response.ts`, `log.ts`, `context.ts`, `validate.ts`, `handler.ts`, barrel en `index.ts`):
 
@@ -125,13 +125,24 @@ Construida en `src/lib/api/` (`errors.ts`, `response.ts`, `log.ts`, `context.ts`
 - **Manejo de excepciones + IDs de correlación + registro seguro**: `apiRoute()` genera un `request_id` por request, captura cualquier excepción (mapea `ApiError` a su código/status; cualquier otro throw se convierte en `INTERNAL_ERROR` sin exponer el mensaje real), y `logApiError()` registra server-side con el `request_id`, redactando campos con nombres sensibles.
 - **Rate limiting y presupuesto de IA**: opciones `rateLimit`/`aiBudget` en la config de `apiRoute()`, reutilizando `checkRateLimit`/`checkAiBudget` ya existentes de P0.6.
 
-**Migradas a la capa común como implementación de referencia**: `licitaciones/[id]/route.ts` (GET/PUT/PATCH/DELETE — params con UUID, body con Zod, rol de escritura, mapeo de errores de Postgres a 404/500 seguros). Las 58 rutas restantes **aún no están migradas** — quedan con su implementación manual actual, documentada arriba. Migrarlas todas es un esfuerzo grande y mecánico una vez que el patrón está probado; se recomienda hacerlo por bloques temáticos (los mismos 4 bloques de esta auditoría), cada uno como su propio commit con sus propios tests, en vez de un solo commit masivo.
+**Estado de la migración (todas las rutas con sesión de usuario migradas a `apiRoute()`):**
 
-## Recomendaciones priorizadas para el resto de P1.1/P1.2 (no ejecutadas aún)
+- Bloques 1–4 de licitaciones, junta/propuesta, empresa-perfil/checklist: migrados en los commits `4b3120c` / `d443c60` / `147445a`.
+- Rutas de dominio restantes migradas en este commit: `organizacion/usuarios`, `organizacion/staff` (+ `[userId]`, `invitar`), `empresa-perfil/reiniciar`, `empresa-perfil/seleccionar`, `requisitos-tecnicos/[itemId]`, `dashboard/stats`, `efirma/validar-certificado`, `auth/bienvenida`, `referencias-legales` (+ `buscar`, `preguntar`), `documentos/[docId]/firmar`.
+- **No migradas por diseño** (no tienen sesión de usuario — usan otro mecanismo de autorización): `health`, `ready`, `estado` (públicas, sin auth), `cron/*` (`estaAutorizadoCron` con `CRON_SECRET`), `admin/salud` (gate por `PLATFORM_ADMIN_EMAILS`).
 
-1. Migrar el resto de rutas a `apiRoute()`, empezando por las que ya tienen Zod parcial (`licitaciones/route.ts`) y las de mayor riesgo (`empresa-perfil` POST/PUT — cero validación; `requisitos-tecnicos/[itemId]` — cero capa de aplicación).
-2. Añadir `requiereIA: true` a `generar-preguntas-junta` y `generar-propuesta-tecnica` (Edge Functions) — son las dos únicas funciones que llaman a un modelo de IA sin el tope de presupuesto diario que sí tienen las demás desde P0.6.
-3. Envolver en una transacción/RPC el patrón delete-then-insert de `propuesta-economica` PUT (P1.2).
-4. Corregir el orden de la operación compensatoria en `empresa-perfil/[id]/documentos/[docId]` DELETE (borrar de DB primero condicionado al resultado, o usar una acción compensatoria explícita si Storage falla) (P1.2).
-5. Añadir una restricción de integridad (SQL o verificación en la ruta) para que `docId` en `empresa-perfil/[id]/documentos/[docId]*` pertenezca al `empresa_perfil_id` de la URL (P1.2).
-6. Escapar o parametrizar correctamente el filtro `search` de `licitaciones/route.ts` en vez de interpolarlo en `.or()`.
+**Cambios incompatibles introducidos por la migración** (el frontend ya se actualizó en el mismo commit):
+
+- Toda ruta migrada responde ahora con el sobre `{data, error: {code, message, details?}, meta: {request_id}}`. Las respuestas de error ya no traen el `error.message` crudo de Postgres/Supabase/un SDK.
+- `GET /api/organizacion/staff`: `invitacionesPendientes` y `puedeInvitar` pasaron de campos de nivel superior a `data.invitacionesPendientes` / `data.puedeInvitar`; la lista de personas pasó de `data` a `data.miembros`.
+- `POST /api/documentos/[docId]/firmar`: el caso "RFC distinto" pasó de `{error: "rfc_distinto", detalle}` a un `VALIDATION_ERROR` con `error.details.motivo === "rfc_distinto"`.
+- `POST /api/organizacion/staff/invitar`: ahora tiene rate limit (`max: 10`/min) y valida el correo con `z.string().email()` en vez de `includes("@")`.
+
+## Recomendaciones para P1.2 (integridad — commit siguiente)
+
+1. Envolver en una transacción/RPC el patrón delete-then-insert de `propuesta-economica` PUT.
+2. Corregir el orden de la operación compensatoria en `empresa-perfil/[id]/documentos/[docId]` DELETE.
+3. Añadir una restricción de integridad para que `docId` en `empresa-perfil/[id]/documentos/[docId]*` pertenezca al `empresa_perfil_id` de la URL.
+4. Escapar/parametrizar el filtro `search` de `licitaciones/route.ts` en vez de interpolarlo en `.or()`.
+
+**Ya resuelto** (P1.1): `requiereIA: true` añadido a `generar-preguntas-junta` y `generar-propuesta-tecnica` — ver commits P2 (`e24e269`); confirmado en el código actual de ambas funciones.

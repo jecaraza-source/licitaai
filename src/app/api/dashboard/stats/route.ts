@@ -1,5 +1,4 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { apiRoute, ApiError } from "@/lib/api";
 import type { DashboardStats, EstadoLicitacion } from "@/types";
 
 const ESTADOS: EstadoLicitacion[] = [
@@ -11,43 +10,44 @@ const ESTADOS: EstadoLicitacion[] = [
   "CERRADA",
 ];
 
-export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
-
+export const GET = apiRoute({}, async ({ ctx }) => {
   const now = new Date();
   const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const [totalActivas, proximasAVencer, enPreparacion, enviadasLog, todasLasLicitaciones] =
     await Promise.all([
-      supabase
+      ctx.supabase
         .from("licitaciones")
         .select("id", { count: "exact", head: true })
         .neq("estado_licitacion", "CERRADA"),
-      supabase
+      ctx.supabase
         .from("licitaciones")
         .select("id", { count: "exact", head: true })
         .not("estado_licitacion", "in", "(ENVIADA,CERRADA)")
         .gte("fecha_entrega_propuesta", now.toISOString())
         .lte("fecha_entrega_propuesta", in7Days.toISOString()),
-      supabase
+      ctx.supabase
         .from("licitaciones")
         .select("id", { count: "exact", head: true })
         .eq("estado_licitacion", "PREPARACION"),
-      supabase
+      ctx.supabase
         .from("actividad_log")
         .select("licitacion_id")
         .eq("accion", "cambio_estado")
         .eq("metadata_json->>nuevo_estado", "ENVIADA")
         .gte("created_at", monthStart.toISOString()),
-      supabase.from("licitaciones").select("estado_licitacion"),
+      ctx.supabase.from("licitaciones").select("estado_licitacion"),
     ]);
+
+  // Un fallo de RLS/conexión no debe confundirse con "cero licitaciones".
+  const errorReal =
+    totalActivas.error ??
+    proximasAVencer.error ??
+    enPreparacion.error ??
+    enviadasLog.error ??
+    todasLasLicitaciones.error;
+  if (errorReal) throw ApiError.internal();
 
   const enviadasEsteMes = new Set((enviadasLog.data ?? []).map((r) => r.licitacion_id)).size;
 
@@ -67,5 +67,5 @@ export async function GET() {
     porEstado,
   };
 
-  return NextResponse.json({ data: stats });
-}
+  return { data: stats };
+});

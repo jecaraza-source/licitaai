@@ -1,46 +1,29 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { apiRoute, ApiError, requireRole } from "@/lib/api";
 
-const ROLES_VALIDOS = ["EJECUTOR", "INTEGRADOR", "SUPERVISOR"];
+const paramsSchema = z.object({ userId: z.string().uuid("userId debe ser un UUID válido") });
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ userId: string }> },
-) {
-  const { userId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
-  }
+const bodySchema = z
+  .object({
+    rol_jerarquico: z.enum(["EJECUTOR", "INTEGRADOR", "SUPERVISOR"]).nullable(),
+  })
+  .strict();
 
-  const { data: perfil } = await supabase
-    .from("users")
-    .select("organization_id, rol")
-    .eq("id", user.id)
-    .single();
-  if (!perfil || perfil.rol !== "ADMIN") {
-    return NextResponse.json(
-      { error: "Solo un administrador puede editar el rol jerárquico" },
-      { status: 403 },
-    );
-  }
+export const PATCH = apiRoute(
+  { paramsSchema, bodySchema },
+  async ({ ctx, params, body }) => {
+    requireRole(ctx, ["ADMIN"]);
 
-  const { rol_jerarquico } = await request.json();
-  if (rol_jerarquico !== null && !ROLES_VALIDOS.includes(rol_jerarquico)) {
-    return NextResponse.json({ error: "Rol jerárquico inválido" }, { status: 400 });
-  }
+    const { data, error } = await ctx.supabase
+      .from("users")
+      .update({ rol_jerarquico: body.rol_jerarquico })
+      .eq("id", params.userId)
+      .eq("organization_id", ctx.organizationId)
+      .select("id, nombre, email, rol_jerarquico")
+      .maybeSingle();
 
-  const { data, error } = await supabase
-    .from("users")
-    .update({ rol_jerarquico })
-    .eq("id", userId)
-    .eq("organization_id", perfil.organization_id)
-    .select("id, nombre, email, rol_jerarquico")
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data });
-}
+    if (error) throw ApiError.internal();
+    if (!data) throw ApiError.notFound("Usuario no encontrado en tu organización");
+    return { data };
+  },
+);
