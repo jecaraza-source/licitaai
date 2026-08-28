@@ -35,7 +35,7 @@ Detalle técnico en `14-backup-y-restauracion.md` §4. Riesgo asociado: R9.
 
 ### Para firmar (marcar una)
 
-> ☐ **Aceptamos el RPO interino de 24 horas** con `pg_dump` diario. Somos
+> ☑ **Aceptamos el RPO interino de 24 horas** con `pg_dump` diario. Somos
 > conscientes de que un desastre de Postgres puede costar hasta 24 horas de
 > datos. Revisaremos esta decisión antes de firmar el primer contrato con
 > SLA.
@@ -44,6 +44,10 @@ Detalle técnico en `14-backup-y-restauracion.md` §4. Riesgo asociado: R9.
 > de producción. RPO objetivo ≤ 1 hora.
 >
 > Nombre: ________________  Cargo: ________________  Fecha: __________
+
+**Decisión registrada (2026-08-28):** se acepta el RPO de 24 h con
+`pg_dump` diario. Pendiente de re-evaluar **antes del primer cliente con
+SLA**. Cierra parcialmente R9 (queda el compromiso de revisión).
 
 ---
 
