@@ -55,3 +55,6 @@ supabase/.branches/
 
 # Cobertura de pruebas (c8)
 coverage/
+
+# SBOM generado en CI
+sbom.cyclonedx.json
