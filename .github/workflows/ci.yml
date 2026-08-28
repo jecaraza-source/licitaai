@@ -20,6 +20,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run lint:migrations
+      - run: npm run test:hygiene
       - run: npm audit --omit=dev --audit-level=high
       - run: npm run build
         env:
@@ -47,7 +48,13 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
-      - run: npm run test:unit
+      # test:coverage corre los mismos tests unitarios + falla si la
+      # cobertura de los módulos de src/lib bajo prueba cae del umbral
+      # (.c8rc.json). P1.3 — "CI debe fallar si cae cobertura".
+      - run: npm run test:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: coverage, path: coverage/, retention-days: 14 }
 
   supabase-tests:
     runs-on: ubuntu-latest
@@ -91,7 +98,9 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: E2E (Playwright, contra Supabase local)
-        run: npx playwright test
+        # --forbid-only: un test.only olvidado hace fallar CI en vez de
+        # pasar ejecutando una sola prueba (P1.3).
+        run: npx playwright test --forbid-only
         env:
           CI: true
 
