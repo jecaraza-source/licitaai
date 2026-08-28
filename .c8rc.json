@@ -8,6 +8,7 @@
     "src/lib/cron-auth.ts",
     "src/lib/efirma.ts",
     "src/lib/sanitize-html.ts",
+    "src/lib/observabilidad.ts",
     "src/lib/theme-colors.ts"
   ],
   "exclude": ["**/*.d.ts", "**/node_modules/**"],

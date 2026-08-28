@@ -8,6 +8,7 @@ import { validarParams, validarQuery, validarBody } from "./validate";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { checkAiBudget } from "@/lib/ai-usage";
 import { resolveFlags } from "@/lib/flags";
+import { logRequest, anonimizarUserId } from "@/lib/observabilidad";
 
 type RouteParams = Record<string, string | string[]>;
 type NextRouteContext = { params: Promise<RouteParams> };
@@ -88,18 +89,24 @@ export function apiRoute<
     const t0 = performance.now();
     let ctx: ApiContext | undefined;
 
-    // P2 · F1 — instrumentación de latencia de API. Server-Timing en la
-    // respuesta (visible en devtools / Speed Insights) + una línea de log
-    // con el request_id y los ms para correlacionar consultas lentas.
+    // P2·F1 + P1.7 — Server-Timing en la respuesta (devtools / Speed
+    // Insights) y UNA línea de log estructurada por request (éxito o
+    // error), con request_id, organización, usuario anonimizado, duración,
+    // status y código de error. `errorCodeParaLog` lo fija el catch.
+    let errorCodeParaLog: string | undefined;
     const instrumentar = (res: NextResponse): NextResponse => {
       const ms = Math.round(performance.now() - t0);
       res.headers.set("Server-Timing", `route;desc="${method} ${path}";dur=${ms}`);
-      if (ms > 800) {
-        console.warn(
-          "[api:slow]",
-          JSON.stringify({ request_id: requestId, method, path, ms, status: res.status }),
-        );
-      }
+      logRequest({
+        request_id: requestId,
+        method,
+        path,
+        status: res.status,
+        duracion_ms: ms,
+        organization_id: ctx?.organizationId,
+        user: anonimizarUserId(ctx?.userId),
+        error_code: errorCodeParaLog,
+      });
       return res;
     };
 
@@ -149,6 +156,7 @@ export function apiRoute<
       return instrumentar(apiOk(resultado.data, requestId, { status: resultado.status }));
     } catch (error) {
       const apiError = error instanceof ApiError ? error : ApiError.internal();
+      errorCodeParaLog = apiError.code;
       logApiError(
         { requestId, method, path, organizationId: ctx?.organizationId, userId: ctx?.userId },
         error,
