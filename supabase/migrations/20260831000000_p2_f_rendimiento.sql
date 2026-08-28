@@ -35,9 +35,13 @@ create index if not exists documentos_licitacion_procesado_idx
 -- ============================================================================
 -- search_chunks (F5) — límites explícitos:
 --   - statement_timeout 5s: acota un escaneo vectorial que se dispare.
---   - hnsw.ef_search 40: el default de pgvector, hecho explícito para poder
---     calibrarlo con datos de recall reales (subir mejora recall, baja
---     latencia). No se cambia sin medir.
+--   - hnsw.ef_search: se deja en el default de pgvector (40). NO se fija a
+--     nivel de función con `SET hnsw.ef_search` porque el pooler de sesión
+--     de Supabase (Supavisor) rechaza `SET` sobre GUCs de extensión al
+--     crear la función ("permission denied to set parameter"). Para
+--     calibrarlo (F5, pendiente de datos de recall): `ALTER DATABASE
+--     postgres SET hnsw.ef_search = N` desde el dashboard, o convertir
+--     esta función a plpgsql con `SET LOCAL` en el cuerpo.
 -- ============================================================================
 create or replace function public.search_chunks(
   query_embedding vector(1536),
@@ -54,7 +58,6 @@ language sql
 stable
 security definer
 set search_path = public, extensions
-set hnsw.ef_search = 40
 set statement_timeout = '5s'
 as $$
   select
