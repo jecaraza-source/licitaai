@@ -295,7 +295,7 @@ export function SeguimientoTab({
   const [analizando, setAnalizando] = useState(false);
   const [guardando, setGuardando] = useState(false);
 
-  function cargar() {
+  const cargar = useCallback(() => {
     fetch(`/api/licitaciones/${licitacionId}/seguimiento`)
       .then((res) => res.json())
       .then((json) => {
@@ -303,12 +303,11 @@ export function SeguimientoTab({
         setLecciones(json.data?.lecciones_aprendidas ?? "");
         setTags(json.data?.tags_json ?? []);
       });
-  }
+  }, [licitacionId]);
 
   useEffect(() => {
     cargar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [licitacionId]);
+  }, [cargar]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { "application/pdf": [".pdf"] },

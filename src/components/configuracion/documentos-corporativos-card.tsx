@@ -236,14 +236,17 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
   const [analizandoIds, setAnalizandoIds] = useState<string[]>([]);
   const [fechasManuales, setFechasManuales] = useState<Record<string, string>>({});
 
-  function cargar() {
+  // P1.5 — `cargar` estable (useCallback) para poder listarla como
+  // dependencia de los efectos/callbacks que la usan, en vez de silenciar
+  // exhaustive-deps.
+  const cargar = useCallback(() => {
     fetch(`/api/empresa-perfil/${empresaId}/documentos`)
       .then((res) => res.json())
       .then((json) => setDocumentos(json.data ?? []));
     fetch(`/api/empresa-perfil/${empresaId}`)
       .then((res) => res.json())
       .then((json) => setNoAplican(json.data?.documentos_no_aplican ?? []));
-  }
+  }, [empresaId]);
 
   async function toggleNoAplica(tipo: string, no_aplica: boolean) {
     setNoAplican((prev) => (no_aplica ? [...prev, tipo] : prev.filter((t) => t !== tipo)));
@@ -260,8 +263,7 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
 
   useEffect(() => {
     cargar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empresaId]);
+  }, [cargar]);
 
   const analizarVigencia = useCallback(
     async (docId: string, fechaEmisionManual?: string) => {
@@ -303,8 +305,7 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
         setAnalizandoIds((prev) => prev.filter((id) => id !== docId));
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [empresaId],
+    [empresaId, cargar],
   );
 
   const subirDocumento = useCallback(
@@ -348,8 +349,7 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
       cargar();
       analizarVigencia(json.data.id);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [empresaId, tipoSeleccionado, analizarVigencia],
+    [empresaId, tipoSeleccionado, analizarVigencia, cargar],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

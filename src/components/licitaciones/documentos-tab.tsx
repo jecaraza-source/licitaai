@@ -5,6 +5,7 @@ import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { FileText, ShieldCheck, Sparkles, Trash2, UploadCloud } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useRealtimeLista } from "@/hooks/use-realtime-lista";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -522,7 +523,21 @@ export function DocumentosTab({
   modalidadProcedimiento: ModalidadProcedimiento | null;
   initialDocumentosConvocanteNoAplica: string[];
 }) {
-  const [documentos, setDocumentos] = useState<Documento[]>(initialDocumentos);
+  // P1.5 — lista + suscripción Realtime en el hook compartido. Este
+  // componente se desmonta/remonta al cambiar de pestaña, así que
+  // `initialDocumentos` es una foto del primer render del servidor; el
+  // hook la refresca al montar y mantiene el canal (con limpieza).
+  const { items: documentos, setItems: setDocumentos } = useRealtimeLista<Documento>({
+    tabla: "documentos",
+    filtro: `licitacion_id=eq.${licitacionId}`,
+    orden: { columna: "created_at" },
+    inicial: initialDocumentos,
+    alCambiar: (fila, evento) => {
+      if (evento === "UPDATE" && fila.procesado) {
+        toast.success(`"${fila.nombre}" terminó de procesarse`);
+      }
+    },
+  });
   const [uploads, setUploads] = useState<UploadState[]>([]);
   const [viewerDoc, setViewerDoc] = useState<Documento | null>(null);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
@@ -550,60 +565,6 @@ export function DocumentosTab({
     },
     [licitacionId],
   );
-
-  useEffect(() => {
-    const supabase = createClient();
-
-    // Este componente se desmonta y remonta cada vez que se cambia de
-    // pestaña (Base UI no mantiene montado el TabsContent inactivo), así
-    // que initialDocumentos queda como una foto congelada del primer
-    // render del servidor. Sin este refetch, al volver a la pestaña se
-    // perdían los documentos subidos después de esa foto inicial.
-    supabase
-      .from("documentos")
-      .select("*")
-      .eq("licitacion_id", licitacionId)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        if (data) setDocumentos(data);
-      });
-
-    const channel = supabase
-      .channel(`documentos-${licitacionId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "documentos",
-          filter: `licitacion_id=eq.${licitacionId}`,
-        },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            const nuevo = payload.new as Documento;
-            setDocumentos((prev) =>
-              prev.some((d) => d.id === nuevo.id) ? prev : [nuevo, ...prev],
-            );
-          } else if (payload.eventType === "UPDATE") {
-            const actualizado = payload.new as Documento;
-            setDocumentos((prev) =>
-              prev.map((d) => (d.id === actualizado.id ? actualizado : d)),
-            );
-            if (actualizado.procesado) {
-              toast.success(`"${actualizado.nombre}" terminó de procesarse`);
-            }
-          } else if (payload.eventType === "DELETE") {
-            const eliminado = payload.old as Documento;
-            setDocumentos((prev) => prev.filter((d) => d.id !== eliminado.id));
-          }
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [licitacionId]);
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
@@ -662,7 +623,7 @@ export function DocumentosTab({
 
       setTimeout(() => setUploads([]), 2000);
     },
-    [licitacionId, organizationId],
+    [licitacionId, organizationId, setDocumentos],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

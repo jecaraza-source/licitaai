@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Table } from "@tiptap/extension-table";
@@ -79,7 +79,7 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
     }, 1200);
   }
 
-  function cargarPropuesta() {
+  const cargarPropuesta = useCallback(() => {
     fetch(`/api/licitaciones/${licitacionId}/propuesta-tecnica`)
       .then((res) => res.json())
       .then((json) => {
@@ -89,13 +89,16 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
         setSecciones(secs);
         setActiveId((prev) => prev ?? secs[0]?.id ?? null);
       });
-  }
+  }, [licitacionId]);
 
   useEffect(() => {
     cargarPropuesta();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [licitacionId]);
+  }, [cargarPropuesta]);
 
+  // Sincroniza el editor con la sección activa SOLO al cambiar de sección o
+  // al montar el editor — deliberadamente NO cuando `secciones` cambia (eso
+  // pasa en cada tecleo y volvería a setear el contenido, moviendo el
+  // cursor). `secciones` fuera de deps es intencional.
   useEffect(() => {
     if (!editor || !activeId) return;
     const seccion = secciones.find((s) => s.id === activeId);
