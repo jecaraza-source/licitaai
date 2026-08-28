@@ -118,7 +118,7 @@ Patrón por operación (flag `jobs.async_<tipo>`):
 
 | # | Incremento | Esfuerzo | Notas |
 |---|---|---|---|
-| H1 | `08-clasificacion-datos.md` completo + etiquetas por tabla/bucket | S | Documento |
+| H1 | `13-clasificacion-datos.md` completo + etiquetas por tabla/bucket | S | Documento |
 | H2 | `data_retention_policy` + jobs de limpieza (rate_limit_hits, ai_usage_log, jobs, chunks) | M | Flag `retencion.limpieza_automatica`, arranca en dry-run (loguea qué borraría) |
 | H3 | `audit_log` append-only hash-encadenado + escritura desde acciones críticas | M | |
 | H4 | Job `exportar-organizacion` (ZIP + URL firmada) | M | |

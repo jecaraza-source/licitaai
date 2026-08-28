@@ -39,6 +39,7 @@ function invokeWorker() {
 async function main() {
   const { data: org } = await admin.from("organizations").insert({ nombre: `Org ${rnd()}` }).select("id").single();
   const { data: ticket } = await admin.from("signup_tickets").insert({ organization_id: org.id }).select("id").single();
+  await admin.from("ai_org_policy").upsert({ organization_id: org.id, max_concurrent_jobs: 100 }); // B1 cupo — no interferir
   const { data: u } = await admin.auth.admin.createUser({
     email: `u-${rnd()}@example.org`, password: "TestPassword123!", email_confirm: true,
     user_metadata: { nombre: "Solicitante", signup_ticket: ticket.id },

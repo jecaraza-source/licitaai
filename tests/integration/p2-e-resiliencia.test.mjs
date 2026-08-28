@@ -38,6 +38,9 @@ async function makeOrgWithUser() {
   const asUser = createClient(URL, ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${sess.session.access_token}` } },
   });
+  // B1 (cupo por org, 20260907000000): estos tests ejercen el ciclo del
+  // worker, no el cupo — se sube para no interferir. Cupo: p2-b1-b2-concurrencia.
+  await admin.from("ai_org_policy").upsert({ organization_id: org.id, max_concurrent_jobs: 100 });
   return { orgId: org.id, userId: u.user.id, asUser };
 }
 const invokeWorker = () => fetch(`${FUNCTIONS_URL}/job-worker`, {
