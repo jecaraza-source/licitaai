@@ -134,7 +134,9 @@ function CoincidenciaEmpresaDetalle({ doc }: { doc: DocumentoCorporativo }) {
         ? `El RFC detectado en el documento (${doc.rfc_detectado}) no coincide con el de tu empresa activa.`
         : doc.razon_social_detectada
           ? `La razón social detectada ("${doc.razon_social_detectada}") no coincide con la de tu empresa activa.`
-          : "Los datos del documento no coinciden con los de tu empresa activa.");
+          : doc.nombre_persona_detectado
+            ? `El nombre detectado ("${doc.nombre_persona_detectado}") no coincide con el representante legal registrado.`
+            : "Los datos del documento no coinciden con los de tu empresa activa.");
     return (
       <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
         <TriangleAlert className="size-3.5 shrink-0 translate-y-0.5" />
@@ -143,10 +145,15 @@ function CoincidenciaEmpresaDetalle({ doc }: { doc: DocumentoCorporativo }) {
     );
   }
 
-  if (doc.coincide_empresa === true && (doc.rfc_detectado || doc.razon_social_detectada)) {
+  if (
+    doc.coincide_empresa === true &&
+    (doc.rfc_detectado || doc.razon_social_detectada || doc.nombre_persona_detectado)
+  ) {
     const que = doc.rfc_detectado
       ? `el RFC del documento (${doc.rfc_detectado})`
-      : `la razón social del documento ("${doc.razon_social_detectada}")`;
+      : doc.razon_social_detectada
+        ? `la razón social del documento ("${doc.razon_social_detectada}")`
+        : `el nombre detectado ("${doc.nombre_persona_detectado}")`;
     return (
       <div className="flex items-start gap-2 rounded-md bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400">
         <BadgeCheck className="size-3.5 shrink-0 translate-y-0.5" />

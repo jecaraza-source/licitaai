@@ -215,6 +215,41 @@ function normalizarTexto(texto: string): string {
     .replace(/[^A-Z0-9]/g, "");
 }
 
+// Documentos de una PERSONA física (el representante), no de la empresa —
+// comparar su RFC/razón social contra los de la empresa (persona moral)
+// siempre da un falso "no coincide", porque nunca corresponden por diseño
+// (RFC de 13 posiciones vs 12, nombre de persona vs razón social). Para
+// estos, la referencia correcta es representante_legal_nombre.
+const TIPOS_PERSONA = ["Identificación oficial", "Poder del representante legal", "Escrito de personalidad"];
+
+// Documentos donde el RFC/razón social más visible en el papel casi siempre
+// es de UN TERCERO, no de la empresa, y no hay un campo alterno confiable
+// contra el cual comparar — un recibo de luz/agua/teléfono imprime en
+// grande el RFC de la comisión/compañía proveedora (CFE, Telmex, etc.), no
+// necesariamente el del domiciliado. Mejor no verificar que dar un falso
+// "no coincide" en casi todos los casos.
+const TIPOS_SIN_VERIFICACION_EMPRESA = ["Comprobante de domicilio"];
+
+/** Igual a normalizarNombre/nombresCoinciden en documentos-corporativos-card.tsx
+ * — mismo criterio en frontend y backend para no dar veredictos distintos. */
+function normalizarNombrePersona(nombre: string): string {
+  return nombre
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[^A-Z\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function nombresPersonaCoinciden(a: string, b: string): boolean {
+  const tokensA = normalizarNombrePersona(a).split(" ").filter(Boolean);
+  const tokensB = normalizarNombrePersona(b).split(" ").filter(Boolean);
+  if (tokensA.length < 2 || tokensB.length < 2) return false;
+  const [menor, mayor] = tokensA.length <= tokensB.length ? [tokensA, tokensB] : [tokensB, tokensA];
+  const mayorSet = new Set(mayor);
+  return menor.every((token) => mayorSet.has(token));
+}
+
 /**
  * coincide: true = coincide, false = no coincide, null = el documento no
  *   traía RFC ni razón social para comparar (p. ej. un comprobante de domicilio).
@@ -254,6 +289,29 @@ function coincideEmpresa(
   return { coincide: null, motivo: null };
 }
 
+/** Para documentos de una persona (identificación, poder, escrito de
+ * personalidad): compara el nombre detectado contra el representante legal
+ * registrado, no contra el RFC/razón social de la empresa. Si la empresa
+ * aún no tiene representante_legal_nombre capturado, no hay con qué
+ * comparar — se omite el chequeo en vez de forzar un falso "no coincide". */
+function coincidePersona(
+  empresa: { representante_legal_nombre: string | null } | null,
+  nombrePersonaDetectado: string | null,
+): { coincide: boolean | null; motivo: string | null } {
+  if (!empresa?.representante_legal_nombre || !nombrePersonaDetectado) {
+    return { coincide: null, motivo: null };
+  }
+  const ok = nombresPersonaCoinciden(nombrePersonaDetectado, empresa.representante_legal_nombre);
+  return {
+    coincide: ok,
+    motivo: ok
+      ? null
+      : `El nombre detectado en el documento ("${nombrePersonaDetectado}") no coincide con el representante ` +
+        `legal registrado en la empresa ("${empresa.representante_legal_nombre}"). Verifica que sea la persona ` +
+        `correcta, o actualiza el representante legal en Configuración si cambió.`,
+  };
+}
+
 function calcularVigenciaHasta(tipo: string, fechaEmision: string | null): string | null {
   const regla = REGLAS_VIGENCIA[tipo];
   if (!regla || !fechaEmision) return null;
@@ -290,7 +348,7 @@ Deno.serve(async (req) => {
 
     const { data: empresa } = await supabase
       .from("empresa_perfil")
-      .select("rfc, razon_social, organization_id")
+      .select("rfc, razon_social, organization_id, representante_legal_nombre")
       .eq("id", documento.empresa_perfil_id)
       .maybeSingle();
 
@@ -382,11 +440,17 @@ Deno.serve(async (req) => {
 
     const vigenciaHasta =
       datos.fecha_vigencia_indicada ?? calcularVigenciaHasta(documento.tipo, datos.fecha_emision);
-    const { coincide, motivo: motivoNoCoincide } = coincideEmpresa(
-      empresa,
-      datos.rfc_detectado,
-      datos.razon_social_detectada,
-    );
+    // Los documentos de una persona (identificación, poder, escrito de
+    // personalidad) se verifican contra el representante legal registrado,
+    // no contra el RFC/razón social de la empresa — comparar contra la
+    // empresa ahí siempre daría un falso "no coincide" (ver coincidePersona).
+    // Los de TIPOS_SIN_VERIFICACION_EMPRESA no se verifican en absoluto: el
+    // RFC/razón social que traen no es confiablemente el de la empresa.
+    const { coincide, motivo: motivoNoCoincide } = TIPOS_PERSONA.includes(documento.tipo)
+      ? coincidePersona(empresa, datos.nombre_persona_detectado)
+      : TIPOS_SIN_VERIFICACION_EMPRESA.includes(documento.tipo)
+        ? { coincide: null, motivo: null }
+        : coincideEmpresa(empresa, datos.rfc_detectado, datos.razon_social_detectada);
 
     // Solo se guardan las claves extra propias del tipo de documento, y solo
     // las que la IA sí pudo detectar (no se pisan datos con null).
