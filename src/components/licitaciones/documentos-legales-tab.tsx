@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { CircleCheck, Download, TriangleAlert } from "lucide-react";
+import { CircleCheck, Download, RefreshCw, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { descargarBlob } from "@/lib/descargar-archivo";
 import type { TipoDocumentoLegal } from "@/lib/documentos-legales";
+import { cn } from "@/lib/utils";
 
 interface DocumentoLegalEstado {
   tipo: TipoDocumentoLegal;
@@ -26,18 +27,21 @@ export function DocumentosLegalesTab({ licitacionId }: { licitacionId: string })
   const [convocanteNombre, setConvocanteNombre] = useState("");
   const [convocanteCargo, setConvocanteCargo] = useState("");
   const [guardandoConvocante, setGuardandoConvocante] = useState(false);
+  const [regenerando, setRegenerando] = useState(false);
 
-  function cargar() {
-    fetch(`/api/licitaciones/${licitacionId}/documentos-legales`)
+  const cargar = useCallback(() => {
+    return fetch(`/api/licitaciones/${licitacionId}/documentos-legales`)
       .then((res) => res.json())
       .then((json) => {
         setDocumentos(json.data?.documentos ?? []);
         setConvocanteNombre(json.data?.convocanteRepresentanteNombre ?? "");
         setConvocanteCargo(json.data?.convocanteRepresentanteCargo ?? "");
       });
-  }
+  }, [licitacionId]);
 
-  useEffect(cargar, [licitacionId]);
+  useEffect(() => {
+    void cargar();
+  }, [cargar]);
 
   async function handleGuardarConvocante() {
     setGuardandoConvocante(true);
@@ -77,16 +81,49 @@ export function DocumentosLegalesTab({ licitacionId }: { licitacionId: string })
     setDescargando(null);
   }
 
+  // Cada documento ya se genera al vuelo con los datos actuales al
+  // descargarlo (nunca queda uno "cacheado" desactualizado); este botón
+  // simplemente evita tener que descargarlos uno por uno: primero refresca
+  // qué documentos ya tienen datos completos (por si se acaba de guardar
+  // algo en Configuración o de subir un documento fuente) y luego
+  // descarga en un solo .zip todos los que ya estén listos.
+  async function handleGenerarTodos() {
+    setRegenerando(true);
+    await cargar();
+    await descargarBlob(
+      `/api/licitaciones/${licitacionId}/documentos-legales/exportar-todos`,
+      "documentos-legales.zip",
+    );
+    setRegenerando(false);
+  }
+
   if (documentos === null) {
     return <Skeleton className="h-96 w-full" />;
   }
 
+  const listosCount = documentos.filter((d) => d.listo).length;
+
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">
-        Documentos legales generados a partir de los datos de la empresa en Configuración y de esta
-        licitación. Revisa cada documento antes de firmarlo.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          Documentos legales generados a partir de los datos de la empresa en Configuración y de
+          esta licitación. Revisa cada documento antes de firmarlo.
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={regenerando || listosCount === 0}
+          onClick={handleGenerarTodos}
+          className="shrink-0"
+        >
+          <RefreshCw className={cn("size-3.5", regenerando && "animate-spin")} />
+          {regenerando
+            ? "Generando…"
+            : `Generar documentos listos (${listosCount}/${documentos.length})`}
+        </Button>
+      </div>
 
       <Card>
         <CardHeader className="pb-2">
