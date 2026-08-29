@@ -54,16 +54,23 @@ export default function LoginPage() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle as="h1" className="flex items-center gap-2">
-          <LogIn className="size-4.5 text-primary" />
-          Iniciar sesión
-        </CardTitle>
-        <CardDescription>Accede a tu cuenta de LicitaAI</CardDescription>
+    <Card className="border-border/70 bg-card/95 shadow-xl shadow-primary/5">
+      <CardHeader className="gap-3 pb-6">
+        <div className="flex size-11 items-center justify-center rounded-xl bg-secondary text-primary">
+          <LogIn className="size-5" aria-hidden="true" />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <CardTitle as="h1" className="text-2xl tracking-tight">
+            Bienvenido de nuevo
+          </CardTitle>
+          <CardDescription>Accede a tu cuenta de LicitaAI</CardDescription>
+        </div>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Gestiona tus oportunidades de contratación con la información siempre a mano.
+          </p>
           <div className="flex flex-col gap-2">
             <Label htmlFor="email">Correo electrónico</Label>
             <Input
