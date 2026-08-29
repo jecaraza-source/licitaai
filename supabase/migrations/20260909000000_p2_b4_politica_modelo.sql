@@ -4,12 +4,12 @@
 -- Antes: las columnas existían en `ai_org_policy` pero nada las leía;
 -- todos los handlers usaban `claude-sonnet-5` fijo.
 --
--- Decisión de negocio (2026-08-28):
---   BASE       → solo Haiku · politica `economico_por_defecto`
---   PRO        → Haiku + Sonnet · `economico_por_defecto`
---   ENTERPRISE → Haiku + Sonnet + Opus · `avanzado_si_confianza_baja`
---   (PRO/ENTERPRISE son propuesta de ingeniería — ajustables por el
---    negocio sin migración, editando `ai_org_policy` de cada org.)
+-- Decisión de negocio (2026-08-28, aprobada por el usuario):
+--   BASE       → Sonnet + Haiku + embeddings · politica `economico_por_defecto`
+--                (económico = Sonnet; bajar a Haiku por defecto se evaluó y
+--                 se rechazó por riesgo de calidad en extracción legal/técnica)
+--   PRO        → + Opus · `avanzado_si_confianza_baja` (Sonnet→Opus si confianza baja)
+--   ENTERPRISE → + Opus · `siempre_avanzado` (siempre Opus)
 --
 -- `resolver_modelo_ia(org, modelo_deseado, confianza_baja)` es la única
 -- vía para elegir modelo: aplica la política y luego recorta a la
@@ -46,13 +46,14 @@ begin
   into v_cuota, v_diario, v_concurrencia;
 
   v_modelos := case p_plan
-    when 'BASE' then array['claude-haiku-4-5', 'text-embedding-3-small', 'text-embedding-3-small-mock']
-    when 'PRO'  then array['claude-haiku-4-5', 'claude-sonnet-5', 'text-embedding-3-small', 'text-embedding-3-small-mock']
-    else array['claude-haiku-4-5', 'claude-sonnet-5', 'claude-opus-5', 'text-embedding-3-small', 'text-embedding-3-small-mock']
+    when 'BASE' then array['claude-sonnet-5', 'claude-haiku-4-5', 'text-embedding-3-small', 'text-embedding-3-small-mock']
+    when 'PRO'  then array['claude-sonnet-5', 'claude-haiku-4-5', 'claude-opus-5', 'text-embedding-3-small', 'text-embedding-3-small-mock']
+    else array['claude-sonnet-5', 'claude-haiku-4-5', 'claude-opus-5', 'text-embedding-3-small', 'text-embedding-3-small-mock']
   end;
   v_politica := case p_plan
-    when 'ENTERPRISE' then 'avanzado_si_confianza_baja'
-    else 'economico_por_defecto'
+    when 'BASE'       then 'economico_por_defecto'
+    when 'PRO'        then 'avanzado_si_confianza_baja'
+    else                  'siempre_avanzado'
   end;
 
   update public.organizations set plan = p_plan where id = p_org;
@@ -113,7 +114,9 @@ begin
   if v_politica = 'siempre_avanzado' then
     v_objetivo := 'claude-opus-5';
   elsif v_politica = 'economico_por_defecto' then
-    v_objetivo := case when p_confianza_baja then 'claude-sonnet-5' else 'claude-haiku-4-5' end;
+    -- "Económico" YA es Sonnet: es el piso de calidad para extracción
+    -- legal/técnica. No se baja a Haiku por defecto ni se escala desde él.
+    v_objetivo := 'claude-sonnet-5';
   else -- avanzado_si_confianza_baja
     v_idx := array_position(v_tiers, p_modelo_deseado);
     if v_idx is null then v_idx := 2; end if; -- desconocido -> sonnet
@@ -147,8 +150,9 @@ comment on function public.resolver_modelo_ia(uuid, text, boolean) is
   'P2·B4 — dado el modelo que un handler querría usar, devuelve el modelo REAL a usar tras aplicar politica_modelo y modelos_permitidos de la organización.';
 
 -- Flag: mientras esté OFF, los handlers siguen usando su modelo fijo
--- (claude-sonnet-5). Al activarlo, aplican `resolver_modelo_ia` — lo que,
--- con la política `economico_por_defecto`, baja el análisis a Haiku.
+-- (claude-sonnet-5). Al activarlo, aplican `resolver_modelo_ia` — que con
+-- `economico_por_defecto` mantiene Sonnet, y sube a Opus en PRO/ENTERPRISE
+-- según su política.
 insert into public.feature_flags (key, descripcion) values
   ('ai.politica_modelo', 'P2.2 C4 — los handlers de IA aplican politica_modelo + modelos_permitidos por organización')
 on conflict (key) do nothing;

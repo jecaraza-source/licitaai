@@ -1,6 +1,11 @@
 // P2 punch-list B4 — resolver_modelo_ia aplica politica_modelo +
 // modelos_permitidos por organización.
 //
+// Decisión de negocio (2026-08-28, aprobada por el usuario):
+//   BASE       → Sonnet + Haiku + embeddings · economico_por_defecto (económico = Sonnet)
+//   PRO        → + Opus · avanzado_si_confianza_baja (Sonnet→Opus si confianza baja)
+//   ENTERPRISE → + Opus · siempre_avanzado (siempre Opus)
+//
 // Usage:
 //   npx supabase start
 //   node tests/integration/p2-b4-politica-modelo.test.mjs
@@ -28,49 +33,55 @@ const resolver = (org, deseado, baja = false) =>
     .then(({ data, error }) => { if (error) throw new Error(error.message); return data; });
 
 async function main() {
-  // ── BASE: solo Haiku, economico_por_defecto ──────────────────────────
+  // ── BASE: Sonnet + Haiku, economico_por_defecto (económico = Sonnet) ──
   {
     const org = await nuevaOrg();
     await admin.rpc("aplicar_plan_a_org", { p_org: org, p_plan: "BASE" });
 
-    check("BASE 1. un análisis (pide sonnet) -> haiku (economico)", (await resolver(org, "claude-sonnet-5")) === "claude-haiku-4-5");
-    check("BASE 2. con confianza baja pediría sonnet, pero no está permitido -> haiku", (await resolver(org, "claude-sonnet-5", true)) === "claude-haiku-4-5");
-    check("BASE 3. embeddings pasan tal cual", (await resolver(org, "text-embedding-3-small")) === "text-embedding-3-small");
+    check("BASE 1. un análisis (pide sonnet) -> sonnet (económico ya es sonnet)", (await resolver(org, "claude-sonnet-5")) === "claude-sonnet-5");
+    check("BASE 2. confianza baja no cambia nada -> sonnet", (await resolver(org, "claude-sonnet-5", true)) === "claude-sonnet-5");
+    check("BASE 3. auditoría (pide haiku) -> sonnet (económico es el piso)", (await resolver(org, "claude-haiku-4-5")) === "claude-sonnet-5");
+    check("BASE 4. embeddings pasan tal cual", (await resolver(org, "text-embedding-3-small")) === "text-embedding-3-small");
 
     const { data: pol } = await admin.from("ai_org_policy").select("modelos_permitidos, politica_modelo").eq("organization_id", org).single();
-    check("BASE 4. la política quedó sembrada", pol.politica_modelo === "economico_por_defecto" && pol.modelos_permitidos.includes("claude-haiku-4-5") && !pol.modelos_permitidos.includes("claude-sonnet-5"));
+    check("BASE 5. la política quedó sembrada", pol.politica_modelo === "economico_por_defecto" && pol.modelos_permitidos.includes("claude-sonnet-5") && pol.modelos_permitidos.includes("claude-haiku-4-5") && !pol.modelos_permitidos.includes("claude-opus-5"));
     await admin.from("organizations").delete().eq("id", org);
   }
 
-  // ── PRO: Haiku + Sonnet, economico ──────────────────────────────────
+  // ── PRO: + Opus, avanzado_si_confianza_baja ─────────────────────────
   {
     const org = await nuevaOrg();
     await admin.rpc("aplicar_plan_a_org", { p_org: org, p_plan: "PRO" });
-    check("PRO 1. análisis normal -> haiku (economico)", (await resolver(org, "claude-sonnet-5")) === "claude-haiku-4-5");
-    check("PRO 2. análisis con confianza baja -> sonnet (escala, y está permitido)", (await resolver(org, "claude-sonnet-5", true)) === "claude-sonnet-5");
-    check("PRO 3. opus no está permitido -> se recorta a sonnet", (await resolver(org, "claude-opus-5", true)) === "claude-sonnet-5");
+    check("PRO 1. análisis normal (pide sonnet) -> sonnet", (await resolver(org, "claude-sonnet-5")) === "claude-sonnet-5");
+    check("PRO 2. análisis con confianza baja -> opus (escala un tier, permitido)", (await resolver(org, "claude-sonnet-5", true)) === "claude-opus-5");
+    check("PRO 3. auditoría normal (pide haiku) -> haiku", (await resolver(org, "claude-haiku-4-5")) === "claude-haiku-4-5");
+
+    const { data: pol } = await admin.from("ai_org_policy").select("politica_modelo").eq("organization_id", org).single();
+    check("PRO 4. política = avanzado_si_confianza_baja", pol.politica_modelo === "avanzado_si_confianza_baja");
     await admin.from("organizations").delete().eq("id", org);
   }
 
-  // ── ENTERPRISE: todo, avanzado_si_confianza_baja ────────────────────
+  // ── ENTERPRISE: + Opus, siempre_avanzado ───────────────────────────
   {
     const org = await nuevaOrg();
     await admin.rpc("aplicar_plan_a_org", { p_org: org, p_plan: "ENTERPRISE" });
-    check("ENT 1. análisis normal -> sonnet (el deseado, política avanzada mantiene)", (await resolver(org, "claude-sonnet-5")) === "claude-sonnet-5");
-    check("ENT 2. análisis con confianza baja -> opus (escala un tier)", (await resolver(org, "claude-sonnet-5", true)) === "claude-opus-5");
-    check("ENT 3. auditoría (pide haiku) normal -> haiku", (await resolver(org, "claude-haiku-4-5")) === "claude-haiku-4-5");
+    check("ENT 1. análisis normal -> opus (siempre avanzado)", (await resolver(org, "claude-sonnet-5")) === "claude-opus-5");
+    check("ENT 2. auditoría (pide haiku) -> opus (siempre avanzado)", (await resolver(org, "claude-haiku-4-5")) === "claude-opus-5");
+
+    const { data: pol } = await admin.from("ai_org_policy").select("politica_modelo").eq("organization_id", org).single();
+    check("ENT 3. política = siempre_avanzado", pol.politica_modelo === "siempre_avanzado");
     await admin.from("organizations").delete().eq("id", org);
   }
 
-  // ── org sin fila de política -> defaults (todo, economico) ──────────
+  // ── org sin fila de política -> defaults (todo permitido, economico) ─
   {
     const org = await nuevaOrg();
-    check("SIN-POL 1. sin política, análisis -> haiku (default economico)", (await resolver(org, "claude-sonnet-5")) === "claude-haiku-4-5");
-    check("SIN-POL 2. sin política, confianza baja -> sonnet", (await resolver(org, "claude-sonnet-5", true)) === "claude-sonnet-5");
+    check("SIN-POL 1. sin política, análisis -> sonnet (default economico)", (await resolver(org, "claude-sonnet-5")) === "claude-sonnet-5");
+    check("SIN-POL 2. sin política, pide haiku -> sonnet (piso economico)", (await resolver(org, "claude-haiku-4-5")) === "claude-sonnet-5");
     await admin.from("organizations").delete().eq("id", org);
   }
 
-  // ── siempre_avanzado ────────────────────────────────────────────────
+  // ── siempre_avanzado (upsert directo) ──────────────────────────────
   {
     const org = await nuevaOrg();
     await admin.from("ai_org_policy").upsert({ organization_id: org, politica_modelo: "siempre_avanzado" });
