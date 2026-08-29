@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 import { ShieldAlert, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,72 +18,13 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { CATEGORIA_LABELS, ESTADO_DOT, ESTADO_LABELS } from "@/lib/checklist-labels";
+import {
+  actualizarChecklistItem,
+  useAuditoriaTab,
+  type ChecklistItemAuditoria,
+  type UsuarioOrg,
+} from "@/hooks/use-auditoria-tab";
 import type { EstadoChecklistItem } from "@/types";
-
-interface Documento {
-  id: string;
-  nombre: string;
-  auditoria_json: {
-    valido: boolean;
-    observaciones: string[];
-    nivel_riesgo: "VERDE" | "AMARILLO" | "ROJO";
-  } | null;
-}
-
-interface ChecklistItem {
-  id: string;
-  categoria: string;
-  descripcion: string;
-  fundamento_legal: string | null;
-  vigencia_requerida: string | null;
-  requerido: boolean;
-  estado: EstadoChecklistItem;
-  critico: boolean;
-  fuente: string | null;
-  fecha_limite: string | null;
-  observaciones: string | null;
-  documento_id: string | null;
-  aclaracion_id: string | null;
-  tipo_formato: string | null;
-  documentos: Documento | null;
-  responsable: { id: string; nombre: string } | null;
-}
-
-interface UsuarioOrg {
-  id: string;
-  nombre: string;
-}
-
-interface Inconsistencia {
-  campo: string;
-  detalle: string;
-}
-
-interface PendienteCritico {
-  descripcion: string;
-  dias_estimados: number | null;
-}
-
-interface Reporte {
-  resumen: string;
-  pendientes_criticos: PendienteCritico[];
-  advertencias: string[];
-  inconsistencias?: Inconsistencia[];
-}
-
-interface GateInfo {
-  rojos: number;
-  amarillosCriticos: number;
-  bloqueado: boolean;
-}
-
-interface AuditoriaData {
-  score: number;
-  porCategoria: Record<string, { total: number; completos: number; pct: number }>;
-  checklist: ChecklistItem[];
-  ultimoReporte: Reporte | null;
-  gate: GateInfo;
-}
 
 const TIPO_FORMATO_LABELS: Record<string, string> = {
   A: "A — Obligatorio sin modificar",
@@ -104,18 +44,14 @@ function ChecklistRow({
   onUpdated,
   usuarios,
 }: {
-  item: ChecklistItem;
+  item: ChecklistItemAuditoria;
   usuarios: UsuarioOrg[];
   onUpdated: () => void;
 }) {
   const [expandido, setExpandido] = useState(false);
 
   async function actualizar(campo: string, valor: unknown) {
-    await fetch(`/api/checklist-items/${item.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [campo]: valor }),
-    });
+    await actualizarChecklistItem(item.id, campo, valor);
     onUpdated();
   }
 
@@ -280,43 +216,14 @@ function ChecklistRow({
 }
 
 export function AuditoriaTab({ licitacionId }: { licitacionId: string }) {
-  const [data, setData] = useState<AuditoriaData | null>(null);
-  const [usuarios, setUsuarios] = useState<UsuarioOrg[]>([]);
-  const [auditando, setAuditando] = useState(false);
-
-  const cargar = useCallback(() => {
-    fetch(`/api/licitaciones/${licitacionId}/auditoria`)
-      .then((res) => res.json())
-      .then((json) => setData(json.data));
-  }, [licitacionId]);
-
-  useEffect(() => {
-    cargar();
-    fetch("/api/organizacion/usuarios")
-      .then((res) => res.json())
-      .then((json) => setUsuarios(json.data ?? []));
-  }, [cargar]);
-
-  async function handleAuditarTodos() {
-    setAuditando(true);
-    const res = await fetch(`/api/licitaciones/${licitacionId}/auditoria/auditar-todos`, {
-      method: "POST",
-    });
-    setAuditando(false);
-    if (!res.ok) {
-      toast.error("No se pudo completar la auditoría");
-      return;
-    }
-    toast.success("Auditoría del expediente actualizada");
-    cargar();
-  }
+  const { data, usuarios, auditando, cargar, handleAuditarTodos } = useAuditoriaTab(licitacionId);
 
   if (!data) {
     return <Skeleton className="h-96 w-full" />;
   }
 
   const grupos = Object.entries(
-    data.checklist.reduce<Record<string, ChecklistItem[]>>((acc, item) => {
+    data.checklist.reduce<Record<string, ChecklistItemAuditoria[]>>((acc, item) => {
       (acc[item.categoria] ??= []).push(item);
       return acc;
     }, {}),

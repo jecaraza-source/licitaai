@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { Sparkles, Info } from "lucide-react";
-import { descargarWorkbook } from "@/lib/exportar-excel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,10 +19,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
-import type { EstudioMercado, NivelConfianza, Partida } from "@/types";
-
-type PartidaConEstudio = Partida & { estudio_mercado: EstudioMercado | null };
+import { usePartidasTab } from "@/hooks/use-partidas-tab";
+import type { NivelConfianza } from "@/types";
 
 const SEMAFORO: Record<NivelConfianza, string> = {
   ALTO: "bg-emerald-500",
@@ -39,79 +34,16 @@ function formatMonto(monto: number | null) {
 }
 
 export function PartidasTab({ licitacionId }: { licitacionId: string }) {
-  const [partidas, setPartidas] = useState<PartidaConEstudio[] | null>(null);
-  const [generandoTodas, setGenerandoTodas] = useState(false);
-  const [generandoId, setGenerandoId] = useState<string | null>(null);
-  const [detalle, setDetalle] = useState<PartidaConEstudio | null>(null);
-  const [solicitudNombre, setSolicitudNombre] = useState<string | null>(null);
-
-  function cargar() {
-    fetch(`/api/licitaciones/${licitacionId}/partidas`)
-      .then((res) => res.json())
-      .then((json) => setPartidas(json.data ?? []))
-      .catch(() => setPartidas([]));
-  }
-
-  useEffect(() => {
-    cargar();
-    createClient()
-      .from("documentos")
-      .select("nombre")
-      .eq("licitacion_id", licitacionId)
-      .eq("tipo_documento", "SOLICITUD_ESTUDIO_MERCADO")
-      .maybeSingle()
-      .then(({ data }) => setSolicitudNombre(data?.nombre ?? null));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [licitacionId]);
-
-  async function generarEstudio(partidaId?: string) {
-    if (partidaId) setGenerandoId(partidaId);
-    else setGenerandoTodas(true);
-
-    const res = await fetch(`/api/licitaciones/${licitacionId}/estudio-mercado`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(partidaId ? { partida_id: partidaId } : {}),
-    });
-    const json = await res.json();
-
-    setGenerandoId(null);
-    setGenerandoTodas(false);
-
-    if (!res.ok) {
-      toast.error("No se pudo generar el estudio de mercado", { description: json.error?.message ?? json.error });
-      return;
-    }
-
-    toast.success("Estudio de mercado generado");
-    cargar();
-  }
-
-  async function exportarExcel() {
-    if (!partidas) return;
-    const ExcelJS = (await import("exceljs")).default;
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet("Partidas");
-    sheet.columns = [
-      { header: "Número", key: "numero" },
-      { header: "Descripción", key: "descripcion" },
-      { header: "Unidad", key: "unidad" },
-      { header: "Cantidad", key: "cantidad" },
-      { header: "P.U. Referencia", key: "puReferencia" },
-      { header: "Confianza", key: "confianza" },
-    ];
-    for (const p of partidas) {
-      sheet.addRow({
-        numero: p.numero,
-        descripcion: p.descripcion,
-        unidad: p.unidad ?? "",
-        cantidad: p.cantidad ?? "",
-        puReferencia: p.estudio_mercado?.precio_recomendado ?? p.precio_unitario_referencia ?? "",
-        confianza: p.estudio_mercado?.nivel_confianza ?? "",
-      });
-    }
-    await descargarWorkbook(workbook, "partidas.xlsx");
-  }
+  const {
+    partidas,
+    generandoTodas,
+    generandoId,
+    detalle,
+    setDetalle,
+    solicitudNombre,
+    generarEstudio,
+    exportarExcel,
+  } = usePartidasTab(licitacionId);
 
   if (partidas === null) {
     return <Skeleton className="h-64 w-full" />;
