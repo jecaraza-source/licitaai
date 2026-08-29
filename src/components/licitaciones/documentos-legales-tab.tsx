@@ -128,14 +128,24 @@ export function DocumentosLegalesTab({ licitacionId }: { licitacionId: string })
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">
-            Datos de la convocante (para el Anexo &quot;H&quot; - Compromisos con la Transparencia)
+            Datos de la convocante (solo para el Anexo &quot;H&quot; - Compromisos con la
+            Transparencia)
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
+          <p className="text-xs text-muted-foreground">
+            Esta sección es de la <strong>dependencia o entidad que licita</strong> (cambia en cada
+            licitación), no de tu empresa. El representante legal de tu empresa se captura una sola
+            vez en{" "}
+            <Link href="/configuracion" className="underline">
+              Configuración
+            </Link>
+            .
+          </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="convocante_representante_nombre">
-                Nombre de quien firma por la convocante
+                Nombre de quien firma por la convocante (dependencia/entidad)
               </Label>
               <Input
                 id="convocante_representante_nombre"
@@ -144,7 +154,7 @@ export function DocumentosLegalesTab({ licitacionId }: { licitacionId: string })
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="convocante_representante_cargo">Cargo</Label>
+              <Label htmlFor="convocante_representante_cargo">Cargo (en la convocante)</Label>
               <Input
                 id="convocante_representante_cargo"
                 placeholder="Apoderado(a) Legal"
