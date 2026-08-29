@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
@@ -59,6 +59,17 @@ export function useRealtimeLista<
   const [cargando, setCargando] = useState(!inicial);
   const [error, setError] = useState<string | null>(null);
 
+  // Sufijo estable por instancia — distintas pestañas (documentos, análisis
+  // IA, junta…) llaman a este hook con el mismo `tabla`+`filtro`. Sin esto,
+  // el nombre de canal `${tabla}:${filtro}` colisiona entre ellas: si la
+  // pestaña anterior aún no ha limpiado su canal (el desmontaje de
+  // TabsPanel es asíncrono) cuando la nueva pestaña llama a `.channel(...)`,
+  // Realtime devuelve el MISMO objeto de canal ya suscrito, y añadirle un
+  // nuevo `.on("postgres_changes", ...)` lanza "cannot add postgres_changes
+  // callbacks ... after subscribe()" — una excepción no capturada que
+  // tumba toda la página.
+  const idInstancia = useId();
+
   // Callbacks en refs: cambian de identidad en cada render pero no deben
   // re-suscribir el canal ni re-ejecutar la carga.
   const mapearRef = useRef(mapear);
@@ -106,7 +117,7 @@ export function useRealtimeLista<
 
     const supabase = createClient();
     const canal = supabase
-      .channel(`${tabla}:${filtro}`)
+      .channel(`${tabla}:${filtro}:${idInstancia}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: tabla, filter: filtro },
@@ -140,7 +151,7 @@ export function useRealtimeLista<
       void supabase.removeChannel(canal);
     };
     // `recargar` ya depende de tabla/select/filtro/orden.
-  }, [tabla, filtro, activo, inicial, recargar, proyecta]);
+  }, [tabla, filtro, activo, inicial, recargar, proyecta, idInstancia]);
 
   return { items, setItems, recargar, cargando, error };
 }
