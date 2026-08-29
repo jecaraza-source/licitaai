@@ -41,13 +41,6 @@ const VIGENCIAS: Record<string, string> = {
   "Opinión de cumplimiento fiscal (32-D)": "30 días naturales",
   "Cumplimiento IMSS": "15 días hábiles",
   "Cumplimiento INFONAVIT": "30 días naturales",
-  "Declaración de integridad": "se firma por cada procedimiento",
-  "Manifestación de no impedido": "se firma por cada procedimiento",
-  "Información de socios/accionistas": "actualizar si hay cambios societarios",
-  "Escrito de personalidad": "vigente mientras no se revoque el poder",
-  "Declaración de nacionalidad": "se firma por cada procedimiento",
-  "Estratificación MIPYME": "vigente para el ejercicio fiscal en curso",
-  "Documentación RUPC": "registro único; mantener datos actualizados",
 };
 
 // Debe reflejar los mismos tipos que REGLAS_VIGENCIA en el edge function
@@ -70,11 +63,7 @@ const TIPOS_CON_DATOS_LEGALES_EXTRAIBLES = new Set([
   "Acta constitutiva",
   "Reformas",
   "Poder del representante legal",
-  "Escrito de personalidad",
   "Comprobante de domicilio",
-  "Declaración de nacionalidad",
-  "Estratificación MIPYME",
-  "Información de socios/accionistas",
 ]);
 
 type EstadoVigencia = "vigente" | "por_vencer" | "vencido";
@@ -158,7 +147,7 @@ function CoincidenciaEmpresaDetalle({ doc }: { doc: DocumentoCorporativo }) {
   return null;
 }
 
-const TIPOS_REPRESENTANTE = ["Poder del representante legal", "Escrito de personalidad"];
+const TIPOS_REPRESENTANTE = ["Poder del representante legal"];
 
 function normalizarNombre(nombre: string): string {
   return nombre
