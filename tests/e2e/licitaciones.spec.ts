@@ -35,6 +35,6 @@ test.describe("Licitaciones — CRUD", () => {
   test("filtra el listado por texto", async ({ page }) => {
     await page.goto("/licitaciones");
     await page.getByPlaceholder(/Buscar por expediente/).fill("xxxx-no-existe-xxxx");
-    await expect(page.getByText("No se encontraron licitaciones.")).toBeVisible();
+    await expect(page.getByText("No se encontraron licitaciones")).toBeVisible();
   });
 });

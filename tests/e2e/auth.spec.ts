@@ -23,8 +23,8 @@ test.describe("Autenticación", () => {
   test("login con credenciales inválidas muestra error", async ({ page }) => {
     await page.goto("/login");
     await page.getByLabel("Correo electrónico").fill("no-existe@example.com");
-    await page.getByLabel("Contraseña").fill("clave-incorrecta");
-    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.getByLabel("Contraseña", { exact: true }).fill("clave-incorrecta");
+    await page.getByRole("button", { name: "Iniciar sesión" }).click();
     await expect(page.getByText("No se pudo iniciar sesión")).toBeVisible();
   });
 

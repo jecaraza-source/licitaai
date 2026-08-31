@@ -8,7 +8,7 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileSearch, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -117,15 +117,19 @@ export function LicitacionesTable() {
         header: "Expediente",
         accessorKey: "numero_expediente",
         cell: ({ row }) => (
-          <Link
-            href={`/licitaciones/${row.original.id}`}
-            className="font-medium hover:underline"
-          >
-            {row.original.numero_expediente}
-          </Link>
+          <div className="min-w-0">
+            <Link
+              href={`/licitaciones/${row.original.id}`}
+              className="font-semibold text-primary hover:underline"
+            >
+              {row.original.numero_expediente}
+            </Link>
+            <p className="mt-0.5 max-w-[240px] truncate text-xs text-muted-foreground">
+              {row.original.titulo}
+            </p>
+          </div>
         ),
       },
-      { header: "Título", accessorKey: "titulo" },
       { header: "Institución", accessorKey: "institucion" },
       {
         header: "Estado",
@@ -140,7 +144,9 @@ export function LicitacionesTable() {
       {
         header: "Monto",
         accessorKey: "monto_maximo",
-        cell: ({ row }) => formatMonto(row.original.monto_maximo),
+        cell: ({ row }) => (
+          <span className="font-medium tabular-nums">{formatMonto(row.original.monto_maximo)}</span>
+        ),
       },
       {
         header: "Fecha entrega",
@@ -169,84 +175,110 @@ export function LicitacionesTable() {
 
   const pageCount = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
+  const hasFilters =
+    search !== "" || estadoLicitacion !== ALL || tipo !== ALL || estadoId !== ALL;
+
+  function limpiarFiltros() {
+    setPage(1);
+    setSearch("");
+    setEstadoLicitacion(ALL);
+    setTipo(ALL);
+    setEstadoId(ALL);
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          placeholder="Buscar por expediente, título o institución…"
-          value={search}
-          onChange={(e) => {
-            setPage(1);
-            setSearch(e.target.value);
-          }}
-          className="max-w-xs"
-        />
-        <Select
-          value={estadoLicitacion}
-          onValueChange={(v) => {
-            setPage(1);
-            setEstadoLicitacion(v ?? ALL);
-          }}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Estado" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Todos los estados</SelectItem>
-            {ESTADOS_LICITACION.map((e) => (
-              <SelectItem key={e} value={e}>
-                {e}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={tipo}
-          onValueChange={(v) => {
-            setPage(1);
-            setTipo(v ?? ALL);
-          }}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Todos los tipos</SelectItem>
-            {TIPOS_LICITACION.map((t) => (
-              <SelectItem key={t} value={t}>
-                {TIPO_LABELS[t]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={estadoId}
-          onValueChange={(v) => {
-            setPage(1);
-            setEstadoId(v ?? ALL);
-          }}
-        >
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Jurisdicción" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Todas</SelectItem>
-            {ESTADOS_ID.map((e) => (
-              <SelectItem key={e} value={e}>
-                {e}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input
+            placeholder="Buscar por expediente, título o institución…"
+            value={search}
+            onChange={(e) => {
+              setPage(1);
+              setSearch(e.target.value);
+            }}
+            className="h-11 pl-10"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={estadoLicitacion}
+            onValueChange={(v) => {
+              setPage(1);
+              setEstadoLicitacion(v ?? ALL);
+            }}
+          >
+            <SelectTrigger className="h-10 w-full sm:w-40">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos los estados</SelectItem>
+              {ESTADOS_LICITACION.map((e) => (
+                <SelectItem key={e} value={e}>
+                  {e}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={tipo}
+            onValueChange={(v) => {
+              setPage(1);
+              setTipo(v ?? ALL);
+            }}
+          >
+            <SelectTrigger className="h-10 w-full sm:w-40">
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos los tipos</SelectItem>
+              {TIPOS_LICITACION.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {TIPO_LABELS[t]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={estadoId}
+            onValueChange={(v) => {
+              setPage(1);
+              setEstadoId(v ?? ALL);
+            }}
+          >
+            <SelectTrigger className="h-10 w-full sm:w-36">
+              <SelectValue placeholder="Jurisdicción" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todas</SelectItem>
+              {ESTADOS_ID.map((e) => (
+                <SelectItem key={e} value={e}>
+                  {e}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {hasFilters && (
+            <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={limpiarFiltros}>
+              <X className="size-4" />
+              Limpiar filtros
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      {/* Vista de tabla (md+) */}
+      <div className="hidden overflow-x-auto rounded-xl border bg-card md:block">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead
+                    key={header.id}
+                    className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  >
                     {flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -255,22 +287,36 @@ export function LicitacionesTable() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                  Cargando…
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 6 }).map((_, i) => (
+                <TableRow key={`skeleton-${i}`} className="hover:bg-transparent">
+                  {columns.map((_col, j) => (
+                    <TableCell key={j} className="py-4">
+                      <div className="h-4 w-full max-w-[120px] animate-pulse rounded bg-muted" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
             ) : table.getRowModel().rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                  No se encontraron licitaciones.
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={columns.length} className="h-48">
+                  <div className="flex flex-col items-center justify-center gap-3 text-center">
+                    <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-primary">
+                      <FileSearch className="size-6" />
+                    </span>
+                    <div>
+                      <p className="font-medium">No se encontraron licitaciones</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Ajusta los filtros o crea una nueva licitación.
+                      </p>
+                    </div>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow key={row.id} className="transition-colors hover:bg-secondary/40">
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} className="py-4">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -279,6 +325,60 @@ export function LicitacionesTable() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Vista de tarjetas (mobile) */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={`card-skeleton-${i}`} className="rounded-xl border bg-card p-4">
+              <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+              <div className="mt-3 h-4 w-full animate-pulse rounded bg-muted" />
+              <div className="mt-2 h-4 w-2/3 animate-pulse rounded bg-muted" />
+            </div>
+          ))
+        ) : rows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-card p-8 text-center">
+            <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-primary">
+              <FileSearch className="size-6" />
+            </span>
+            <div>
+              <p className="font-medium">No se encontraron licitaciones</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Ajusta los filtros o crea una nueva licitación.
+              </p>
+            </div>
+          </div>
+        ) : (
+          rows.map((row) => (
+            <Link
+              key={row.id}
+              href={`/licitaciones/${row.id}`}
+              className="rounded-xl border bg-card p-4 transition-colors hover:bg-secondary/40"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-primary">{row.numero_expediente}</p>
+                  <h3 className="mt-1 line-clamp-2 text-sm font-medium">{row.titulo}</h3>
+                </div>
+                <EstadoBadge estado={row.estado_licitacion} />
+              </div>
+              <p className="mt-2 truncate text-xs text-muted-foreground">{row.institucion}</p>
+              <div className="mt-3 flex items-center justify-between border-t pt-3">
+                <div className="text-sm">
+                  <span className="font-medium tabular-nums">{formatMonto(row.monto_maximo)}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {formatFecha(row.fecha_entrega_propuesta)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <ScoreDot score={row.checklist_score} label="Requisitos de la licitación" />
+                  <ScoreDot score={empresaScore} label="Documentos corporativos de la empresa" />
+                </div>
+              </div>
+            </Link>
+          ))
+        )}
       </div>
 
       <div className="flex items-center justify-between">

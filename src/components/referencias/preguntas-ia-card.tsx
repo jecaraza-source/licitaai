@@ -56,7 +56,12 @@ export function PreguntasIaCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Preguntas con IA</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-primary">
+            <Sparkles className="size-4" />
+          </span>
+          Preguntas con IA
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <p className="text-xs text-muted-foreground">
@@ -73,7 +78,11 @@ export function PreguntasIaCard() {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) preguntar();
           }}
         />
-        <Button onClick={preguntar} disabled={preguntando || !pregunta.trim()} className="self-start">
+        <Button
+          onClick={preguntar}
+          disabled={preguntando || !pregunta.trim()}
+          className="h-11 gap-2 self-start"
+        >
           <Sparkles className="size-4" />
           {preguntando ? "Consultando…" : "Preguntar con IA"}
         </Button>

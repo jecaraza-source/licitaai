@@ -23,9 +23,9 @@ const AMBITO_LABELS: Record<AmbitoReferenciaLegal, string> = {
 };
 
 const AMBITO_BADGE: Record<AmbitoReferenciaLegal, string> = {
-  FEDERAL: "bg-blue-500/10 text-blue-700",
-  EDOMEX: "bg-amber-500/10 text-amber-700",
-  CDMX: "bg-violet-500/10 text-violet-700",
+  FEDERAL: "bg-primary/10 text-primary",
+  EDOMEX: "bg-secondary text-secondary-foreground",
+  CDMX: "bg-accent text-accent-foreground",
   GENERAL: "bg-muted text-muted-foreground",
 };
 
@@ -68,20 +68,26 @@ export function CatalogoLeyes() {
     <Card>
       <CardHeader>
         <CardTitle>Catálogo de leyes y reglamentos</CardTitle>
+        {leyes && (
+          <p className="text-sm text-muted-foreground">
+            {leyes.length} referencia{leyes.length === 1 ? "" : "s"} disponible
+            {leyes.length === 1 ? "" : "s"}
+          </p>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-2">
           <div className="relative min-w-64 flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
               placeholder="Buscar por palabra, tema o artículo…"
-              className="pl-8"
+              className="h-11 pl-10"
             />
           </div>
           <Select value={ambito} onValueChange={(v) => v && setAmbito(v as typeof ambito)}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="h-11 w-full sm:w-44">
               <SelectValue>
                 {() => (ambito === "__todos__" ? "Todos los ámbitos" : AMBITO_LABELS[ambito])}
               </SelectValue>
@@ -107,9 +113,12 @@ export function CatalogoLeyes() {
                 Sin coincidencias. Prueba con otro término, o usa &ldquo;Preguntar con IA&rdquo; abajo.
               </p>
             )}
-            <ul className="flex flex-col divide-y">
+            <ul className="flex flex-col gap-2">
               {resultados?.map((r) => (
-                <li key={r.chunk_id} className="flex flex-col gap-1 py-3">
+                <li
+                  key={r.chunk_id}
+                  className="flex flex-col gap-1 rounded-lg border p-3 transition-colors hover:bg-secondary/40"
+                >
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-sm font-medium">{r.referencia_nombre}</span>
                     {r.articulo && (
@@ -131,7 +140,10 @@ export function CatalogoLeyes() {
               <p className="text-sm text-muted-foreground">Sin leyes en este ámbito.</p>
             ) : (
               leyesFiltradas.map((l) => (
-                <li key={l.id} className="flex flex-col gap-1.5 rounded-lg border p-3">
+                <li
+                  key={l.id}
+                  className="flex flex-col gap-1.5 rounded-lg border p-3 transition-colors hover:bg-secondary/40"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-medium">{l.nombre}</p>

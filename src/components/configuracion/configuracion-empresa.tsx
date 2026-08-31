@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Building2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmpresaPerfilForm } from "@/components/configuracion/empresa-perfil-form";
 import { DocumentosCorporativosCard } from "@/components/configuracion/documentos-corporativos-card";
@@ -12,7 +13,12 @@ export function ConfiguracionEmpresa() {
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
       <Card>
         <CardHeader>
-          <CardTitle>Perfil de empresa</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-primary">
+              <Building2 className="size-4" />
+            </span>
+            Perfil de empresa
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <EmpresaPerfilForm onEmpresaChange={setEmpresaId} />
