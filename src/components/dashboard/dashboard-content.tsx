@@ -64,22 +64,22 @@ export function DashboardContent() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {KPI_LABELS.map(({ key, label, icon: Icon }) => (
-          <Card key={key}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+          <Card key={key} size="sm">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-1">
+              <CardTitle className="text-xs font-medium text-muted-foreground">
                 {label}
               </CardTitle>
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Icon className="size-4" />
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Icon className="size-3.5" />
               </span>
             </CardHeader>
             <CardContent>
               {stats ? (
-                <p className="text-3xl font-bold">{stats[key]}</p>
+                <p className="text-xl font-bold">{stats[key]}</p>
               ) : (
-                <Skeleton className="h-9 w-16" />
+                <Skeleton className="h-7 w-12" />
               )}
             </CardContent>
           </Card>

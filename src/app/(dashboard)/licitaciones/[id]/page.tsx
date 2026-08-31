@@ -5,9 +5,10 @@ import { ArrowLeft, CalendarClock, Gavel, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TabsContent } from "@/components/ui/tabs";
 import { EstadoBadge } from "@/components/licitaciones/estado-badge";
 import { EstadoSelector } from "@/components/licitaciones/estado-selector";
+import { LicitacionTabsNav } from "@/components/licitaciones/licitacion-tabs-nav";
 import { ProcesoTimeline } from "@/components/licitaciones/proceso-timeline";
 import { ResumenAnexoTecnicoCard } from "@/components/licitaciones/resumen-anexo-tecnico-card";
 import { ActividadTimeline, type ActividadLogConUsuario } from "@/components/licitaciones/actividad-timeline";
@@ -37,22 +38,6 @@ const MODALIDAD_LABELS: Record<string, string> = {
   RESTRINGIDA: "Restringida",
   INVITACION_TRES: "Invitación a 3",
 };
-
-const TABS = [
-  { value: "resumen", label: "Resumen" },
-  { value: "documentos", label: "Documentos" },
-  { value: "analisis", label: "Análisis IA" },
-  { value: "viabilidad", label: "Viabilidad" },
-  { value: "partidas", label: "Partidas" },
-  { value: "propuesta-tecnica", label: "Propuesta Técnica" },
-  { value: "propuesta-economica", label: "Propuesta Económica" },
-  { value: "documentos-legales", label: "Documentos Legales" },
-  { value: "documentos-tecnicos", label: "Documentos Técnicos" },
-  { value: "auditoria", label: "Auditoría" },
-  { value: "liberacion", label: "Liberación" },
-  { value: "junta", label: "Junta de Aclaraciones" },
-  { value: "seguimiento", label: "Seguimiento" },
-];
 
 function formatMonto(monto: number | null) {
   if (monto === null) return "—";
@@ -188,17 +173,7 @@ export default async function LicitacionDetallePage({
         </div>
       </div>
 
-      <Tabs defaultValue="resumen">
-        <div className="-mx-1 overflow-x-auto px-1 pb-1">
-          <TabsList className="w-max flex-nowrap">
-            {TABS.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value} className="whitespace-nowrap">
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
-
+      <LicitacionTabsNav>
         <TabsContent value="resumen" className="flex flex-col gap-6">
           <Card>
             <CardHeader>
@@ -277,7 +252,7 @@ export default async function LicitacionDetallePage({
         <TabsContent value="seguimiento">
           <SeguimientoTab licitacionId={licitacion.id} organizationId={licitacion.organization_id} />
         </TabsContent>
-      </Tabs>
+      </LicitacionTabsNav>
     </div>
   );
 }

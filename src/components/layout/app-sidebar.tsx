@@ -7,6 +7,7 @@ import { FileStack, LayoutDashboard, PlusCircle, Scale, Settings } from "lucide-
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -86,7 +87,7 @@ export function AppSidebar({
                       isActive={isActive}
                       tooltip={item.label}
                       size="lg"
-                      className={item.href === "/licitaciones/nueva" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground text-base [&_svg]:size-5" : "text-base [&_svg]:size-5"}
+                      className="text-base [&_svg]:size-5"
                       render={<Link href={item.href}><item.icon /><span>{item.label}</span></Link>}
                     />
                   </SidebarMenuItem>
@@ -113,6 +114,16 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="items-center group-data-[collapsible=icon]:hidden">
+        <Image
+          src={LICITAAI_LOGO}
+          alt="LicitaAI"
+          width={220}
+          height={90}
+          unoptimized
+          className="h-42 w-auto max-w-full object-contain"
+        />
+      </SidebarFooter>
     </Sidebar>
   );
 }

@@ -9,12 +9,6 @@ export const TIPOS_DOCUMENTO_CORPORATIVO = [
   "Opinión de cumplimiento fiscal (32-D)",
   "Cumplimiento IMSS",
   "Cumplimiento INFONAVIT",
-  "Declaración de integridad",
-  "Manifestación de no impedido",
-  "Información de socios/accionistas",
-  "Escrito de personalidad",
-  "Declaración de nacionalidad",
-  "Estratificación MIPYME",
-  "Documentación RUPC",
+  "REPSE",
   "Otro",
 ];
