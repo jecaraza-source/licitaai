@@ -46,8 +46,8 @@ async function makeLicitacionConDoc(orgId: string) {
 async function login(page: Page, email: string, password: string) {
   await page.goto("/login");
   await page.getByLabel("Correo electrónico").fill(email);
-  await page.getByLabel("Contraseña").fill(password);
-  await page.getByRole("button", { name: "Entrar" }).click();
+  await page.getByLabel("Contraseña", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Iniciar sesión" }).click();
   await page.waitForURL(/\/(dashboard|seleccionar-empresa)/);
 }
 
