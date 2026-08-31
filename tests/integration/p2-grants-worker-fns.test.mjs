@@ -35,6 +35,11 @@ const DENEGADAS = [
   ["reencolar_por_espera", { p_job_id: "00000000-0000-0000-0000-000000000000", p_segundos: 1 }],
   ["expirar_jobs", {}],
   ["metricas_operacion", {}],
+  // cb_estado MUTA provider_health (OPEN->HALF_OPEN, alta de fila) y no
+  // valida sesión — solo el worker / las Edge Functions de IA la llaman vía
+  // service_role. Next.js lee provider_health directo por RLS.
+  // (migración 20260908163639 / 20260908163829).
+  ["cb_estado", { p_provider: "anthropic" }],
   ["cb_registrar_fallo", { p_provider: "anthropic" }],
   ["cb_registrar_exito", { p_provider: "anthropic" }],
   ["conciliar_presupuesto_ia", { p_organization_id: "00000000-0000-0000-0000-000000000000", p_reserva_id: null, p_tokens_input: 1, p_tokens_output: 1, p_modelo: "x" }],
@@ -45,7 +50,6 @@ const DENEGADAS = [
 ];
 
 const PERMITIDAS = [
-  ["cb_estado", { p_provider: "anthropic" }],
   ["estimar_costo_ia", { p_modelo: "claude-sonnet-5", p_tokens_input: 1, p_tokens_output: 1 }],
 ];
 

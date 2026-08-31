@@ -1,0 +1,855 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Auditoría Compras MX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #f5f6f7;
+    --surface: #ffffff;
+    --surface-2: #eceef0;
+    --ink: #1e1a1c;
+    --ink-muted: #5b5860;
+    --border: #dcdee1;
+    --accent: #8c2131;
+    --accent-2: #42797c;
+    --verde: #2f7a4d;
+    --verde-bg: #e3f2e8;
+    --amarillo: #916006;
+    --amarillo-bg: #faeed6;
+    --rojo: #b8400d;
+    --rojo-bg: #fae4da;
+    --gris: #63676e;
+    --gris-bg: #e7e8ea;
+    --shadow: 0 1px 2px rgba(30, 26, 28, 0.06), 0 6px 20px rgba(30, 26, 28, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #18151a;
+      --surface: #211d22;
+      --surface-2: #2a252c;
+      --ink: #efeae8;
+      --ink-muted: #b3aab0;
+      --border: #3a343b;
+      --accent: #d98d98;
+      --accent-2: #93b8ba;
+      --verde: #6cc78f;
+      --verde-bg: #1d2f24;
+      --amarillo: #e0b458;
+      --amarillo-bg: #332a17;
+      --rojo: #e78a68;
+      --rojo-bg: #35211b;
+      --gris: #a7abb2;
+      --gris-bg: #2c2c30;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #18151a;
+    --surface: #211d22;
+    --surface-2: #2a252c;
+    --ink: #efeae8;
+    --ink-muted: #b3aab0;
+    --border: #3a343b;
+    --accent: #d98d98;
+    --accent-2: #93b8ba;
+    --verde: #6cc78f;
+    --verde-bg: #1d2f24;
+    --amarillo: #e0b458;
+    --amarillo-bg: #332a17;
+    --rojo: #e78a68;
+    --rojo-bg: #35211b;
+    --gris: #a7abb2;
+    --gris-bg: #2c2c30;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 3.5rem 1.5rem 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2.75rem;
+  }
+
+  h1, h2, h3, .eyebrow, .badge, .stat-num {
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  }
+
+  /* ---------- Masthead ---------- */
+
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 1.75rem;
+  }
+
+  .eyebrow {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.7rem, 4vw, 2.35rem);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+
+  .dek {
+    margin: 0;
+    max-width: 62ch;
+    color: var(--ink-muted);
+    font-size: 1.05rem;
+  }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.4rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.78rem;
+    color: var(--ink-muted);
+  }
+
+  .meta-row strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Stat strip ---------- */
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+  }
+
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.95rem 1rem;
+    box-shadow: var(--shadow);
+    border-top: 3px solid var(--stat-color, var(--border));
+  }
+
+  .stat-num {
+    font-size: 1.9rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    color: var(--stat-color, var(--ink));
+  }
+
+  .stat-label {
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--ink-muted);
+  }
+
+  /* ---------- Section groups ---------- */
+
+  .phase {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .phase-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.55rem;
+  }
+
+  .phase-num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent-2);
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.25rem 0.85rem;
+    box-shadow: var(--shadow);
+  }
+
+  .row-title {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .row-step {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    color: var(--ink-muted);
+  }
+
+  .row-title h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: "Source Serif 4", serif;
+    color: var(--ink);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .badge::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .badge.verde { background: var(--verde-bg); color: var(--verde); }
+  .badge.amarillo { background: var(--amarillo-bg); color: var(--amarillo); }
+  .badge.rojo { background: var(--rojo-bg); color: var(--rojo); }
+  .badge.gris { background: var(--gris-bg); color: var(--gris); }
+
+  .row dl {
+    grid-column: 1 / -1;
+    margin: 0.15rem 0 0;
+    display: grid;
+    grid-template-columns: 6.5rem 1fr;
+    gap: 0.3rem 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  .row dt {
+    font-family: "Archivo", sans-serif;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    padding-top: 0.15rem;
+  }
+
+  .row dd {
+    margin: 0;
+    color: var(--ink);
+  }
+
+  /* ---------- Roadmap ---------- */
+
+  .roadmap {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+
+  .priority {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--priority-color, var(--border));
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .priority h3 {
+    margin: 0;
+    font-family: "Archivo", sans-serif;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--priority-color, var(--ink));
+  }
+
+  .priority ul {
+    margin: 0;
+    padding-left: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .priority li { color: var(--ink); }
+  .priority li::marker { color: var(--ink-muted); }
+
+  /* ---------- Callout ---------- */
+
+  .callout {
+    background: var(--gris-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    gap: 0.85rem;
+  }
+
+  .callout .icon {
+    font-family: "Archivo", sans-serif;
+    font-weight: 800;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    color: var(--gris);
+    border: 1.5px solid var(--gris);
+    border-radius: 50%;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .callout p { margin: 0; color: var(--ink); font-size: 0.95rem; }
+  .callout strong { color: var(--ink); }
+
+  /* ---------- Closing ---------- */
+
+  .closing {
+    border-top: 3px solid var(--accent);
+    padding-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .closing .chain {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.78rem;
+    color: var(--accent-2);
+    line-height: 1.9;
+    overflow-x: auto;
+  }
+
+  .closing p { margin: 0; color: var(--ink-muted); max-width: 68ch; }
+
+  @media (max-width: 620px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .row dl { grid-template-columns: 5.5rem 1fr; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <span class="eyebrow">Revisión de proceso · LicitaAI</span>
+    <h1>Proceso operativo de Compras MX contra lo construido en LicitaAI</h1>
+    <p class="dek">
+      Comparación punto por punto del documento <em>“Proceso Operativo para la Participación del
+      Proveedor en Investigaciones de Mercado y Procedimientos de Contratación mediante Compras MX”</em>
+      contra el estado actual de la plataforma — 27 puntos evaluados, agrupados en 6 fases más los
+      controles transversales del documento.
+    </p>
+    <div class="meta-row">
+      <span>Fuente: <strong>Proceso Operativo — Compras MX (21 pp.)</strong></span>
+      <span>Alcance: <strong>Sprints 1–7 + perfiles de empresa</strong></span>
+      <span>Fecha: <strong>2026-08-23</strong></span>
+    </div>
+  </header>
+
+  <section class="stats">
+    <div class="stat" style="--stat-color: var(--verde)">
+      <div class="stat-num">4</div>
+      <div class="stat-label">Cubierto</div>
+    </div>
+    <div class="stat" style="--stat-color: var(--amarillo)">
+      <div class="stat-num">13</div>
+      <div class="stat-label">Parcial</div>
+    </div>
+    <div class="stat" style="--stat-color: var(--rojo)">
+      <div class="stat-num">9</div>
+      <div class="stat-label">Faltante</div>
+    </div>
+    <div class="stat" style="--stat-color: var(--gris)">
+      <div class="stat-num">1</div>
+      <div class="stat-label">Fuera de alcance</div>
+    </div>
+  </section>
+
+  <!-- FASE 1 -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">FASE 1</span>
+      <h2>Preparación y registro</h2>
+    </div>
+    <div class="rows">
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 1</span>
+          <h3>Recepción y registro del procedimiento</h3>
+          <span class="badge amarillo">Parcial</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd><code>licitaciones</code> ya registra dependencia, tipo, objeto, fechas y responsable de creación.</dd>
+          <dt>Falta</dt><dd>Unidad compradora, número interno de contratación, enlace directo a Compras MX y un "responsable interno" asignable por procedimiento.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 2</span>
+          <h3>Descarga completa del expediente</h3>
+          <span class="badge amarillo">Parcial</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>Carga y almacenamiento de documentos por licitación ya funciona (Storage + RAG).</dd>
+          <dt>Falta</dt><dd>La taxonomía de carpetas 01–11 del proceso y un aviso de "documentos de la fuente aún no descargados".</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 3</span>
+          <h3>Identificación de fechas críticas</h3>
+          <span class="badge amarillo">Parcial</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>Las 7 fechas del procedimiento se capturan y disparan una alerta de vencimiento por cron.</dd>
+          <dt>Falta</dt><dd>Una "acción interna" por evento y una fecha de cierre interno explícitamente anterior a la fecha límite oficial.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- FASE 2 -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">FASE 2</span>
+      <h2>Análisis de requisitos</h2>
+    </div>
+    <div class="rows">
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 4</span>
+          <h3>Matriz maestra de requisitos</h3>
+          <span class="badge amarillo">Parcial</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd><code>checklist_items</code> es el germen: categoría, descripción, fundamento legal, vigencia, formato, estado.</dd>
+          <dt>Falta</dt><dd>Columnas de control del documento: fuente/página, responsable, fecha límite, causa de desechamiento, subsanable, requiere firma/membrete/folio, campo de Compras MX asociado.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 5</span>
+          <h3>Analizar todas las fuentes</h3>
+          <span class="badge verde">Cubierto</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>El análisis de bases con IA ya separa convocatoria y anexo técnico, con nivel de confianza por sección.</dd>
+          <dt>Falta</dt><dd>Desglose granular de requisitos compuestos (p. ej. "5 especialistas → CV → comprobante") como sub-ítems ligados entre sí.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 6</span>
+          <h3>Formatos y textos obligatorios (A/B/C/D)</h3>
+          <span class="badge rojo">Faltante</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>No existe.</dd>
+          <dt>Falta</dt><dd>Clasificar cada formato detectado como obligatorio-sin-modificar, modelo, escrito libre con texto exigido, o documento de tercero.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 7</span>
+          <h3>Viabilidad de participación (Go / No-Go)</h3>
+          <span class="badge rojo">Faltante</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>No existe.</dd>
+          <dt>Falta</dt><dd>Un registro estructurado de la decisión de participar, con los 9 ejes del documento (jurídico, técnico, experiencia, personal, certificaciones, comercial, logístico, financiero, económico).</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- FASE 3 -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">FASE 3</span>
+      <h2>Aclaraciones</h2>
+    </div>
+    <div class="rows">
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 8</span>
+          <h3>Preparar aclaraciones</h3>
+          <span class="badge verde">Cubierto</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>La junta de aclaraciones ya genera preguntas con IA y exporta el documento formal.</dd>
+          <dt>Falta</dt><dd>Nada crítico.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 9</span>
+          <h3>Actualizar expediente tras las aclaraciones</h3>
+          <span class="badge amarillo">Parcial</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>Las respuestas de la junta quedan registradas junto a la licitación.</dd>
+          <dt>Falta</dt><dd>Marcar automáticamente qué renglones de la matriz de requisitos quedaron modificados por una respuesta, en vez de releer todo a mano.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- FASE 4 -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">FASE 4</span>
+      <h2>Integración de la propuesta</h2>
+    </div>
+    <div class="rows">
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 10</span>
+          <h3>Expediente legal-administrativo</h3>
+          <span class="badge amarillo">Parcial</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd><code>empresa_perfil</code> guarda razón social, RFC, giro, experiencia y certificaciones.</dd>
+          <dt>Falta</dt><dd>Una bóveda de los documentos mismos: acta constitutiva, poder del representante, opinión de cumplimiento, IMSS/INFONAVIT, RUPC.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 11</span>
+          <h3>Integrar la propuesta técnica</h3>
+          <span class="badge amarillo">Parcial</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>La IA redacta el contenido narrativo de cada sección de la propuesta técnica.</dd>
+          <dt>Falta</dt><dd>La matriz de cumplimiento requisito-por-requisito (cumple / cómo cumple / evidencia / página) que exige el proceso — hoy la propuesta declara, no demuestra por renglón.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 12</span>
+          <h3>Integrar la propuesta económica</h3>
+          <span class="badge verde">Cubierto</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>Hoja de partidas + configuración económica (moneda, IVA, condiciones de pago, vigencia de oferta).</dd>
+          <dt>Falta</dt><dd>Decimales, precios fijos/ajustables, vigencia de precios, descuentos, cantidad mínima/máxima, contrato abierto.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 13</span>
+          <h3>Revisión específica de Compras MX</h3>
+          <span class="badge rojo">Faltante</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>No existe — LicitaAI no interactúa con la plataforma real, ver nota al final.</dd>
+          <dt>Falta</dt><dd>Un checklist manual de "recorrido de pantallas" que el usuario complete antes del cierre.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 14</span>
+          <h3>Conciliar cantidades, unidades y montos</h3>
+          <span class="badge amarillo">Parcial</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>Una sola hoja maestra alimenta partidas y configuración, evitando cálculos duplicados.</dd>
+          <dt>Falta</dt><dd>El cuarto nivel de la conciliación: registrar lo efectivamente capturado en Compras MX para compararlo contra la hoja maestra.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- FASE 5 -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">FASE 5</span>
+      <h2>Validación y envío</h2>
+    </div>
+    <div class="rows">
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 15</span>
+          <h3>Control de consistencia documental cruzada</h3>
+          <span class="badge rojo">Faltante</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>La auditoría con IA valida un documento contra el perfil de empresa, no un documento contra otro.</dd>
+          <dt>Falta</dt><dd>Verificar que razón social, RFC, número de procedimiento y demás datos repetidos coincidan en todos los documentos finales.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 16</span>
+          <h3>Índice maestro de la proposición</h3>
+          <span class="badge rojo">Faltante</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>No existe.</dd>
+          <dt>Falta</dt><dd>La numeración A01/T01/E01/C01 por categoría, ligada a cada renglón de la matriz de requisitos.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 17</span>
+          <h3>Revisión final — "doble check"</h3>
+          <span class="badge amarillo">Parcial</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd><code>propuestas.estado</code> ya contempla "en revisión".</dd>
+          <dt>Falta</dt><dd>Que un segundo usuario, distinto de quien elaboró el documento, quede formalmente asignado como revisor.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 18</span>
+          <h3>Carga controlada en Compras MX</h3>
+          <span class="badge gris">Fuera de alcance</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>No aplica por diseño.</dd>
+          <dt>Falta</dt><dd>Ver nota al final — Compras MX no tiene API pública, este paso seguirá siendo manual.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 19</span>
+          <h3>Control de evidencia del envío</h3>
+          <span class="badge rojo">Faltante</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>Los documentos se guardan de forma genérica, sin distinguir el acuse de envío.</dd>
+          <dt>Falta</dt><dd>Un registro dedicado: acuse, fecha, hora, pantalla de envío exitoso y la versión exacta enviada.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- FASE 6 -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">FASE 6</span>
+      <h2>Seguimiento y adjudicación</h2>
+    </div>
+    <div class="rows">
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 20</span>
+          <h3>Seguimiento posterior</h3>
+          <span class="badge verde">Cubierto</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd><code>seguimiento</code> + bitácora de actividad ya registran apertura, actas y fallo.</dd>
+          <dt>Falta</dt><dd>Nada crítico.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">Paso 21</span>
+          <h3>En caso de adjudicación — formalización</h3>
+          <span class="badge amarillo">Parcial</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>Las actas de apertura y fallo ya se enlazan a la licitación.</dd>
+          <dt>Falta</dt><dd>Campos estructurados de contrato, garantía, fianza, administrador del contrato, penalizaciones y niveles de servicio.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">§ 24</span>
+          <h3>Tratamiento particular de Investigación de Mercado</h3>
+          <span class="badge amarillo">Parcial</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>El estudio de mercado con IA ya produce precios de referencia por partida.</dd>
+          <dt>Falta</dt><dd>El checklist de intake de 16 pasos que el proceso pide para toda solicitud de cotización, no solo el precio de salida.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTROLES TRANSVERSALES -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">TRANSVERSAL</span>
+      <h2>Controles que atraviesan todo el proceso</h2>
+    </div>
+    <div class="rows">
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">§ 25</span>
+          <h3>Sistema de semáforo (verde / amarillo / rojo / gris)</h3>
+          <span class="badge amarillo">Parcial</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd><code>checklist_items.estado</code> ya distingue pendiente, completo y no aplica.</dd>
+          <dt>Falta</dt><dd>El cuarto estado y, sobre todo, la regla de bloqueo: no permitir marcar como listo un procedimiento con rojos o amarillos críticos pendientes.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">§ 26</span>
+          <h3>Requisitos críticos</h3>
+          <span class="badge rojo">Faltante</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>No existe.</dd>
+          <dt>Falta</dt><dd>Una bandera "crítico" en cada requisito (firma, personalidad, especificación mínima, garantía, causa expresa de desechamiento, etc.).</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">§ 27</span>
+          <h3>Modelo de responsabilidades internas</h3>
+          <span class="badge rojo">Faltante</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>Los roles de la app (Admin, Manager, Analyst, Viewer) son de permisos, no de función en el procedimiento.</dd>
+          <dt>Falta</dt><dd>Asignar por licitación quién es Coordinador, Jurídico, Técnico, Comercial, Finanzas, Operador de Compras MX y Revisor.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">§ 28</span>
+          <h3>Regla de trazabilidad (7 preguntas por requisito)</h3>
+          <span class="badge amarillo">Parcial</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>Los datos existen, repartidos entre checklist, documentos y bitácora.</dd>
+          <dt>Falta</dt><dd>Una sola vista por requisito que responda de inmediato las 7 preguntas del proceso.</dd>
+        </dl>
+      </div>
+      <div class="row">
+        <div class="row-title">
+          <span class="row-step">§ 29</span>
+          <h3>Checklist final de liberación</h3>
+          <span class="badge rojo">Faltante</span>
+        </div>
+        <dl>
+          <dt>En LicitaAI</dt><dd>No existe como paso obligatorio antes de dar por lista una propuesta.</dd>
+          <dt>Falta</dt><dd>Los ~24 puntos de verificación del proceso, como compuerta previa a marcar un procedimiento como enviado.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section class="phase">
+    <div class="phase-head">
+      <span class="phase-num">SIGUIENTE</span>
+      <h2>Prioridad sugerida</h2>
+    </div>
+    <div class="roadmap">
+      <div class="priority" style="--priority-color: var(--rojo)">
+        <h3>Crítico — riesgo real de perder una licitación</h3>
+        <ul>
+          <li>Rediseñar la matriz de requisitos con las columnas de control del proceso y el semáforo de 4 estados con bandera de "crítico" (Pasos 4, 25, 26).</li>
+          <li>Control de consistencia documental cruzada entre todos los archivos finales (Paso 15).</li>
+          <li>Checklist final de liberación como compuerta antes de marcar "enviado" (§ 29).</li>
+          <li>Cuarto nivel de conciliación: lo capturado en Compras MX contra la hoja maestra (Paso 14).</li>
+        </ul>
+      </div>
+      <div class="priority" style="--priority-color: var(--amarillo)">
+        <h3>Importante — mejora calidad y trazabilidad</h3>
+        <ul>
+          <li>Matriz de cumplimiento técnico requisito-por-requisito dentro de la propuesta técnica (Paso 11).</li>
+          <li>Registro estructurado de Go/No-Go antes de invertir en la propuesta (Paso 7).</li>
+          <li>Actualización automática de la matriz tras cada respuesta de aclaración (Paso 9).</li>
+          <li>Registro dedicado de evidencia y acuse de envío (Paso 19).</li>
+          <li>Vista única de trazabilidad de 7 preguntas por requisito (§ 28).</li>
+        </ul>
+      </div>
+      <div class="priority" style="--priority-color: var(--gris)">
+        <h3>Formaliza procesos que ya funcionan</h3>
+        <ul>
+          <li>Clasificación de formatos A/B/C/D (Paso 6).</li>
+          <li>Índice maestro de la proposición con numeración A01/T01/E01/C01 (Paso 16).</li>
+          <li>Modelo de responsabilidades internas por procedimiento (§ 27).</li>
+          <li>Segundo revisor obligatorio en el "doble check" (Paso 17).</li>
+          <li>Bóveda de documentos corporativos permanentes (Paso 10).</li>
+          <li>Campos de formalización contractual tras adjudicación (Paso 21).</li>
+          <li>Checklist de intake de 16 pasos para Investigación de Mercado (§ 24).</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="callout">
+    <span class="icon">i</span>
+    <p>
+      <strong>Sobre el Paso 18 (carga en Compras MX):</strong> Compras MX no publica una API para
+      que terceros presenten propuestas de forma automática. LicitaAI puede preparar, validar y
+      conciliar el expediente completo, pero la captura final y el envío dentro de la plataforma
+      seguirán siendo una acción manual del usuario. No es un pendiente de desarrollo — es un límite
+      estructural de la plataforma gubernamental.
+    </p>
+  </div>
+
+  <footer class="closing">
+    <p class="chain">IDENTIFICAR → CLASIFICAR → ASIGNAR → OBTENER → ELABORAR → ACREDITAR → VALIDAR → CONCILIAR → CARGAR → REVISAR → ENVIAR → EVIDENCIAR → DAR SEGUIMIENTO</p>
+    <p>
+      Esta es la cadena que el proceso operativo pide sostener de punta a punta. LicitaAI ya cubre
+      con solidez ELABORAR (análisis, propuestas, estudio de mercado) y DAR SEGUIMIENTO; el hueco
+      más consistente está en los verbos de control — CLASIFICAR, VALIDAR y CONCILIAR — que hoy
+      dependen del criterio del usuario en vez de una compuerta explícita en la plataforma.
+    </p>
+  </footer>
+
+</div>
+
+</body></html>

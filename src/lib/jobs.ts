@@ -113,6 +113,15 @@ export async function liberarMiReserva(ctx: ApiContext, reservaId: string): Prom
   if (error) console.error("[jobs] liberar_mi_reserva_ia:", error.message);
 }
 
+/** Ventana de ~2 min para las idempotency_key de operaciones disparadas por
+ * un usuario: un doble clic cae en el mismo bucket y no crea dos jobs, pero
+ * un reintento deliberado más tarde (p. ej. tras reemplazar un documento)
+ * sí crea uno nuevo. Una clave sin bucket devolvería para siempre el job
+ * viejo ya terminado. */
+export function bucketIdempotencia(): number {
+  return Math.floor(Date.now() / 120_000);
+}
+
 /**
  * Helper para las rutas de operaciones de IA (Fase B): si el flag async de
  * la operación está activo, crea el job (con reserva de presupuesto) y
@@ -136,7 +145,7 @@ export async function encolarOperacionIA(
   const activo = await isEnabled(ctx.supabase, opts.flag, { organizationId: ctx.organizationId });
   if (!activo) return null;
 
-  const bucket = Math.floor(Date.now() / 120_000);
+  const bucket = bucketIdempotencia();
   const docId = (opts.input.documento_id as string | undefined) ?? "";
   const { job } = await crearJobConPresupuesto(
     ctx,

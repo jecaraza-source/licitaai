@@ -307,7 +307,15 @@ export function AuditoriaTab({ licitacionId }: { licitacionId: string }) {
       toast.error("No se pudo completar la auditoría");
       return;
     }
-    toast.success("Auditoría del expediente actualizada");
+    const json = await res.json().catch(() => null);
+    const fallidos: number = json?.data?.documentos?.fallidos ?? 0;
+    if (fallidos > 0) {
+      toast.warning(
+        `Auditoría parcial: ${fallidos} documento(s) no se pudieron auditar. Vuelve a intentarlo para completarlos.`,
+      );
+    } else {
+      toast.success("Auditoría del expediente actualizada");
+    }
     cargar();
   }
 
