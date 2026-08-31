@@ -41,20 +41,27 @@ export function MetricasValorCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <TrendingUp className="size-4 text-primary" /> Valor generado
+          <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-primary">
+            <TrendingUp className="size-4" />
+          </span>
+          Valor generado
         </CardTitle>
       </CardHeader>
       <CardContent>
         {m === undefined ? (
-          <Skeleton className="h-24 w-full" />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-lg" />
+            ))}
+          </div>
         ) : (
-          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {CAMPOS.map(({ k, label, fmt }) => {
               const v = m[k];
               return (
-                <div key={k}>
+                <div key={k} className="rounded-lg border bg-secondary/30 p-3">
                   <dt className="text-xs text-muted-foreground">{label}</dt>
-                  <dd className="text-lg font-semibold">
+                  <dd className="mt-1 text-xl font-semibold tabular-nums">
                     {v == null ? "–" : fmt ? fmt(Number(v)) : v}
                   </dd>
                 </div>

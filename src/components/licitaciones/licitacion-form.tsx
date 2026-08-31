@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { CalendarClock, FileText, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,31 +100,41 @@ export function LicitacionForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex max-w-3xl flex-col gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-primary">
+              <FileText className="size-4" />
+            </span>
+            Datos generales
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="numero_expediente">Número de expediente</Label>
-          <Input id="numero_expediente" {...register("numero_expediente")} />
+          <Input id="numero_expediente" className="h-11" {...register("numero_expediente")} />
           {errors.numero_expediente && (
             <p className="text-sm text-destructive">{errors.numero_expediente.message}</p>
           )}
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="institucion">Institución convocante</Label>
-          <Input id="institucion" {...register("institucion")} />
+          <Input id="institucion" className="h-11" {...register("institucion")} />
           {errors.institucion && (
             <p className="text-sm text-destructive">{errors.institucion.message}</p>
           )}
         </div>
         <div className="flex flex-col gap-2 sm:col-span-2">
           <Label htmlFor="titulo">Título</Label>
-          <Input id="titulo" {...register("titulo")} />
+          <Input id="titulo" className="h-11" {...register("titulo")} />
           {errors.titulo && <p className="text-sm text-destructive">{errors.titulo.message}</p>}
         </div>
 
-        <div className="flex items-start gap-2.5 sm:col-span-2">
+        <div className="flex items-start gap-2.5 rounded-lg border bg-secondary/30 p-3 sm:col-span-2">
           <Checkbox
             id="es_investigacion_mercado"
+            className="mt-0.5"
             onCheckedChange={(checked) => setValue("es_investigacion_mercado", checked === true)}
           />
           <div>
@@ -134,14 +146,26 @@ export function LicitacionForm() {
             </p>
           </div>
         </div>
+        </CardContent>
+      </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-primary">
+              <Layers className="size-4" />
+            </span>
+            Clasificación y monto
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label>Tipo</Label>
           <Select
             defaultValue="ADQUISICION"
             onValueChange={(v) => setValue("tipo", v as LicitacionInput["tipo"])}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-11">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -162,7 +186,7 @@ export function LicitacionForm() {
               setValue("modalidad_procedimiento", v as LicitacionInput["modalidad_procedimiento"])
             }
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-11">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -181,8 +205,10 @@ export function LicitacionForm() {
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="monto_maximo">Monto máximo (MXN)</Label>
-          <Input id="monto_maximo" type="number" step="0.01" {...register("monto_maximo")} />
+          <Input id="monto_maximo" className="h-11" type="number" step="0.01" {...register("monto_maximo")} />
         </div>
+
+        <div className="hidden sm:block" aria-hidden="true" />
 
         <div className="flex flex-col gap-2">
           <Label>Jurisdicción</Label>
@@ -194,7 +220,7 @@ export function LicitacionForm() {
               setValue("sistema", SISTEMA_POR_ESTADO[v]);
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger className="h-11">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -209,31 +235,42 @@ export function LicitacionForm() {
 
         <div className="flex flex-col gap-2">
           <Label>Sistema de publicación</Label>
-          <Input value={SISTEMA_POR_ESTADO[estadoId] ?? ""} disabled readOnly />
+          <Input className="h-11" value={SISTEMA_POR_ESTADO[estadoId] ?? ""} disabled readOnly />
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      <div>
-        <h3 className="mb-3 text-sm font-medium">Fechas del procedimiento</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {DATE_FIELDS.map((field) => (
-            <div key={field.name} className="flex flex-col gap-2">
-              <Label htmlFor={field.name}>{field.label}</Label>
-              <Input id={field.name} type="datetime-local" {...register(field.name)} />
-            </div>
-          ))}
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-primary">
+              <CalendarClock className="size-4" />
+            </span>
+            Fechas del procedimiento
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {DATE_FIELDS.map((field) => (
+              <div key={field.name} className="flex flex-col gap-2">
+                <Label htmlFor={field.name}>{field.label}</Label>
+                <Input id={field.name} className="h-11" type="datetime-local" {...register(field.name)} />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
         <Button
           type="button"
           variant="outline"
+          className="h-11"
           onClick={() => router.push("/licitaciones")}
         >
           Cancelar
         </Button>
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" className="h-11" disabled={loading}>
           {loading ? "Guardando…" : "Crear licitación"}
         </Button>
       </div>

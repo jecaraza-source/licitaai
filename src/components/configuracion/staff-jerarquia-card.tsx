@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight, Mail, UserPlus } from "lucide-react";
+import { ArrowRight, Mail, UserPlus, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -37,9 +38,9 @@ const NIVELES: { rol: RolJerarquico; label: string; funcion: string }[] = [
 ];
 
 const ROL_BADGE: Record<RolJerarquico, string> = {
-  EJECUTOR: "bg-blue-500/10 text-blue-700",
-  INTEGRADOR: "bg-amber-500/10 text-amber-700",
-  SUPERVISOR: "bg-emerald-500/10 text-emerald-700",
+  EJECUTOR: "bg-secondary text-secondary-foreground",
+  INTEGRADOR: "bg-accent text-accent-foreground",
+  SUPERVISOR: "bg-primary/10 text-primary",
 };
 
 interface InvitacionPendiente {
@@ -111,14 +112,19 @@ export function StaffJerarquiaCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Staff y cadena de autorización</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-primary">
+            <Users className="size-4" />
+          </span>
+          Staff y cadena de autorización
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <div className="overflow-x-auto pb-1">
           <div className="flex min-w-max items-stretch gap-0">
             {NIVELES.map((nivel, i) => (
               <div key={nivel.rol} className="flex items-start">
-                <div className="flex w-52 flex-col gap-1.5 rounded-lg border p-3">
+                <div className="flex w-52 flex-col gap-1.5 rounded-lg border bg-secondary/30 p-3">
                   <span
                     className={cn(
                       "w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold",
@@ -144,13 +150,22 @@ export function StaffJerarquiaCard() {
         <div className="flex flex-col gap-2">
           <p className="text-xs font-medium text-muted-foreground">Staff de la organización</p>
           {staff === null ? (
-            <p className="text-sm text-muted-foreground">Cargando…</p>
+            <div className="flex flex-col gap-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-lg" />
+              ))}
+            </div>
           ) : staff.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aún no hay staff registrado.</p>
+            <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+              Aún no hay staff registrado.
+            </p>
           ) : (
-            <ul className="flex flex-col divide-y">
+            <ul className="flex flex-col gap-1">
               {staff.map((s) => (
-                <li key={s.id} className="flex items-center gap-2 py-2 text-sm">
+                <li
+                  key={s.id}
+                  className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-secondary/40"
+                >
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{s.nombre}</p>
                     {s.email && (
