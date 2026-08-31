@@ -425,6 +425,20 @@ export function EmpresaPerfilForm({
               camposLlenados++;
             }
           }
+          // `nombre_persona_detectado` es una columna propia del documento
+          // (no vive en datos_extraidos_json): el nombre del titular de una
+          // identificación oficial, o del apoderado en un poder. Solo se usa
+          // para representante_legal_nombre cuando viene del poder — de lo
+          // contrario se copiaría el nombre de la identificación oficial,
+          // que no siempre es la misma persona que el representante.
+          if (
+            siguiente.representante_legal_nombre === "" &&
+            doc.tipo === "Poder del representante legal" &&
+            doc.nombre_persona_detectado
+          ) {
+            siguiente.representante_legal_nombre = doc.nombre_persona_detectado;
+            camposLlenados++;
+          }
           const socios = datos.socios_accionistas_json;
           if (
             siguiente.socios_accionistas_json.length === 0 &&
