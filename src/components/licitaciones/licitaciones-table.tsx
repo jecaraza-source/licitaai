@@ -210,7 +210,9 @@ export function LicitacionesTable() {
             }}
           >
             <SelectTrigger className="h-10 w-full sm:w-40">
-              <SelectValue placeholder="Estado" />
+              <SelectValue placeholder="Estado">
+                {() => (estadoLicitacion === ALL ? "Todos los estados" : estadoLicitacion)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Todos los estados</SelectItem>
@@ -229,7 +231,9 @@ export function LicitacionesTable() {
             }}
           >
             <SelectTrigger className="h-10 w-full sm:w-40">
-              <SelectValue placeholder="Tipo" />
+              <SelectValue placeholder="Tipo">
+                {() => (tipo === ALL ? "Todos los tipos" : TIPO_LABELS[tipo])}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Todos los tipos</SelectItem>
@@ -248,7 +252,9 @@ export function LicitacionesTable() {
             }}
           >
             <SelectTrigger className="h-10 w-full sm:w-36">
-              <SelectValue placeholder="Jurisdicción" />
+              <SelectValue placeholder="Jurisdicción">
+                {() => (estadoId === ALL ? "Todas" : estadoId)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>Todas</SelectItem>

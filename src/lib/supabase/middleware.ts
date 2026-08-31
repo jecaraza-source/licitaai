@@ -6,6 +6,11 @@ import { NextResponse, type NextRequest } from "next/server";
 // dashboard si ya la hay (es un gate propio).
 const PUBLIC_PATHS = ["/login", "/register", "/estado"];
 
+// Páginas de contenido legal/informativo: accesibles con o sin sesión, y sin
+// redirigir a /dashboard si ya la hay (a diferencia de PUBLIC_PATHS, se
+// enlazan también desde pantallas ya autenticadas, p. ej. seleccionar-empresa).
+const ALWAYS_ACCESSIBLE_PATHS = ["/aviso-privacidad"];
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -34,6 +39,11 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
+  const isAlwaysAccessiblePath = ALWAYS_ACCESSIBLE_PATHS.some((path) => pathname.startsWith(path));
+
+  if (isAlwaysAccessiblePath) {
+    return response;
+  }
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();

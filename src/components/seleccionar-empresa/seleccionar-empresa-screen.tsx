@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
-import { Building2, Landmark, Loader2, Plus } from "lucide-react";
+import Link from "next/link";
+import { Building2, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,12 +63,15 @@ export function SeleccionarEmpresaScreen({ empresas }: { empresas: EmpresaPerfil
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-8 bg-muted/40 p-6">
-      <div className="flex items-center gap-2.5">
-        <span className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Landmark className="size-5" />
-        </span>
-        <span className="text-xl font-semibold tracking-tight">LicitaAI</span>
-      </div>
+      <Image
+        src="/branding/licitaai-dashboard-horizontal.png"
+        alt="LicitaAI"
+        width={1774}
+        height={887}
+        unoptimized
+        priority
+        className="h-10 w-auto object-contain"
+      />
 
       <div className="flex w-full max-w-2xl flex-col gap-4">
         <div className="text-center">
@@ -154,6 +158,13 @@ export function SeleccionarEmpresaScreen({ empresas }: { empresas: EmpresaPerfil
           </div>
         )}
       </div>
+
+      <Link
+        href="/aviso-privacidad"
+        className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+      >
+        Aviso de privacidad
+      </Link>
     </div>
   );
 }

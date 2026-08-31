@@ -87,7 +87,7 @@ export function AppSidebar({
                       isActive={isActive}
                       tooltip={item.label}
                       size="lg"
-                      className={item.href === "/licitaciones/nueva" ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground text-base [&_svg]:size-5" : "text-base [&_svg]:size-5"}
+                      className="text-base [&_svg]:size-5"
                       render={<Link href={item.href}><item.icon /><span>{item.label}</span></Link>}
                     />
                   </SidebarMenuItem>
