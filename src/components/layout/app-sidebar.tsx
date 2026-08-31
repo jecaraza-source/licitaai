@@ -7,6 +7,7 @@ import { FileStack, LayoutDashboard, PlusCircle, Scale, Settings } from "lucide-
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -113,6 +114,16 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="items-center group-data-[collapsible=icon]:hidden">
+        <Image
+          src={LICITAAI_LOGO}
+          alt="LicitaAI"
+          width={220}
+          height={90}
+          unoptimized
+          className="h-42 w-auto max-w-full object-contain"
+        />
+      </SidebarFooter>
     </Sidebar>
   );
 }
