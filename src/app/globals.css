@@ -149,7 +149,8 @@
 @media print {
   [data-slot="sidebar-wrapper"] > [data-slot="sidebar"],
   [data-slot="sidebar-rail"],
-  header {
+  header,
+  footer {
     display: none !important;
   }
 }
