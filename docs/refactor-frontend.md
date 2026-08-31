@@ -1,4 +1,4 @@
-# Refactor incremental del frontend (P1.5)
+# Refactor incremental del frontend (P1.5 → P1.6)
 
 El brief pide separar en los componentes grandes de la licitación:
 presentación · estado · consultas · mutaciones · Realtime · upload ·
@@ -42,16 +42,55 @@ efecto/callback, en vez de silenciar la regla:
   excluir `secciones` de las deps es intencional — si no, el editor
   re-setea su contenido en cada tecleo y mueve el cursor).
 
+## P1.6 — split presentación/contenedor completo (motivado por v0)
+
+El split que P1.5 pospuso por riesgo de regresión sin e2e se hizo en esta
+fase, motivado por un requisito nuevo: el equipo quiere iterar la UI con
+v0 (herramienta de rediseño por IA) mientras el backend/lógica de datos
+lo sigue escribiendo un agente de código. Si v0 reescribe un archivo que
+mezcla JSX con `fetch`/Supabase/handlers, puede borrar lógica de negocio
+sin darse cuenta — la separación física en dos archivos hace eso
+imposible por construcción, no solo por convención.
+
+Mitigación del riesgo que P1.5 señalaba (sin e2e completo disponible):
+la extracción fue **mecánica**, no un rediseño — cada pieza de estado,
+efecto y handler se movió tal cual a `src/hooks/use-<componente>.ts`,
+devolviendo un objeto con los **mismos nombres de variable** que usaba
+el JSX, así que el componente de presentación no cambia ninguna línea
+de lógica, solo de dónde importa las cosas. Se verificó con
+`typecheck` + `lint` + la suite unitaria completa después de cada
+componente (no al final), comparando contra la misma suite sobre el
+código sin tocar (`git stash`) para confirmar que ningún fallo nuevo se
+introdujo.
+
+Componentes migrados (hook en `src/hooks/`, componente ahora solo JSX):
+`documentos-legales-tab`, `documentos-tecnicos-tab`, `viabilidad-tab`,
+`propuesta-economica-tab`, `partidas-tab`, `auditoria-tab` (incl.
+`ChecklistRow`), `documentos-corporativos-card` (Configuración),
+`seguimiento-tab` (incl. `FormalizacionCard`), `liberacion-tab` (incl.
+`EvidenciaEnvioCard`), `documentos-tab` (los 4 subcomponentes:
+`RequisitoRow`, `DocumentosRequeridosCard`, `DocumentoConvocanteRow`,
+`DocumentosConvocanteCard`), `analisis-ia-tab`,
+`junta-aclaraciones-tab` (dnd-kit se queda en el componente — es
+presentación de arrastre, no lógica de datos), `propuesta-tecnica-tab`
+(el editor TipTap se crea dentro del hook con `useEditor` y se devuelve
+como cualquier otro valor; se preservó tal cual el comentario sobre por
+qué `secciones` queda fuera de las deps del efecto de sincronización).
+
+Deliberadamente sin tocar: estado puramente visual sin relación con
+datos del servidor (`expandido` en `ChecklistRow`, el estado interno de
+`useSortable`/`useDropzone` en las filas) se queda en el componente —
+mover eso a un hook no reduce riesgo, solo añade indirección.
+
+Convención para v0 a partir de aquí: v0 edita `src/components/**`
+(JSX/estilos) y `src/app/**/page.tsx` (estructura); el agente de código
+sigue siendo dueño de `src/hooks/**`, `src/app/api/**`, `src/lib/**` y
+`supabase/**`. Ver el flujo de ramas sugerido en el mensaje de la
+sesión que hizo este split (rama dedicada para v0, PRs normales para
+mezclar).
+
 ## Deliberadamente NO hecho (y por qué)
 
-- **Split presentación/contenedor completo de los 8 componentes.** El
-  brief dice "gradualmente… conserva comportamiento… evita regresiones".
-  Una reescritura de los 8 (360–850 líneas c/u, con estado, Realtime,
-  upload y diálogos) sin poder correr la suite e2e completa en este
-  entorno (falta el edge runtime local) es alto riesgo de regresión
-  silenciosa. Las fixtures de P1.3 (`tests/helpers/fixtures.mjs`) y la
-  expansión de la suite e2e son el prerrequisito; se hace como su propia
-  fase con revisión por componente.
 - **`react-hooks/incompatible-library` en `licitaciones-table` /
   `licitacion-form`** — es una limitación conocida del React Compiler con
   `useReactTable` de TanStack, no un bug del código. Sin acción.
@@ -68,7 +107,17 @@ efecto/callback, en vez de silenciar la regla:
 
 ## Verificación
 
-`typecheck`, `lint` (2 warnings baseline de React Compiler), `build`, 13
-suites unitarias, cobertura 97.8 % / 83.8 % — verde. Sin cambios de API ni
-de comportamiento observable; la migración a `useRealtimeLista` preserva
-el toast "terminó de procesarse" y el refetch al volver a la pestaña.
+**P1.5:** `typecheck`, `lint` (2 warnings baseline de React Compiler),
+`build`, 13 suites unitarias, cobertura 97.8 % / 83.8 % — verde. Sin
+cambios de API ni de comportamiento observable; la migración a
+`useRealtimeLista` preserva el toast "terminó de procesarse" y el
+refetch al volver a la pestaña.
+
+**P1.6 (split completo):** `typecheck` y `lint` limpios tras cada
+componente migrado (no solo al final), mismos 2 warnings baseline. Suite
+unitaria: 13/14 suites OK, igual que en `main` sin tocar (la suite que
+falla, `api-validate.test.mjs`, falla por igual con y sin este cambio —
+confirmado con `git stash` — y no toca ningún archivo de este split).
+Sin cambios de API ni de comportamiento observable: cada hook devuelve
+exactamente los mismos nombres que el componente usaba como variables
+locales antes de la extracción.

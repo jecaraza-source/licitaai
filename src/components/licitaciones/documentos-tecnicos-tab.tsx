@@ -1,40 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CircleCheck, Download, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { descargarBlob } from "@/lib/descargar-archivo";
-import type { TipoDocumentoTecnico } from "@/lib/documentos-tecnicos";
-
-interface DocumentoTecnicoEstado {
-  tipo: TipoDocumentoTecnico;
-  titulo: string;
-  listo: boolean;
-  faltantes: string[];
-}
+import { useDocumentosTecnicosTab } from "@/hooks/use-documentos-tecnicos-tab";
 
 export function DocumentosTecnicosTab({ licitacionId }: { licitacionId: string }) {
-  const [documentos, setDocumentos] = useState<DocumentoTecnicoEstado[] | null>(null);
-  const [descargando, setDescargando] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch(`/api/licitaciones/${licitacionId}/documentos-tecnicos`)
-      .then((res) => res.json())
-      .then((json) => setDocumentos(json.data?.documentos ?? []));
-  }, [licitacionId]);
-
-  async function handleDescargar(tipo: TipoDocumentoTecnico) {
-    setDescargando(tipo);
-    await descargarBlob(
-      `/api/licitaciones/${licitacionId}/documentos-tecnicos/${tipo}/exportar`,
-      `${tipo}.docx`,
-    );
-    setDescargando(null);
-  }
+  const { documentos, descargando, handleDescargar } = useDocumentosTecnicosTab(licitacionId);
 
   if (documentos === null) {
     return <Skeleton className="h-96 w-full" />;

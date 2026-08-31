@@ -1,104 +1,81 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { toast } from "sonner";
-import { CircleCheck, Download, TriangleAlert } from "lucide-react";
+import { CircleCheck, Download, RefreshCw, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { descargarBlob } from "@/lib/descargar-archivo";
-import type { TipoDocumentoLegal } from "@/lib/documentos-legales";
-
-interface DocumentoLegalEstado {
-  tipo: TipoDocumentoLegal;
-  titulo: string;
-  listo: boolean;
-  faltantes: string[];
-}
+import { cn } from "@/lib/utils";
+import { useDocumentosLegalesTab } from "@/hooks/use-documentos-legales-tab";
 
 export function DocumentosLegalesTab({ licitacionId }: { licitacionId: string }) {
-  const [documentos, setDocumentos] = useState<DocumentoLegalEstado[] | null>(null);
-  const [descargando, setDescargando] = useState<string | null>(null);
-  const [convocanteNombre, setConvocanteNombre] = useState("");
-  const [convocanteCargo, setConvocanteCargo] = useState("");
-  const [guardandoConvocante, setGuardandoConvocante] = useState(false);
-
-  function cargar() {
-    fetch(`/api/licitaciones/${licitacionId}/documentos-legales`)
-      .then((res) => res.json())
-      .then((json) => {
-        setDocumentos(json.data?.documentos ?? []);
-        setConvocanteNombre(json.data?.convocanteRepresentanteNombre ?? "");
-        setConvocanteCargo(json.data?.convocanteRepresentanteCargo ?? "");
-      });
-  }
-
-  useEffect(cargar, [licitacionId]);
-
-  async function handleGuardarConvocante() {
-    setGuardandoConvocante(true);
-    const res = await fetch(`/api/licitaciones/${licitacionId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        convocante_representante_nombre: convocanteNombre || null,
-        convocante_representante_cargo: convocanteCargo || null,
-      }),
-    });
-    setGuardandoConvocante(false);
-    if (!res.ok) {
-      toast.error("No se pudo guardar");
-      return;
-    }
-    toast.success("Datos de la convocante guardados");
-    cargar();
-  }
-
-  async function handleDescargar(tipo: TipoDocumentoLegal) {
-    setDescargando(tipo);
-    await descargarBlob(
-      `/api/licitaciones/${licitacionId}/documentos-legales/${tipo}/exportar`,
-      `${tipo}.docx`,
-    );
-    setDescargando(null);
-  }
-
-  async function handleDescargarAnexoA() {
-    setDescargando("LEG09");
-    await descargarBlob(
-      `/api/licitaciones/${licitacionId}/propuesta-tecnica/exportar?anexoA=1`,
-      "LEG09-anexo-a.docx",
-      { method: "POST" },
-    );
-    setDescargando(null);
-  }
+  const {
+    documentos,
+    descargando,
+    convocanteNombre,
+    setConvocanteNombre,
+    convocanteCargo,
+    setConvocanteCargo,
+    guardandoConvocante,
+    regenerando,
+    handleGuardarConvocante,
+    handleDescargar,
+    handleDescargarAnexoA,
+    handleGenerarTodos,
+  } = useDocumentosLegalesTab(licitacionId);
 
   if (documentos === null) {
     return <Skeleton className="h-96 w-full" />;
   }
 
+  const listosCount = documentos.filter((d) => d.listo).length;
+
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">
-        Documentos legales generados a partir de los datos de la empresa en Configuración y de esta
-        licitación. Revisa cada documento antes de firmarlo.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          Documentos legales generados a partir de los datos de la empresa en Configuración y de
+          esta licitación. Revisa cada documento antes de firmarlo.
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={regenerando || listosCount === 0}
+          onClick={handleGenerarTodos}
+          className="shrink-0"
+        >
+          <RefreshCw className={cn("size-3.5", regenerando && "animate-spin")} />
+          {regenerando
+            ? "Generando…"
+            : `Generar documentos listos (${listosCount}/${documentos.length})`}
+        </Button>
+      </div>
 
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium">
-            Datos de la convocante (para el Anexo &quot;H&quot; - Compromisos con la Transparencia)
+            Datos de la convocante (solo para el Anexo &quot;H&quot; - Compromisos con la
+            Transparencia)
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
+          <p className="text-xs text-muted-foreground">
+            Esta sección es de la <strong>dependencia o entidad que licita</strong> (cambia en cada
+            licitación), no de tu empresa. El representante legal de tu empresa se captura una sola
+            vez en{" "}
+            <Link href="/configuracion" className="underline">
+              Configuración
+            </Link>
+            .
+          </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="convocante_representante_nombre">
-                Nombre de quien firma por la convocante
+                Nombre de quien firma por la convocante (dependencia/entidad)
               </Label>
               <Input
                 id="convocante_representante_nombre"
@@ -107,7 +84,7 @@ export function DocumentosLegalesTab({ licitacionId }: { licitacionId: string })
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="convocante_representante_cargo">Cargo</Label>
+              <Label htmlFor="convocante_representante_cargo">Cargo (en la convocante)</Label>
               <Input
                 id="convocante_representante_cargo"
                 placeholder="Apoderado(a) Legal"
