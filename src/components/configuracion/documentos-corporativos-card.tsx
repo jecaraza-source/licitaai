@@ -65,6 +65,7 @@ const TIPOS_CON_DATOS_LEGALES_EXTRAIBLES = new Set([
   "Reformas",
   "Poder del representante legal",
   "Comprobante de domicilio",
+  "Constancia de Situación Fiscal",
 ]);
 
 type EstadoVigencia = "vigente" | "por_vencer" | "vencido";

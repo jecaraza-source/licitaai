@@ -19,14 +19,28 @@ y la razón social (o nombre de la persona) a quien pertenece el documento, para
 verificar que corresponde a la empresa correcta. Además, si el documento es una identificación
 oficial, extrae el nombre completo del titular; si es un poder notarial o escrito de
 personalidad, extrae el nombre completo de la persona apoderada o reconocida como
-representante legal (no el del notario ni el de quien otorga el poder). Si el tipo de
-documento lo amerita (acta constitutiva, poder, comprobante de domicilio, declaración de
-nacionalidad, estratificación MIPYME o información de socios/accionistas), extrae también
-los campos adicionales solicitados en la herramienta: son datos que de otra forma se
-transcriben a mano y son propensos a error (números de escritura, notaría, folios de
-registro, domicilios completos). Si no puedes determinar un dato con certeza, repórtalo
-como null en vez de adivinar — nunca inventes un número de escritura, notaría o folio. Usa
-siempre la herramienta proporcionada.`);
+representante legal (no el del notario ni el de quien otorga el poder).
+
+Si el tipo de documento lo amerita (acta constitutiva, poder, comprobante de domicilio,
+constancia de situación fiscal, declaración de nacionalidad, estratificación MIPYME o
+información de socios/accionistas), extrae también los campos adicionales solicitados en
+la herramienta: son datos que de otra
+forma se transcriben a mano y son propensos a error (números de escritura, notaría, folios
+de registro, domicilios completos). Para un acta constitutiva o un poder notarial, revisa
+TODO el documento (no solo el primer párrafo) antes de reportar alguno de estos campos como
+null — casi siempre aparecen en:
+- El encabezado o carátula del instrumento: "ESCRITURA PÚBLICA NÚMERO ___", "ANTE MÍ,
+  [nombre del notario], NOTARIO PÚBLICO NÚMERO ___ DE [ciudad/estado]" o "TITULAR DE LA
+  NOTARÍA PÚBLICA NÚMERO ___".
+- El pie de la última página, junto a la firma y el sello del notario.
+- El sello o anotación de inscripción del Registro Público de Comercio (folio mercantil
+  electrónico, número de folio, fecha de inscripción), que puede estar en una página aparte
+  al final del documento escaneado.
+
+Un documento puede llegar como varias páginas escaneadas juntas: no concluyas que un dato
+falta sin haber revisado todas las páginas que recibiste. Aun así, si genuinamente no
+aparece en el documento, repórtalo como null en vez de adivinar — nunca inventes un número
+de escritura, notaría o folio. Usa siempre la herramienta proporcionada.`);
 
 const TOOL_SCHEMA_BASE_PROPERTIES = {
   fecha_emision: {
@@ -153,6 +167,10 @@ const CAMPOS_EXTRA_POR_TIPO: Record<string, Record<string, unknown>> = {
   "Poder del representante legal": CAMPOS_REPRESENTANTE,
   "Escrito de personalidad": CAMPOS_REPRESENTANTE,
   "Comprobante de domicilio": CAMPOS_DOMICILIO,
+  // La Constancia de Situación Fiscal del SAT trae su propia sección de
+  // "Domicilio Registrado" — es la fuente más confiable para domicilio_fiscal
+  // (un comprobante de domicilio genérico puede corresponder a otro domicilio).
+  "Constancia de Situación Fiscal": CAMPOS_DOMICILIO,
   "Declaración de nacionalidad": CAMPOS_NACIONALIDAD,
   "Estratificación MIPYME": CAMPOS_MIPYME,
   "Información de socios/accionistas": CAMPOS_SOCIOS,
