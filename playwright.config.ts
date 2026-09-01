@@ -37,8 +37,10 @@ export default defineConfig({
       FLAG_JOBS_ASYNC_AUDITAR_EXPEDIENTE: "on",
       FLAG_JOBS_ASYNC_ANALIZAR_FALLO: "on",
       FLAG_JOBS_ASYNC_ANALIZAR_DOC_CORP: "on",
-      // P2 · I — panel de operación y monitoreo.
-      PLATFORM_ADMIN_EMAILS: "platform-admin-e2e@example.org",
+      // P2 · I — panel de operación y monitoreo. El admin de plataforma para
+      // e2e ya no se declara aquí (era PLATFORM_ADMIN_EMAILS, una allowlist
+      // por env var) — p2-i-salud.spec.ts lo da de alta directamente en
+      // public.platform_admins con el cliente service role.
       CRON_SECRET: "e2e-cron-secret-0123456789abcdef",
       // P2 · E — circuit breaker siempre evaluado en e2e (los tests
       // manipulan provider_health directamente, no el flag).
