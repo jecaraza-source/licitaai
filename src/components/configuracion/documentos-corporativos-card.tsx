@@ -389,6 +389,33 @@ export function DocumentosCorporativosCard({
           etc. (Paso 10). Se conservan aquí para reutilizarse en cualquier licitación.
         </p>
 
+        <div className="flex flex-col gap-2 rounded-lg border-2 border-primary/40 bg-primary/5 p-3">
+          <Label className="text-xs font-semibold text-primary">Tipo de documento a subir</Label>
+          <Select value={tipoSeleccionado} onValueChange={(v) => v && setTipoSeleccionado(v)}>
+            <SelectTrigger className="w-full bg-background sm:w-72">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TIPOS_DOCUMENTO.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div
+            {...getRootProps()}
+            className={cn(
+              "flex cursor-pointer items-center gap-2 rounded-md border border-dashed bg-background px-3 py-2 text-xs",
+              isDragActive ? "border-primary bg-primary/5" : "hover:bg-muted/40",
+            )}
+          >
+            <input {...getInputProps()} />
+            <UploadCloud className="size-3.5 text-muted-foreground" />
+            {subiendo ? "Subiendo…" : `Arrastra el archivo de "${tipoSeleccionado}"`}
+          </div>
+        </div>
+
         {documentos !== null && (
           <div className="flex flex-col gap-1.5">
             <p className="text-xs font-medium text-muted-foreground">Documentos requeridos</p>
@@ -528,32 +555,6 @@ export function DocumentosCorporativosCard({
           </ul>
         )}
 
-        <div className="flex flex-col gap-2">
-          <Label className="text-xs text-muted-foreground">Tipo de documento a subir</Label>
-          <Select value={tipoSeleccionado} onValueChange={(v) => v && setTipoSeleccionado(v)}>
-            <SelectTrigger className="w-full sm:w-72">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TIPOS_DOCUMENTO.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div
-            {...getRootProps()}
-            className={cn(
-              "flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-3 py-2 text-xs",
-              isDragActive ? "border-primary bg-primary/5" : "hover:bg-muted/40",
-            )}
-          >
-            <input {...getInputProps()} />
-            <UploadCloud className="size-3.5 text-muted-foreground" />
-            {subiendo ? "Subiendo…" : `Arrastra el archivo de "${tipoSeleccionado}"`}
-          </div>
-        </div>
           </TabsContent>
 
           <TabsContent value="otros-datos">

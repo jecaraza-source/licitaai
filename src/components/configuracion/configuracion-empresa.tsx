@@ -4,6 +4,7 @@ import { Building2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmpresaPerfilForm } from "@/components/configuracion/empresa-perfil-form";
 import { DocumentosCorporativosCard } from "@/components/configuracion/documentos-corporativos-card";
+import { DocumentosScoreCard } from "@/components/configuracion/documentos-score-card";
 import { useEmpresaPerfilForm } from "@/hooks/use-empresa-perfil-form";
 
 export function ConfiguracionEmpresa() {
@@ -16,35 +17,39 @@ export function ConfiguracionEmpresa() {
   const { selectedId, form, setCampo } = empresaForm;
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-primary">
-              <Building2 className="size-4" />
-            </span>
-            Perfil de empresa
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <EmpresaPerfilForm empresaForm={empresaForm} />
-        </CardContent>
-      </Card>
-
-      {selectedId && form ? (
-        <DocumentosCorporativosCard empresaId={selectedId} form={form} setCampo={setCampo} />
-      ) : (
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Documentos corporativos</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-secondary text-primary">
+                <Building2 className="size-4" />
+              </span>
+              Perfil de empresa
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Guarda el perfil de la empresa para gestionar sus documentos.
-            </p>
+            <EmpresaPerfilForm empresaForm={empresaForm} />
           </CardContent>
         </Card>
-      )}
+
+        {selectedId && form ? (
+          <DocumentosCorporativosCard empresaId={selectedId} form={form} setCampo={setCampo} />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Documentos corporativos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Guarda el perfil de la empresa para gestionar sus documentos.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {selectedId && <DocumentosScoreCard empresaId={selectedId} />}
     </div>
   );
 }
