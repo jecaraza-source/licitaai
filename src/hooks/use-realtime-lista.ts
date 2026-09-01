@@ -96,6 +96,21 @@ export function useRealtimeLista<
     setCargando(false);
   }, [tabla, select, filtro, orden, proyecta]);
 
+  // Un id único por montaje: `supabase.channel(topic)` reutiliza el mismo
+  // objeto de canal cuando dos componentes distintos (p. ej. AnalisisIaTab
+  // y DocumentosTab, que comparten tabla+filtro) piden el mismo topic. Si
+  // uno se desmonta y otro monta casi al mismo tiempo — típico al cambiar
+  // de pestaña — el `removeChannel` del que se va es async y puede no
+  // haber terminado cuando el que llega hace su propio `.on()` sobre ESE
+  // MISMO canal ya suscrito, lo cual lanza de forma síncrona "cannot add
+  // postgres_changes callbacks ... after subscribe()" y tumba el render.
+  // Un sufijo único por instancia le da a cada montaje su propio canal y
+  // elimina el cruce por completo.
+  const instanceIdRef = useRef<string>(undefined);
+  if (instanceIdRef.current === undefined) {
+    instanceIdRef.current = crypto.randomUUID();
+  }
+
   useEffect(() => {
     if (!activo) return;
 
@@ -106,7 +121,7 @@ export function useRealtimeLista<
 
     const supabase = createClient();
     const canal = supabase
-      .channel(`${tabla}:${filtro}`)
+      .channel(`${tabla}:${filtro}:${instanceIdRef.current}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: tabla, filter: filtro },

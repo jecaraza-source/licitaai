@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import Image from "next/image";
-import { toast } from "sonner";
 import { Plus, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,171 +15,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createClient } from "@/lib/supabase/client";
-import { extraerColoresDominantes } from "@/lib/color-extraction";
-import type { DocumentoCorporativo, EmpresaPerfil } from "@/types";
-
-// Claves de FormState que la IA puede prellenar desde documentos
-// corporativos (ver datos_extraidos_json / CAMPOS_EXTRA_POR_TIPO en el edge
-// function analizar-documento-corporativo). Nunca se pisa un valor que el
-// usuario ya haya capturado: solo se llenan campos vacíos.
-const CAMPOS_TEXTO_PRELLENABLES = [
-  "objeto_social",
-  "acta_escritura_numero",
-  "acta_escritura_fecha",
-  "acta_notario",
-  "acta_notaria_numero",
-  "acta_notaria_estado",
-  "acta_registro_publico",
-  "representante_legal_escritura_numero",
-  "representante_legal_escritura_fecha",
-  "representante_legal_notario",
-  "representante_legal_notaria_numero",
-  "representante_legal_notaria_estado",
-  "representante_legal_registro_publico",
-  "domicilio_fiscal",
-  "nacionalidad",
-  "estratificacion_mipyme",
-] as const;
-
-type FormState = {
-  razon_social: string;
-  rfc: string;
-  giro: string;
-  experiencia_anos: string;
-  certificaciones_json: string[];
-  clientes_referencia_json: string[];
-  logo_url: string | null;
-  color_primario: string | null;
-  color_secundario: string | null;
-  objeto_social: string;
-  acta_escritura_numero: string;
-  acta_escritura_fecha: string;
-  acta_notario: string;
-  acta_notaria_numero: string;
-  acta_notaria_estado: string;
-  acta_registro_publico: string;
-  representante_legal_nombre: string;
-  representante_legal_escritura_numero: string;
-  representante_legal_escritura_fecha: string;
-  representante_legal_notario: string;
-  representante_legal_notaria_numero: string;
-  representante_legal_notaria_estado: string;
-  representante_legal_registro_publico: string;
-  domicilio_fiscal: string;
-  domicilio_notificaciones: string;
-  correo_notificaciones: string;
-  nacionalidad: string;
-  normas_oficiales_aplican: boolean;
-  normas_oficiales_detalle: string;
-  cuenta_personal_discapacidad: boolean;
-  estratificacion_mipyme: string;
-  socios_accionistas_json: string[];
-  garantia_tecnica_meses: string;
-  garantia_tecnica_detalle: string;
-  soporte_tecnico_contacto: string;
-  tiempo_inicio_servicio_dias: string;
-  personal_tecnico_json: string[];
-  infraestructura_equipo_json: string[];
-  licencias_permisos_json: string[];
-};
-
-const EMPTY: FormState = {
-  razon_social: "",
-  rfc: "",
-  giro: "",
-  experiencia_anos: "",
-  certificaciones_json: [],
-  clientes_referencia_json: [],
-  logo_url: null,
-  color_primario: null,
-  color_secundario: null,
-  objeto_social: "",
-  acta_escritura_numero: "",
-  acta_escritura_fecha: "",
-  acta_notario: "",
-  acta_notaria_numero: "",
-  acta_notaria_estado: "",
-  acta_registro_publico: "",
-  representante_legal_nombre: "",
-  representante_legal_escritura_numero: "",
-  representante_legal_escritura_fecha: "",
-  representante_legal_notario: "",
-  representante_legal_notaria_numero: "",
-  representante_legal_notaria_estado: "",
-  representante_legal_registro_publico: "",
-  domicilio_fiscal: "",
-  domicilio_notificaciones: "",
-  correo_notificaciones: "",
-  nacionalidad: "Mexicana",
-  normas_oficiales_aplican: false,
-  normas_oficiales_detalle: "",
-  cuenta_personal_discapacidad: false,
-  estratificacion_mipyme: "",
-  socios_accionistas_json: [],
-  garantia_tecnica_meses: "",
-  garantia_tecnica_detalle: "",
-  soporte_tecnico_contacto: "",
-  tiempo_inicio_servicio_dias: "",
-  personal_tecnico_json: [],
-  infraestructura_equipo_json: [],
-  licencias_permisos_json: [],
-};
+import type { EmpresaPerfilFormState } from "@/hooks/use-empresa-perfil-form";
 
 const NUEVA = "__nueva__";
 
-function empresaToForm(data: EmpresaPerfil): FormState {
-  return {
-    razon_social: data.razon_social ?? "",
-    rfc: data.rfc ?? "",
-    giro: data.giro ?? "",
-    experiencia_anos: data.experiencia_anos?.toString() ?? "",
-    certificaciones_json: (data.certificaciones_json as string[]) ?? [],
-    clientes_referencia_json: (data.clientes_referencia_json as string[]) ?? [],
-    logo_url: data.logo_url,
-    color_primario: data.color_primario,
-    color_secundario: data.color_secundario,
-    objeto_social: data.objeto_social ?? "",
-    acta_escritura_numero: data.acta_escritura_numero ?? "",
-    acta_escritura_fecha: data.acta_escritura_fecha ?? "",
-    acta_notario: data.acta_notario ?? "",
-    acta_notaria_numero: data.acta_notaria_numero ?? "",
-    acta_notaria_estado: data.acta_notaria_estado ?? "",
-    acta_registro_publico: data.acta_registro_publico ?? "",
-    representante_legal_nombre: data.representante_legal_nombre ?? "",
-    representante_legal_escritura_numero: data.representante_legal_escritura_numero ?? "",
-    representante_legal_escritura_fecha: data.representante_legal_escritura_fecha ?? "",
-    representante_legal_notario: data.representante_legal_notario ?? "",
-    representante_legal_notaria_numero: data.representante_legal_notaria_numero ?? "",
-    representante_legal_notaria_estado: data.representante_legal_notaria_estado ?? "",
-    representante_legal_registro_publico: data.representante_legal_registro_publico ?? "",
-    domicilio_fiscal: data.domicilio_fiscal ?? "",
-    domicilio_notificaciones: data.domicilio_notificaciones ?? "",
-    correo_notificaciones: data.correo_notificaciones ?? "",
-    nacionalidad: data.nacionalidad || "Mexicana",
-    normas_oficiales_aplican: data.normas_oficiales_aplican ?? false,
-    normas_oficiales_detalle: data.normas_oficiales_detalle ?? "",
-    cuenta_personal_discapacidad: data.cuenta_personal_discapacidad ?? false,
-    estratificacion_mipyme: data.estratificacion_mipyme ?? "",
-    socios_accionistas_json: (data.socios_accionistas_json as string[]) ?? [],
-    garantia_tecnica_meses: data.garantia_tecnica_meses?.toString() ?? "",
-    garantia_tecnica_detalle: data.garantia_tecnica_detalle ?? "",
-    soporte_tecnico_contacto: data.soporte_tecnico_contacto ?? "",
-    tiempo_inicio_servicio_dias: data.tiempo_inicio_servicio_dias?.toString() ?? "",
-    personal_tecnico_json: (data.personal_tecnico_json as string[]) ?? [],
-    infraestructura_equipo_json: (data.infraestructura_equipo_json as string[]) ?? [],
-    licencias_permisos_json: (data.licencias_permisos_json as string[]) ?? [],
-  };
-}
-
-function DynamicList({
+export function DynamicList({
   label,
   items,
   onChange,
+  invalid = false,
 }: {
   label: string;
   items: string[];
   onChange: (items: string[]) => void;
+  /** Resalta el campo en rojo, p. ej. cuando "Prellenar con IA" no encontró datos para él. */
+  invalid?: boolean;
 }) {
   const [nuevo, setNuevo] = useState("");
 
@@ -217,6 +65,7 @@ function DynamicList({
             }
           }}
           placeholder="Escribe y presiona Enter"
+          aria-invalid={invalid}
         />
         <Button
           type="button"
@@ -236,237 +85,33 @@ function DynamicList({
   );
 }
 
-export function EmpresaPerfilForm({
-  onEmpresaChange,
-}: {
-  onEmpresaChange?: (empresaId: string | null) => void;
-}) {
-  const router = useRouter();
-  const [empresas, setEmpresas] = useState<EmpresaPerfil[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState | null>(null);
-  const [organizationId, setOrganizationId] = useState<string | null>(null);
-  const [guardando, setGuardando] = useState(false);
-  const [subiendoLogo, setSubiendoLogo] = useState(false);
-  const [modoFormulario, setModoFormulario] = useState(false);
-  const [rellenando, setRellenando] = useState(false);
+// Perfil general y datos legales de la empresa. "Datos técnicos",
+// "Certificaciones" y "Clientes de referencia" viven en la pestaña "Otros
+// datos" de la tarjeta "Documentos corporativos" (ver
+// otros-datos-empresa-form.tsx) — ambas piezas comparten el mismo estado
+// (useEmpresaPerfilForm, instanciado una sola vez en ConfiguracionEmpresa) y
+// se guardan juntas con el botón "Guardar perfil" de aquí abajo.
+export function EmpresaPerfilForm({ empresaForm }: { empresaForm: EmpresaPerfilFormState }) {
+  const {
+    empresas,
+    selectedId,
+    form,
+    guardando,
+    subiendoLogo,
+    modoFormulario,
+    rellenando,
+    camposSinExtraer,
+    setForm,
+    setCampo,
+    handleEditar,
+    handleNuevaEmpresa,
+    handleCancelar,
+    handleSelectEmpresa,
+    handleGuardar,
+    handleLogoUpload,
+    handleRellenarDesdeDocumentos,
+  } = empresaForm;
   const logoInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    fetch("/api/empresa-perfil")
-      .then((res) => res.json())
-      .then((json) => {
-        const data = (json.data?.data as EmpresaPerfil[]) ?? [];
-        const activaId = (json.data?.activaId as string | null) ?? null;
-        setEmpresas(data);
-
-        const inicial = data.find((e) => e.id === activaId) ?? data[0] ?? null;
-        setSelectedId(inicial?.id ?? null);
-        setForm(inicial ? empresaToForm(inicial) : EMPTY);
-        setModoFormulario(!inicial);
-      });
-
-    const supabase = createClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return;
-      const { data: perfil } = await supabase
-        .from("users")
-        .select("organization_id")
-        .eq("id", user.id)
-        .single();
-      setOrganizationId(perfil?.organization_id ?? null);
-    });
-  }, []);
-
-  useEffect(() => {
-    onEmpresaChange?.(selectedId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
-
-  function handleNuevaEmpresa() {
-    setSelectedId(null);
-    setForm(EMPTY);
-    setModoFormulario(true);
-  }
-
-  function handleCancelar() {
-    const anterior = empresas.find((e) => e.id === selectedId) ?? empresas[0] ?? null;
-    if (anterior) {
-      setSelectedId(anterior.id);
-      setForm(empresaToForm(anterior));
-    }
-    setModoFormulario(false);
-  }
-
-  function handleSelectEmpresa(value: string | null) {
-    if (!value || value === NUEVA) {
-      handleNuevaEmpresa();
-      return;
-    }
-    const empresa = empresas.find((e) => e.id === value);
-    if (!empresa) return;
-    setSelectedId(empresa.id);
-    setForm(empresaToForm(empresa));
-
-    fetch("/api/empresa-perfil/seleccionar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: empresa.id }),
-    }).then((res) => {
-      if (res.ok) router.refresh();
-    });
-  }
-
-  async function handleGuardar() {
-    if (!form) return;
-    setGuardando(true);
-
-    const payload = {
-      ...form,
-      experiencia_anos: form.experiencia_anos ? Number(form.experiencia_anos) : null,
-      acta_escritura_fecha: form.acta_escritura_fecha || null,
-      representante_legal_escritura_fecha: form.representante_legal_escritura_fecha || null,
-      garantia_tecnica_meses: form.garantia_tecnica_meses ? Number(form.garantia_tecnica_meses) : null,
-      tiempo_inicio_servicio_dias: form.tiempo_inicio_servicio_dias
-        ? Number(form.tiempo_inicio_servicio_dias)
-        : null,
-    };
-
-    const res = await fetch(selectedId ? `/api/empresa-perfil/${selectedId}` : "/api/empresa-perfil", {
-      method: selectedId ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const json = await res.json();
-    setGuardando(false);
-
-    if (!res.ok) {
-      toast.error("No se pudo guardar el perfil", { description: json.error?.message });
-      return;
-    }
-
-    const guardada = json.data as EmpresaPerfil;
-    setEmpresas((prev) => {
-      const existe = prev.some((e) => e.id === guardada.id);
-      return existe ? prev.map((e) => (e.id === guardada.id ? guardada : e)) : [...prev, guardada];
-    });
-    setSelectedId(guardada.id);
-    setModoFormulario(false);
-
-    const nombre = guardada.razon_social?.trim() || "la empresa";
-    toast.success(`Perfil de "${nombre}" guardado`);
-    router.refresh();
-  }
-
-  async function handleLogoUpload(file: File) {
-    if (!form) return;
-    if (!organizationId) {
-      toast.error("Espera un momento", {
-        description: "Tu perfil todavía se está cargando, intenta de nuevo en unos segundos.",
-      });
-      return;
-    }
-    setSubiendoLogo(true);
-
-    const supabase = createClient();
-    const path = `${organizationId}/logo-${Date.now()}.${file.name.split(".").pop()}`;
-    const { error: uploadError } = await supabase.storage
-      .from("logos-empresa")
-      .upload(path, file, { upsert: true });
-
-    if (uploadError) {
-      setSubiendoLogo(false);
-      toast.error("No se pudo subir el logo", { description: uploadError.message });
-      return;
-    }
-
-    const { data: publicUrl } = supabase.storage.from("logos-empresa").getPublicUrl(path);
-    const colores = await extraerColoresDominantes(file).catch(() => null);
-
-    setForm((actual) =>
-      actual
-        ? {
-            ...actual,
-            logo_url: publicUrl.publicUrl,
-            color_primario: colores?.primario ?? actual.color_primario,
-            color_secundario: colores?.secundario ?? actual.color_secundario,
-          }
-        : actual,
-    );
-    setSubiendoLogo(false);
-  }
-
-  async function handleRellenarDesdeDocumentos() {
-    if (!selectedId) return;
-    setRellenando(true);
-    try {
-      const res = await fetch(`/api/empresa-perfil/${selectedId}/documentos`);
-      if (!res.ok) {
-        toast.error("No se pudieron leer los documentos corporativos");
-        return;
-      }
-      const json = await res.json();
-      // Los documentos vienen ordenados del más reciente al más antiguo, así
-      // que al recorrerlos en ese orden el primer valor encontrado por campo
-      // es el del documento más reciente.
-      const documentos = (json.data as DocumentoCorporativo[]) ?? [];
-
-      let camposLlenados = 0;
-      setForm((actual) => {
-        if (!actual) return actual;
-        const siguiente = { ...actual };
-
-        for (const doc of documentos) {
-          const datos = doc.datos_extraidos_json ?? {};
-          for (const campo of CAMPOS_TEXTO_PRELLENABLES) {
-            const valor = datos[campo];
-            if (siguiente[campo] === "" && typeof valor === "string" && valor) {
-              siguiente[campo] = valor;
-              camposLlenados++;
-            }
-          }
-          // `nombre_persona_detectado` es una columna propia del documento
-          // (no vive en datos_extraidos_json): el nombre del titular de una
-          // identificación oficial, o del apoderado en un poder. Solo se usa
-          // para representante_legal_nombre cuando viene del poder — de lo
-          // contrario se copiaría el nombre de la identificación oficial,
-          // que no siempre es la misma persona que el representante.
-          if (
-            siguiente.representante_legal_nombre === "" &&
-            doc.tipo === "Poder del representante legal" &&
-            doc.nombre_persona_detectado
-          ) {
-            siguiente.representante_legal_nombre = doc.nombre_persona_detectado;
-            camposLlenados++;
-          }
-          const socios = datos.socios_accionistas_json;
-          if (
-            siguiente.socios_accionistas_json.length === 0 &&
-            Array.isArray(socios) &&
-            socios.length > 0
-          ) {
-            siguiente.socios_accionistas_json = socios as string[];
-            camposLlenados++;
-          }
-        }
-
-        return siguiente;
-      });
-
-      if (camposLlenados > 0) {
-        toast.success(`Se prellenaron ${camposLlenados} campo(s) desde los documentos corporativos`, {
-          description: "Revísalos antes de guardar el perfil.",
-        });
-      } else {
-        toast.info("No había datos nuevos para prellenar", {
-          description:
-            'Sube o "Extrae datos con IA" en los documentos corporativos (acta, poder, comprobante de domicilio, etc.) desde su sección en Configuración.',
-        });
-      }
-    } finally {
-      setRellenando(false);
-    }
-  }
 
   if (!form) {
     return <Skeleton className="h-96 w-full" />;
@@ -477,7 +122,7 @@ export function EmpresaPerfilForm({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
-          onClick={() => setModoFormulario(true)}
+          onClick={handleEditar}
           className="text-left text-lg font-medium hover:underline"
         >
           {form.razon_social.trim() || "Empresa sin nombre"}
@@ -536,6 +181,20 @@ export function EmpresaPerfilForm({
           </SelectContent>
         </Select>
       </div>
+
+      {!selectedId && (
+        <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          <Sparkles className="size-3.5 shrink-0 translate-y-0.5 text-primary" />
+          <span>
+            Para dar de alta la empresa basta con razón social y RFC. Guarda el perfil y luego ve a
+            &quot;Documentos corporativos&quot; para subir tu acta constitutiva, poder, comprobante de
+            domicilio, etc. — la mayoría de los datos generales y legales (objeto social, representante
+            legal, domicilio fiscal, notario, folios de registro…) se pueden obtener automáticamente
+            leyendo esos documentos con IA, con el botón &quot;Prellenar con IA desde documentos
+            corporativos&quot;.
+          </span>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <Label>Logo de la empresa</Label>
@@ -643,7 +302,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="objeto_social"
                 value={form.objeto_social}
-                onChange={(e) => setForm({ ...form, objeto_social: e.target.value })}
+                aria-invalid={camposSinExtraer.has("objeto_social")}
+                onChange={(e) => setCampo("objeto_social", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -651,7 +311,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="acta_escritura_numero"
                 value={form.acta_escritura_numero}
-                onChange={(e) => setForm({ ...form, acta_escritura_numero: e.target.value })}
+                aria-invalid={camposSinExtraer.has("acta_escritura_numero")}
+                onChange={(e) => setCampo("acta_escritura_numero", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -660,7 +321,8 @@ export function EmpresaPerfilForm({
                 id="acta_escritura_fecha"
                 type="date"
                 value={form.acta_escritura_fecha}
-                onChange={(e) => setForm({ ...form, acta_escritura_fecha: e.target.value })}
+                aria-invalid={camposSinExtraer.has("acta_escritura_fecha")}
+                onChange={(e) => setCampo("acta_escritura_fecha", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -668,7 +330,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="acta_notario"
                 value={form.acta_notario}
-                onChange={(e) => setForm({ ...form, acta_notario: e.target.value })}
+                aria-invalid={camposSinExtraer.has("acta_notario")}
+                onChange={(e) => setCampo("acta_notario", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -676,7 +339,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="acta_notaria_numero"
                 value={form.acta_notaria_numero}
-                onChange={(e) => setForm({ ...form, acta_notaria_numero: e.target.value })}
+                aria-invalid={camposSinExtraer.has("acta_notaria_numero")}
+                onChange={(e) => setCampo("acta_notaria_numero", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -684,7 +348,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="acta_notaria_estado"
                 value={form.acta_notaria_estado}
-                onChange={(e) => setForm({ ...form, acta_notaria_estado: e.target.value })}
+                aria-invalid={camposSinExtraer.has("acta_notaria_estado")}
+                onChange={(e) => setCampo("acta_notaria_estado", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2 sm:col-span-2">
@@ -692,7 +357,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="acta_registro_publico"
                 value={form.acta_registro_publico}
-                onChange={(e) => setForm({ ...form, acta_registro_publico: e.target.value })}
+                aria-invalid={camposSinExtraer.has("acta_registro_publico")}
+                onChange={(e) => setCampo("acta_registro_publico", e.target.value)}
               />
             </div>
           </div>
@@ -708,7 +374,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="representante_legal_nombre"
                 value={form.representante_legal_nombre}
-                onChange={(e) => setForm({ ...form, representante_legal_nombre: e.target.value })}
+                aria-invalid={camposSinExtraer.has("representante_legal_nombre")}
+                onChange={(e) => setCampo("representante_legal_nombre", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -716,9 +383,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="representante_legal_escritura_numero"
                 value={form.representante_legal_escritura_numero}
-                onChange={(e) =>
-                  setForm({ ...form, representante_legal_escritura_numero: e.target.value })
-                }
+                aria-invalid={camposSinExtraer.has("representante_legal_escritura_numero")}
+                onChange={(e) => setCampo("representante_legal_escritura_numero", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -727,9 +393,8 @@ export function EmpresaPerfilForm({
                 id="representante_legal_escritura_fecha"
                 type="date"
                 value={form.representante_legal_escritura_fecha}
-                onChange={(e) =>
-                  setForm({ ...form, representante_legal_escritura_fecha: e.target.value })
-                }
+                aria-invalid={camposSinExtraer.has("representante_legal_escritura_fecha")}
+                onChange={(e) => setCampo("representante_legal_escritura_fecha", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -737,7 +402,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="representante_legal_notario"
                 value={form.representante_legal_notario}
-                onChange={(e) => setForm({ ...form, representante_legal_notario: e.target.value })}
+                aria-invalid={camposSinExtraer.has("representante_legal_notario")}
+                onChange={(e) => setCampo("representante_legal_notario", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -745,9 +411,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="representante_legal_notaria_numero"
                 value={form.representante_legal_notaria_numero}
-                onChange={(e) =>
-                  setForm({ ...form, representante_legal_notaria_numero: e.target.value })
-                }
+                aria-invalid={camposSinExtraer.has("representante_legal_notaria_numero")}
+                onChange={(e) => setCampo("representante_legal_notaria_numero", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -755,9 +420,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="representante_legal_notaria_estado"
                 value={form.representante_legal_notaria_estado}
-                onChange={(e) =>
-                  setForm({ ...form, representante_legal_notaria_estado: e.target.value })
-                }
+                aria-invalid={camposSinExtraer.has("representante_legal_notaria_estado")}
+                onChange={(e) => setCampo("representante_legal_notaria_estado", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2 sm:col-span-2">
@@ -767,9 +431,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="representante_legal_registro_publico"
                 value={form.representante_legal_registro_publico}
-                onChange={(e) =>
-                  setForm({ ...form, representante_legal_registro_publico: e.target.value })
-                }
+                aria-invalid={camposSinExtraer.has("representante_legal_registro_publico")}
+                onChange={(e) => setCampo("representante_legal_registro_publico", e.target.value)}
               />
             </div>
           </div>
@@ -783,7 +446,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="domicilio_fiscal"
                 value={form.domicilio_fiscal}
-                onChange={(e) => setForm({ ...form, domicilio_fiscal: e.target.value })}
+                aria-invalid={camposSinExtraer.has("domicilio_fiscal")}
+                onChange={(e) => setCampo("domicilio_fiscal", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -810,7 +474,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="nacionalidad"
                 value={form.nacionalidad}
-                onChange={(e) => setForm({ ...form, nacionalidad: e.target.value })}
+                aria-invalid={camposSinExtraer.has("nacionalidad")}
+                onChange={(e) => setCampo("nacionalidad", e.target.value)}
               />
             </div>
           </div>
@@ -826,14 +491,16 @@ export function EmpresaPerfilForm({
               <Input
                 id="estratificacion_mipyme"
                 value={form.estratificacion_mipyme}
-                onChange={(e) => setForm({ ...form, estratificacion_mipyme: e.target.value })}
+                aria-invalid={camposSinExtraer.has("estratificacion_mipyme")}
+                onChange={(e) => setCampo("estratificacion_mipyme", e.target.value)}
               />
             </div>
           </div>
           <DynamicList
             label="Socios / accionistas con control sobre la sociedad (nombre y porcentaje)"
             items={form.socios_accionistas_json}
-            onChange={(items) => setForm({ ...form, socios_accionistas_json: items })}
+            invalid={camposSinExtraer.has("socios_accionistas_json")}
+            onChange={(items) => setCampo("socios_accionistas_json", items)}
           />
           <div className="flex items-start gap-2">
             <Checkbox
@@ -871,84 +538,6 @@ export function EmpresaPerfilForm({
             </Label>
           </div>
         </div>
-      </div>
-
-      <DynamicList
-        label="Certificaciones"
-        items={form.certificaciones_json}
-        onChange={(items) => setForm({ ...form, certificaciones_json: items })}
-      />
-      <DynamicList
-        label="Clientes de referencia"
-        items={form.clientes_referencia_json}
-        onChange={(items) => setForm({ ...form, clientes_referencia_json: items })}
-      />
-
-      <div className="flex flex-col gap-4 rounded-lg border p-4">
-        <div>
-          <h3 className="text-sm font-semibold">Datos técnicos</h3>
-          <p className="text-xs text-muted-foreground">
-            Se usan para generar los documentos técnicos (TEC01-TEC08) de las propuestas: garantía,
-            soporte, infraestructura y personal asignado.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="garantia_tecnica_meses">Garantía técnica (meses)</Label>
-            <Input
-              id="garantia_tecnica_meses"
-              type="number"
-              value={form.garantia_tecnica_meses}
-              onChange={(e) => setForm({ ...form, garantia_tecnica_meses: e.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="tiempo_inicio_servicio_dias">
-              Tiempo de inicio del servicio (días naturales)
-            </Label>
-            <Input
-              id="tiempo_inicio_servicio_dias"
-              type="number"
-              value={form.tiempo_inicio_servicio_dias}
-              onChange={(e) => setForm({ ...form, tiempo_inicio_servicio_dias: e.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-2 sm:col-span-2">
-            <Label htmlFor="garantia_tecnica_detalle">Detalle de la garantía técnica</Label>
-            <Input
-              id="garantia_tecnica_detalle"
-              value={form.garantia_tecnica_detalle}
-              onChange={(e) => setForm({ ...form, garantia_tecnica_detalle: e.target.value })}
-            />
-          </div>
-          <div className="flex flex-col gap-2 sm:col-span-2">
-            <Label htmlFor="soporte_tecnico_contacto">
-              Contacto de soporte técnico y mantenimiento
-            </Label>
-            <Input
-              id="soporte_tecnico_contacto"
-              value={form.soporte_tecnico_contacto}
-              onChange={(e) => setForm({ ...form, soporte_tecnico_contacto: e.target.value })}
-            />
-          </div>
-        </div>
-
-        <DynamicList
-          label="Infraestructura y equipo"
-          items={form.infraestructura_equipo_json}
-          onChange={(items) => setForm({ ...form, infraestructura_equipo_json: items })}
-        />
-        <DynamicList
-          label="Personal técnico asignado (nombre y puesto)"
-          items={form.personal_tecnico_json}
-          onChange={(items) => setForm({ ...form, personal_tecnico_json: items })}
-        />
-        <DynamicList
-          label="Licencias y permisos técnicos vigentes"
-          items={form.licencias_permisos_json}
-          onChange={(items) => setForm({ ...form, licencias_permisos_json: items })}
-        />
       </div>
 
       <div className="flex justify-end gap-2">

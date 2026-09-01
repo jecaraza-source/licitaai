@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
 import { Building2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmpresaPerfilForm } from "@/components/configuracion/empresa-perfil-form";
 import { DocumentosCorporativosCard } from "@/components/configuracion/documentos-corporativos-card";
+import { useEmpresaPerfilForm } from "@/hooks/use-empresa-perfil-form";
 
 export function ConfiguracionEmpresa() {
-  const [empresaId, setEmpresaId] = useState<string | null>(null);
+  // Un solo estado de perfil de empresa para las dos tarjetas: "Perfil de
+  // empresa" (datos generales y legales) y "Documentos corporativos" (que
+  // incluye la pestaña "Otros datos" con certificaciones, clientes de
+  // referencia y datos técnicos) — así ambas se guardan juntas con el botón
+  // "Guardar perfil" sin arriesgar que una pise los cambios de la otra.
+  const empresaForm = useEmpresaPerfilForm();
+  const { selectedId, form, setCampo } = empresaForm;
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
@@ -21,12 +27,12 @@ export function ConfiguracionEmpresa() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <EmpresaPerfilForm onEmpresaChange={setEmpresaId} />
+          <EmpresaPerfilForm empresaForm={empresaForm} />
         </CardContent>
       </Card>
 
-      {empresaId ? (
-        <DocumentosCorporativosCard empresaId={empresaId} />
+      {selectedId && form ? (
+        <DocumentosCorporativosCard empresaId={selectedId} form={form} setCampo={setCampo} />
       ) : (
         <Card>
           <CardHeader>

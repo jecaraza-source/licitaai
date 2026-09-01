@@ -2,6 +2,7 @@ import { Settings } from "lucide-react";
 import { ConfiguracionEmpresa } from "@/components/configuracion/configuracion-empresa";
 import { StaffJerarquiaCard } from "@/components/configuracion/staff-jerarquia-card";
 import { MetricasValorCard } from "@/components/configuracion/metricas-valor-card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function ConfiguracionPage() {
   return (
@@ -18,9 +19,22 @@ export default function ConfiguracionPage() {
           Administra el perfil de tu empresa, su staff y las métricas de valor.
         </p>
       </div>
-      <MetricasValorCard />
-      <ConfiguracionEmpresa />
-      <StaffJerarquiaCard />
+
+      <Tabs defaultValue="perfil">
+        <TabsList>
+          <TabsTrigger value="perfil">Perfil de la empresa</TabsTrigger>
+          <TabsTrigger value="staff">Staff y cadena de autorización</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="perfil" className="flex flex-col gap-6">
+          <MetricasValorCard />
+          <ConfiguracionEmpresa />
+        </TabsContent>
+
+        <TabsContent value="staff">
+          <StaffJerarquiaCard />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

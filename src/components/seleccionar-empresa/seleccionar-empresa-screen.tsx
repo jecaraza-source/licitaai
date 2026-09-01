@@ -70,7 +70,7 @@ export function SeleccionarEmpresaScreen({ empresas }: { empresas: EmpresaPerfil
         height={887}
         unoptimized
         priority
-        className="h-10 w-auto object-contain"
+        className="h-42 w-auto object-contain"
       />
 
       <div className="flex w-full max-w-2xl flex-col gap-4">
