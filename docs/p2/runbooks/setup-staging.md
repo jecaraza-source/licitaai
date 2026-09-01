@@ -67,7 +67,7 @@ Igual que §1 pero:
 | `SUPABASE_SERVICE_ROLE_KEY` | sí | service_role key (la usan las rutas de cron y server) |
 | `NEXT_PUBLIC_APP_URL` | sí | URL pública de la app en ese entorno |
 | `CRON_SECRET` | sí | aleatorio de 32+ hex — **debe coincidir** con el de Vercel Cron; lo usan `/api/cron/*` |
-| `PLATFORM_ADMIN_EMAILS` | sí | correos de los admin de plataforma, separados por coma (fail-closed: sin esto `/admin/salud` no deja entrar a nadie) |
+| `PLATFORM_ADMIN_BOOTSTRAP_SECRET` | solo para el primer admin | aleatorio — habilita `POST /api/admin/platform-admins/bootstrap` una sola vez (se autodeshabilita en cuanto existe una fila en `platform_admins`); los siguientes admins/operadores se dan de alta desde `/admin/usuarios`, ya no por variable de entorno |
 | `RESEND_API_KEY` | sí (para notificaciones) | key de Resend |
 | `RESEND_FROM_EMAIL` | sí | remitente verificado en Resend |
 | `NEXT_PUBLIC_SENTRY_DSN` / `SENTRY_DSN` | recomendado | DSN de Sentry (cliente / servidor) |
@@ -161,7 +161,7 @@ inyecta la plataforma en las Edge Functions — **no** los pongas como secret.
 1. Merge de un cambio trivial a `staging` → `staging.yml` corre entero →
    `smoke.mjs` en verde contra `STAGING_ALIAS`.
 2. `curl https://<staging>/api/health` → `200`; `/api/ready` → `200`.
-3. `/admin/salud` con un correo de `PLATFORM_ADMIN_EMAILS` → carga.
+3. Con una cuenta que tenga fila en `platform_admins` (dada de alta vía `POST /api/admin/platform-admins/bootstrap`, ver `.env.example`), `/admin/salud` → carga.
 4. Encola un job `noop` vía SQL en staging y verifica que el worker lo
    completa (Vercel Cron cada minuto).
 5. Deja **todos los `feature_flags` en OFF**. La activación por

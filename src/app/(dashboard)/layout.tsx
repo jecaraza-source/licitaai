@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
+import { esPlatformAdmin } from "@/lib/platform-admin";
 import { buildCompanyThemeStyle } from "@/lib/theme-colors";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
@@ -25,6 +26,13 @@ export default async function DashboardLayout({
     .select("nombre, email, rol, organization_id, terminos_version")
     .eq("id", user.id)
     .single();
+
+  // Cuentas de admin/operador de plataforma (equipo LicitaAI) no tienen fila
+  // en public.users — no pertenecen a ninguna organización cliente. Van a
+  // /admin en vez del dashboard de una empresa que no existe.
+  if (!perfil && (await esPlatformAdmin(supabase, user.id))) {
+    redirect("/admin");
+  }
 
   // P2 · I6 — gate de consentimiento de términos (TERMINOS_GATE=off lo
   // desactiva, p. ej. en los e2e que crean usuarios vía la admin API).
