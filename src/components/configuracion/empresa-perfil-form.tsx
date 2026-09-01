@@ -178,10 +178,13 @@ function DynamicList({
   label,
   items,
   onChange,
+  invalid = false,
 }: {
   label: string;
   items: string[];
   onChange: (items: string[]) => void;
+  /** Resalta el campo en rojo, p. ej. cuando "Prellenar con IA" no encontró datos para él. */
+  invalid?: boolean;
 }) {
   const [nuevo, setNuevo] = useState("");
 
@@ -217,6 +220,7 @@ function DynamicList({
             }
           }}
           placeholder="Escribe y presiona Enter"
+          aria-invalid={invalid}
         />
         <Button
           type="button"
@@ -250,7 +254,22 @@ export function EmpresaPerfilForm({
   const [subiendoLogo, setSubiendoLogo] = useState(false);
   const [modoFormulario, setModoFormulario] = useState(false);
   const [rellenando, setRellenando] = useState(false);
+  // Campos prellenables (ver CAMPOS_TEXTO_PRELLENABLES) que, tras el último
+  // "Prellenar con IA", siguieron vacíos porque ningún documento traía un
+  // valor para ellos — se resaltan en rojo para que el usuario sepa cuáles
+  // debe capturar a mano. Se despeja un campo en cuanto el usuario lo edita.
+  const [camposSinExtraer, setCamposSinExtraer] = useState<Set<string>>(new Set());
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  function setCampo<K extends keyof FormState>(campo: K, valor: FormState[K]) {
+    setForm((actual) => (actual ? { ...actual, [campo]: valor } : actual));
+    setCamposSinExtraer((prev) => {
+      if (!prev.has(campo as string)) return prev;
+      const siguiente = new Set(prev);
+      siguiente.delete(campo as string);
+      return siguiente;
+    });
+  }
 
   useEffect(() => {
     fetch("/api/empresa-perfil")
@@ -287,6 +306,7 @@ export function EmpresaPerfilForm({
     setSelectedId(null);
     setForm(EMPTY);
     setModoFormulario(true);
+    setCamposSinExtraer(new Set());
   }
 
   function handleCancelar() {
@@ -296,6 +316,7 @@ export function EmpresaPerfilForm({
       setForm(empresaToForm(anterior));
     }
     setModoFormulario(false);
+    setCamposSinExtraer(new Set());
   }
 
   function handleSelectEmpresa(value: string | null) {
@@ -307,6 +328,7 @@ export function EmpresaPerfilForm({
     if (!empresa) return;
     setSelectedId(empresa.id);
     setForm(empresaToForm(empresa));
+    setCamposSinExtraer(new Set());
 
     fetch("/api/empresa-perfil/seleccionar", {
       method: "POST",
@@ -397,7 +419,7 @@ export function EmpresaPerfilForm({
   }
 
   async function handleRellenarDesdeDocumentos() {
-    if (!selectedId) return;
+    if (!selectedId || !form) return;
     setRellenando(true);
     try {
       const res = await fetch(`/api/empresa-perfil/${selectedId}/documentos`);
@@ -411,47 +433,57 @@ export function EmpresaPerfilForm({
       // es el del documento más reciente.
       const documentos = (json.data as DocumentoCorporativo[]) ?? [];
 
+      const siguiente = { ...form };
       let camposLlenados = 0;
-      setForm((actual) => {
-        if (!actual) return actual;
-        const siguiente = { ...actual };
 
-        for (const doc of documentos) {
-          const datos = doc.datos_extraidos_json ?? {};
-          for (const campo of CAMPOS_TEXTO_PRELLENABLES) {
-            const valor = datos[campo];
-            if (siguiente[campo] === "" && typeof valor === "string" && valor) {
-              siguiente[campo] = valor;
-              camposLlenados++;
-            }
-          }
-          // `nombre_persona_detectado` es una columna propia del documento
-          // (no vive en datos_extraidos_json): el nombre del titular de una
-          // identificación oficial, o del apoderado en un poder. Solo se usa
-          // para representante_legal_nombre cuando viene del poder — de lo
-          // contrario se copiaría el nombre de la identificación oficial,
-          // que no siempre es la misma persona que el representante.
-          if (
-            siguiente.representante_legal_nombre === "" &&
-            doc.tipo === "Poder del representante legal" &&
-            doc.nombre_persona_detectado
-          ) {
-            siguiente.representante_legal_nombre = doc.nombre_persona_detectado;
-            camposLlenados++;
-          }
-          const socios = datos.socios_accionistas_json;
-          if (
-            siguiente.socios_accionistas_json.length === 0 &&
-            Array.isArray(socios) &&
-            socios.length > 0
-          ) {
-            siguiente.socios_accionistas_json = socios as string[];
+      for (const doc of documentos) {
+        const datos = doc.datos_extraidos_json ?? {};
+        for (const campo of CAMPOS_TEXTO_PRELLENABLES) {
+          const valor = datos[campo];
+          if (siguiente[campo] === "" && typeof valor === "string" && valor) {
+            siguiente[campo] = valor;
             camposLlenados++;
           }
         }
+        // `nombre_persona_detectado` es una columna propia del documento
+        // (no vive en datos_extraidos_json): el nombre del titular de una
+        // identificación oficial, o del apoderado en un poder. Solo se usa
+        // para representante_legal_nombre cuando viene del poder — de lo
+        // contrario se copiaría el nombre de la identificación oficial,
+        // que no siempre es la misma persona que el representante.
+        if (
+          siguiente.representante_legal_nombre === "" &&
+          doc.tipo === "Poder del representante legal" &&
+          doc.nombre_persona_detectado
+        ) {
+          siguiente.representante_legal_nombre = doc.nombre_persona_detectado;
+          camposLlenados++;
+        }
+        const socios = datos.socios_accionistas_json;
+        if (
+          siguiente.socios_accionistas_json.length === 0 &&
+          Array.isArray(socios) &&
+          socios.length > 0
+        ) {
+          siguiente.socios_accionistas_json = socios as string[];
+          camposLlenados++;
+        }
+      }
 
-        return siguiente;
-      });
+      setForm(siguiente);
+
+      // Campos que el prellenado intenta llenar y que, tras procesar todos
+      // los documentos disponibles, siguieron vacíos: se resaltan en rojo
+      // para que el usuario sepa cuáles capturar a mano.
+      const sinExtraer = new Set<string>(
+        [...CAMPOS_TEXTO_PRELLENABLES, "representante_legal_nombre"].filter(
+          (campo) => siguiente[campo as keyof FormState] === "",
+        ),
+      );
+      if (siguiente.socios_accionistas_json.length === 0) {
+        sinExtraer.add("socios_accionistas_json");
+      }
+      setCamposSinExtraer(sinExtraer);
 
       if (camposLlenados > 0) {
         toast.success(`Se prellenaron ${camposLlenados} campo(s) desde los documentos corporativos`, {
@@ -657,7 +689,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="objeto_social"
                 value={form.objeto_social}
-                onChange={(e) => setForm({ ...form, objeto_social: e.target.value })}
+                aria-invalid={camposSinExtraer.has("objeto_social")}
+                onChange={(e) => setCampo("objeto_social", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -665,7 +698,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="acta_escritura_numero"
                 value={form.acta_escritura_numero}
-                onChange={(e) => setForm({ ...form, acta_escritura_numero: e.target.value })}
+                aria-invalid={camposSinExtraer.has("acta_escritura_numero")}
+                onChange={(e) => setCampo("acta_escritura_numero", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -674,7 +708,8 @@ export function EmpresaPerfilForm({
                 id="acta_escritura_fecha"
                 type="date"
                 value={form.acta_escritura_fecha}
-                onChange={(e) => setForm({ ...form, acta_escritura_fecha: e.target.value })}
+                aria-invalid={camposSinExtraer.has("acta_escritura_fecha")}
+                onChange={(e) => setCampo("acta_escritura_fecha", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -682,7 +717,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="acta_notario"
                 value={form.acta_notario}
-                onChange={(e) => setForm({ ...form, acta_notario: e.target.value })}
+                aria-invalid={camposSinExtraer.has("acta_notario")}
+                onChange={(e) => setCampo("acta_notario", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -690,7 +726,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="acta_notaria_numero"
                 value={form.acta_notaria_numero}
-                onChange={(e) => setForm({ ...form, acta_notaria_numero: e.target.value })}
+                aria-invalid={camposSinExtraer.has("acta_notaria_numero")}
+                onChange={(e) => setCampo("acta_notaria_numero", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -698,7 +735,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="acta_notaria_estado"
                 value={form.acta_notaria_estado}
-                onChange={(e) => setForm({ ...form, acta_notaria_estado: e.target.value })}
+                aria-invalid={camposSinExtraer.has("acta_notaria_estado")}
+                onChange={(e) => setCampo("acta_notaria_estado", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2 sm:col-span-2">
@@ -706,7 +744,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="acta_registro_publico"
                 value={form.acta_registro_publico}
-                onChange={(e) => setForm({ ...form, acta_registro_publico: e.target.value })}
+                aria-invalid={camposSinExtraer.has("acta_registro_publico")}
+                onChange={(e) => setCampo("acta_registro_publico", e.target.value)}
               />
             </div>
           </div>
@@ -722,7 +761,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="representante_legal_nombre"
                 value={form.representante_legal_nombre}
-                onChange={(e) => setForm({ ...form, representante_legal_nombre: e.target.value })}
+                aria-invalid={camposSinExtraer.has("representante_legal_nombre")}
+                onChange={(e) => setCampo("representante_legal_nombre", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -730,9 +770,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="representante_legal_escritura_numero"
                 value={form.representante_legal_escritura_numero}
-                onChange={(e) =>
-                  setForm({ ...form, representante_legal_escritura_numero: e.target.value })
-                }
+                aria-invalid={camposSinExtraer.has("representante_legal_escritura_numero")}
+                onChange={(e) => setCampo("representante_legal_escritura_numero", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -741,9 +780,8 @@ export function EmpresaPerfilForm({
                 id="representante_legal_escritura_fecha"
                 type="date"
                 value={form.representante_legal_escritura_fecha}
-                onChange={(e) =>
-                  setForm({ ...form, representante_legal_escritura_fecha: e.target.value })
-                }
+                aria-invalid={camposSinExtraer.has("representante_legal_escritura_fecha")}
+                onChange={(e) => setCampo("representante_legal_escritura_fecha", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -751,7 +789,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="representante_legal_notario"
                 value={form.representante_legal_notario}
-                onChange={(e) => setForm({ ...form, representante_legal_notario: e.target.value })}
+                aria-invalid={camposSinExtraer.has("representante_legal_notario")}
+                onChange={(e) => setCampo("representante_legal_notario", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -759,9 +798,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="representante_legal_notaria_numero"
                 value={form.representante_legal_notaria_numero}
-                onChange={(e) =>
-                  setForm({ ...form, representante_legal_notaria_numero: e.target.value })
-                }
+                aria-invalid={camposSinExtraer.has("representante_legal_notaria_numero")}
+                onChange={(e) => setCampo("representante_legal_notaria_numero", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -769,9 +807,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="representante_legal_notaria_estado"
                 value={form.representante_legal_notaria_estado}
-                onChange={(e) =>
-                  setForm({ ...form, representante_legal_notaria_estado: e.target.value })
-                }
+                aria-invalid={camposSinExtraer.has("representante_legal_notaria_estado")}
+                onChange={(e) => setCampo("representante_legal_notaria_estado", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2 sm:col-span-2">
@@ -781,9 +818,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="representante_legal_registro_publico"
                 value={form.representante_legal_registro_publico}
-                onChange={(e) =>
-                  setForm({ ...form, representante_legal_registro_publico: e.target.value })
-                }
+                aria-invalid={camposSinExtraer.has("representante_legal_registro_publico")}
+                onChange={(e) => setCampo("representante_legal_registro_publico", e.target.value)}
               />
             </div>
           </div>
@@ -797,7 +833,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="domicilio_fiscal"
                 value={form.domicilio_fiscal}
-                onChange={(e) => setForm({ ...form, domicilio_fiscal: e.target.value })}
+                aria-invalid={camposSinExtraer.has("domicilio_fiscal")}
+                onChange={(e) => setCampo("domicilio_fiscal", e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -824,7 +861,8 @@ export function EmpresaPerfilForm({
               <Input
                 id="nacionalidad"
                 value={form.nacionalidad}
-                onChange={(e) => setForm({ ...form, nacionalidad: e.target.value })}
+                aria-invalid={camposSinExtraer.has("nacionalidad")}
+                onChange={(e) => setCampo("nacionalidad", e.target.value)}
               />
             </div>
           </div>
@@ -840,14 +878,16 @@ export function EmpresaPerfilForm({
               <Input
                 id="estratificacion_mipyme"
                 value={form.estratificacion_mipyme}
-                onChange={(e) => setForm({ ...form, estratificacion_mipyme: e.target.value })}
+                aria-invalid={camposSinExtraer.has("estratificacion_mipyme")}
+                onChange={(e) => setCampo("estratificacion_mipyme", e.target.value)}
               />
             </div>
           </div>
           <DynamicList
             label="Socios / accionistas con control sobre la sociedad (nombre y porcentaje)"
             items={form.socios_accionistas_json}
-            onChange={(items) => setForm({ ...form, socios_accionistas_json: items })}
+            invalid={camposSinExtraer.has("socios_accionistas_json")}
+            onChange={(items) => setCampo("socios_accionistas_json", items)}
           />
           <div className="flex items-start gap-2">
             <Checkbox
