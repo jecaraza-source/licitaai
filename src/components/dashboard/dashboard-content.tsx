@@ -11,13 +11,35 @@ import { cn } from "@/lib/utils";
 import type { DashboardStats, Licitacion } from "@/types";
 
 type KpiKey = "totalActivas" | "proximasAVencer" | "enPreparacion" | "enviadasEsteMes";
+type KpiColor = "emerald" | "amber" | "sky" | "violet";
 
-const KPI_LABELS: { key: KpiKey; label: string; icon: typeof Rocket }[] = [
-  { key: "totalActivas", label: "Licitaciones activas", icon: Rocket },
-  { key: "proximasAVencer", label: "Próximas a vencer (7 días)", icon: Clock },
-  { key: "enPreparacion", label: "En preparación", icon: FileEdit },
-  { key: "enviadasEsteMes", label: "Enviadas este mes", icon: Send },
+const KPI_LABELS: { key: KpiKey; label: string; icon: typeof Rocket; color: KpiColor }[] = [
+  { key: "totalActivas", label: "Licitaciones activas", icon: Rocket, color: "emerald" },
+  { key: "proximasAVencer", label: "Próximas a vencer (7 días)", icon: Clock, color: "amber" },
+  { key: "enPreparacion", label: "En preparación", icon: FileEdit, color: "sky" },
+  { key: "enviadasEsteMes", label: "Enviadas este mes", icon: Send, color: "violet" },
 ];
+
+// Un color por tarjeta para que se distingan de un vistazo — antes todas
+// compartían el mismo primario neutro.
+const KPI_ESTILOS: Record<KpiColor, { card: string; icon: string }> = {
+  emerald: {
+    card: "bg-emerald-500/5",
+    icon: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  },
+  amber: {
+    card: "bg-amber-500/5",
+    icon: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  },
+  sky: {
+    card: "bg-sky-500/5",
+    icon: "bg-sky-500/15 text-sky-600 dark:text-sky-400",
+  },
+  violet: {
+    card: "bg-violet-500/5",
+    icon: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
+  },
+};
 
 function diasRestantes(fecha: string | null): number | null {
   if (!fecha) return null;
@@ -64,22 +86,27 @@ export function DashboardContent() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {KPI_LABELS.map(({ key, label, icon: Icon }) => (
-          <Card key={key} size="sm">
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-1">
-              <CardTitle className="text-xs font-medium text-muted-foreground">
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        {KPI_LABELS.map(({ key, label, icon: Icon, color }) => (
+          <Card key={key} size="sm" className={cn("gap-1.5", KPI_ESTILOS[color].card)}>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-0.5">
+              <CardTitle className="text-[11px] leading-tight font-medium text-muted-foreground">
                 {label}
               </CardTitle>
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Icon className="size-3.5" />
+              <span
+                className={cn(
+                  "flex size-5 shrink-0 items-center justify-center rounded-full",
+                  KPI_ESTILOS[color].icon,
+                )}
+              >
+                <Icon className="size-3" />
               </span>
             </CardHeader>
             <CardContent>
               {stats ? (
-                <p className="text-xl font-bold">{stats[key]}</p>
+                <p className="text-lg font-bold">{stats[key]}</p>
               ) : (
-                <Skeleton className="h-7 w-12" />
+                <Skeleton className="h-6 w-10" />
               )}
             </CardContent>
           </Card>
@@ -118,20 +145,23 @@ export function DashboardContent() {
                 const descripcion = l.analisis_bases?.[0]?.objeto_contrato;
                 const monto = formatMonto(l.monto_maximo);
                 return (
-                  <li key={l.id} className="flex items-center justify-between gap-4 py-3">
+                  <li
+                    key={l.id}
+                    className="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+                  >
                     <div className="min-w-0">
                       <Link
                         href={`/licitaciones/${l.id}`}
-                        className="font-medium hover:underline"
+                        className="font-medium break-words hover:underline"
                       >
                         {l.numero_expediente} — {l.titulo}
                       </Link>
-                      <p className="truncate text-sm text-muted-foreground">{l.institucion}</p>
-                      <p className="truncate text-xs text-muted-foreground">
+                      <p className="text-sm break-words text-muted-foreground">{l.institucion}</p>
+                      <p className="text-xs break-words text-muted-foreground">
                         {descripcion || "Sin descripción (aún no se analiza con IA)"}
                       </p>
                     </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1 text-sm">
+                    <div className="flex shrink-0 flex-row flex-wrap items-center gap-2 text-sm sm:flex-col sm:items-end sm:gap-1">
                       <EstadoBadge estado={l.estado_licitacion} />
                       <span className="text-xs font-medium text-muted-foreground">
                         {monto ?? "Monto sin definir"}

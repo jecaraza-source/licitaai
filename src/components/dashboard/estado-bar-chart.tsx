@@ -27,7 +27,7 @@ export function EstadoBarChart({ porEstado }: { porEstado: DashboardStats["porEs
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-1.5">
       {ESTADOS.map((e) => {
         const valor = porEstado[e.key] ?? 0;
         const pct = (valor / max) * 100;
@@ -41,11 +41,11 @@ export function EstadoBarChart({ porEstado }: { porEstado: DashboardStats["porEs
             onBlur={() => setActivo((a) => (a === e.key ? null : a))}
             tabIndex={0}
           >
-            <span className="w-24 shrink-0 text-xs text-muted-foreground">{e.label}</span>
-            <div className="relative h-3 flex-1 bg-muted">
+            <span className="w-20 shrink-0 text-xs text-muted-foreground">{e.label}</span>
+            <div className="relative h-1.5 max-w-xs flex-1 bg-muted">
               <div
                 className={cn(
-                  "h-3 rounded-r-[4px] bg-primary transition-[filter]",
+                  "h-1.5 rounded-r-[4px] bg-primary transition-[filter]",
                   activo === e.key && "brightness-110",
                 )}
                 style={{ width: valor > 0 ? `${Math.max(pct, 4)}%` : 0 }}
