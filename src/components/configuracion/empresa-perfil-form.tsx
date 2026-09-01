@@ -537,6 +537,20 @@ export function EmpresaPerfilForm({
         </Select>
       </div>
 
+      {!selectedId && (
+        <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          <Sparkles className="size-3.5 shrink-0 translate-y-0.5 text-primary" />
+          <span>
+            Para dar de alta la empresa basta con razón social y RFC. Guarda el perfil y luego ve a
+            &quot;Documentos corporativos&quot; para subir tu acta constitutiva, poder, comprobante de
+            domicilio, etc. — la mayoría de los datos generales y legales (objeto social, representante
+            legal, domicilio fiscal, notario, folios de registro…) se pueden obtener automáticamente
+            leyendo esos documentos con IA, con el botón &quot;Prellenar con IA desde documentos
+            corporativos&quot;.
+          </span>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2">
         <Label>Logo de la empresa</Label>
         <div className="flex items-center gap-4">

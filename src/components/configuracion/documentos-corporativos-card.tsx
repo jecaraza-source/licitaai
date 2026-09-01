@@ -187,8 +187,11 @@ function verificarRepresentante(
   };
 }
 
-function RepresentanteVerificacion({ documentos }: { documentos: DocumentoCorporativo[] }) {
-  const verificacion = verificarRepresentante(documentos);
+function RepresentanteVerificacion({
+  verificacion,
+}: {
+  verificacion: ReturnType<typeof verificarRepresentante>;
+}) {
   if (!verificacion) return null;
 
   return (
@@ -410,8 +413,6 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
           </div>
         )}
 
-        {documentos && documentos.length > 0 && <RepresentanteVerificacion documentos={documentos} />}
-
         {documentos === null ? (
           <p className="text-sm text-muted-foreground">Cargando…</p>
         ) : documentos.length === 0 ? (
@@ -423,6 +424,12 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
               const puedeCalcularVigencia = TIPOS_CON_VIGENCIA_CALCULABLE.has(doc.tipo);
               const puedeExtraerDatosLegales = TIPOS_CON_DATOS_LEGALES_EXTRAIBLES.has(doc.tipo);
               const yaExtrajoDatos = Object.keys(doc.datos_extraidos_json ?? {}).length > 0;
+              // El resultado de comparar identificación oficial vs. poder se
+              // muestra junto a la identificación oficial (el documento que
+              // se acaba de validar), no como un banner suelto entre el
+              // checklist y la lista.
+              const verificacionRepresentante =
+                doc.tipo === "Identificación oficial" ? verificarRepresentante(documentos) : null;
               return (
                 <li key={doc.id} className="flex flex-col gap-1.5 py-2 text-sm">
                   <div className="flex items-center gap-2">
@@ -444,8 +451,11 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
                     </Button>
                   </div>
                   {!analizando && (
-                    <div className="pl-6">
+                    <div className="flex flex-col gap-1.5 pl-6">
                       <CoincidenciaEmpresaDetalle doc={doc} />
+                      {verificacionRepresentante && (
+                        <RepresentanteVerificacion verificacion={verificacionRepresentante} />
+                      )}
                     </div>
                   )}
                   {puedeCalcularVigencia && (

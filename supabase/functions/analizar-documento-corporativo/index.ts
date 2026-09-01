@@ -40,7 +40,22 @@ null — casi siempre aparecen en:
 Un documento puede llegar como varias páginas escaneadas juntas: no concluyas que un dato
 falta sin haber revisado todas las páginas que recibiste. Aun así, si genuinamente no
 aparece en el documento, repórtalo como null en vez de adivinar — nunca inventes un número
-de escritura, notaría o folio. Usa siempre la herramienta proporcionada.`);
+de escritura, notaría o folio.
+
+Si el tipo de documento es "Comprobante de domicilio" (recibo de luz, agua, gas, teléfono u
+otro servicio): el recibo casi siempre trae, en el encabezado o pie de página, el RFC y/o la
+razón social de QUIEN EMITE el recibo (la comercializadora o el organismo — p. ej. CFE,
+Telmex, el organismo operador de agua). Ese RFC y esa razón social pertenecen al PROVEEDOR
+del servicio, no a la empresa o persona que presenta el comprobante — aunque aparezcan en el
+mismo documento, nunca los reportes como rfc_detectado/razon_social_detectada. Repórtalos
+únicamente si el documento indica explícitamente el RFC o el nombre DEL TITULAR/CLIENTE del
+servicio (el recuadro de "nombre del usuario", "contratante" o similar); si el titular
+aparece solo como nombre sin RFC junto a él, reporta razon_social_detectada con ese nombre y
+rfc_detectado como null — no lo confundas con el RFC del proveedor. El domicilio completo
+(domicilio_fiscal) sí debe extraerse siempre que sea legible, tenga o no el recibo un RFC del
+titular.
+
+Usa siempre la herramienta proporcionada.`);
 
 const TOOL_SCHEMA_BASE_PROPERTIES = {
   fecha_emision: {
