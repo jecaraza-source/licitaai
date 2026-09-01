@@ -76,9 +76,9 @@ export function LicitacionTabsNav({ children }: { children: ReactNode }) {
                   type="button"
                   onClick={() => setTab(grupo.tabs[0].value)}
                   className={cn(
-                    "whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors",
+                    "whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all",
                     activo
-                      ? "bg-background text-foreground shadow-sm dark:bg-input/30"
+                      ? "scale-[1.03] bg-primary text-primary-foreground shadow-md"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >
@@ -100,7 +100,7 @@ export function LicitacionTabsNav({ children }: { children: ReactNode }) {
                   className={cn(
                     "-mb-px whitespace-nowrap border-b-2 px-1 py-1.5 text-sm font-medium transition-colors",
                     tab === t.value
-                      ? "border-primary text-foreground"
+                      ? "border-primary text-primary font-semibold"
                       : "border-transparent text-muted-foreground hover:text-foreground",
                   )}
                 >
