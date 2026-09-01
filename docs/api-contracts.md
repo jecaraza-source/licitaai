@@ -129,7 +129,7 @@ Construida en `src/lib/api/` (`errors.ts`, `response.ts`, `log.ts`, `context.ts`
 
 - Bloques 1–4 de licitaciones, junta/propuesta, empresa-perfil/checklist: migrados en los commits `4b3120c` / `d443c60` / `147445a`.
 - Rutas de dominio restantes migradas en este commit: `organizacion/usuarios`, `organizacion/staff` (+ `[userId]`, `invitar`), `empresa-perfil/reiniciar`, `empresa-perfil/seleccionar`, `requisitos-tecnicos/[itemId]`, `dashboard/stats`, `efirma/validar-certificado`, `auth/bienvenida`, `referencias-legales` (+ `buscar`, `preguntar`), `documentos/[docId]/firmar`.
-- **No migradas por diseño** (no tienen sesión de usuario — usan otro mecanismo de autorización): `health`, `ready`, `estado` (públicas, sin auth), `cron/*` (`estaAutorizadoCron` con `CRON_SECRET`), `admin/salud` (gate por `PLATFORM_ADMIN_EMAILS`).
+- **No migradas por diseño** (no tienen sesión de usuario — usan otro mecanismo de autorización): `health`, `ready`, `estado` (públicas, sin auth), `cron/*` (`estaAutorizadoCron` con `CRON_SECRET`), `admin/*` (gate por `public.platform_admins`, ver `src/lib/platform-admin.ts`).
 
 **Cambios incompatibles introducidos por la migración** (el frontend ya se actualizó en el mismo commit):
 

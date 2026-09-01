@@ -4,7 +4,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { esPlatformAdmin } from "@/lib/platform-admin";
 
 // P2 · I — métricas de operación cross-organización para el dashboard de
-// salud. Requiere sesión + estar en PLATFORM_ADMIN_EMAILS.
+// salud. Requiere sesión + fila en public.platform_admins (ADMIN u OPERADOR).
 export const dynamic = "force-dynamic";
 
 export async function GET() {
@@ -13,7 +13,7 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
-  if (!esPlatformAdmin(user.email)) {
+  if (!(await esPlatformAdmin(sb, user.id))) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 

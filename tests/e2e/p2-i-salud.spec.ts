@@ -19,15 +19,15 @@ const rnd = () => Math.random().toString(36).slice(2, 10);
 async function usuario(email: string) {
   const { data: existentes } = await admin.auth.admin.listUsers();
   const ya = existentes.users.find((u) => u.email === email);
-  if (ya) return { email, password: "TestPassword123!" };
+  if (ya) return { id: ya.id, email, password: "TestPassword123!" };
   const { data: org } = await admin.from("organizations").insert({ nombre: `Org ${rnd()}` }).select("id").single();
   const { data: ticket } = await admin.from("signup_tickets").insert({ organization_id: org!.id }).select("id").single();
-  const { error } = await admin.auth.admin.createUser({
+  const { data: creado, error } = await admin.auth.admin.createUser({
     email, password: "TestPassword123!", email_confirm: true,
     user_metadata: { nombre: "Admin", signup_ticket: ticket!.id },
   });
   if (error) throw error;
-  return { email, password: "TestPassword123!" };
+  return { id: creado.user!.id, email, password: "TestPassword123!" };
 }
 async function login(page: Page, email: string, password: string) {
   await page.goto("/login");
@@ -49,6 +49,13 @@ test("/api/admin/salud: 401 sin sesión, 403 si no es platform admin", async ({ 
 
 test("/api/admin/salud: 200 + métricas para un platform admin", async ({ page }) => {
   const adm = await usuario(ADMIN_EMAIL);
+  // Admin de plataforma: fila en public.platform_admins (reemplaza la
+  // allowlist PLATFORM_ADMIN_EMAILS por variable de entorno). upsert por si
+  // el test corre más de una vez contra la misma BD local.
+  const { error: upsertError } = await admin
+    .from("platform_admins")
+    .upsert({ id: adm.id, email: adm.email, nombre: "Admin E2E", rol: "ADMIN" });
+  if (upsertError) throw upsertError;
   await login(page, adm.email, adm.password);
 
   const res = await page.request.get("/api/admin/salud");
