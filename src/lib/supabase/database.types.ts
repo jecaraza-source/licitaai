@@ -1865,6 +1865,30 @@ export type Database = {
           },
         ]
       }
+      platform_admins: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          nombre: string
+          rol: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          nombre: string
+          rol?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          nombre?: string
+          rol?: string
+        }
+        Relationships: []
+      }
       prompt_templates: {
         Row: {
           activo: boolean
@@ -3033,6 +3057,7 @@ export type Database = {
           valido: boolean
         }[]
       }
+      is_platform_admin: { Args: never; Returns: boolean }
       is_write_role: { Args: never; Returns: boolean }
       job_recurso_pertenece: {
         Args: { p_org: string; p_recurso_id: string; p_recurso_tipo: string }
