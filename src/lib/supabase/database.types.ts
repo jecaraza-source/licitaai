@@ -952,6 +952,7 @@ export type Database = {
           coincide_empresa: boolean | null
           created_at: string
           datos_extraidos_json: Json
+          discrepancia_autorizada: boolean | null
           empresa_perfil_id: string
           fecha_emision: string | null
           id: string
@@ -969,6 +970,7 @@ export type Database = {
           coincide_empresa?: boolean | null
           created_at?: string
           datos_extraidos_json?: Json
+          discrepancia_autorizada?: boolean | null
           empresa_perfil_id: string
           fecha_emision?: string | null
           id?: string
@@ -986,6 +988,7 @@ export type Database = {
           coincide_empresa?: boolean | null
           created_at?: string
           datos_extraidos_json?: Json
+          discrepancia_autorizada?: boolean | null
           empresa_perfil_id?: string
           fecha_emision?: string | null
           id?: string
