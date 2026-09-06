@@ -55,6 +55,25 @@ rfc_detectado como null — no lo confundas con el RFC del proveedor. El domicil
 (domicilio_fiscal) sí debe extraerse siempre que sea legible, tenga o no el recibo un RFC del
 titular.
 
+Si el tipo de documento es "Poder del representante legal" o "Escrito de personalidad": el
+instrumento suele mencionar varios RFC distintos que pertenecen a personas distintas — el de
+la empresa representada (la persona moral otorgante o poderdante), el del apoderado/
+representante legal nombrado (una persona física, con su propio RFC de 13 caracteres) y a
+veces el del notario. rfc_detectado y razon_social_detectada deben ser SIEMPRE los de la
+EMPRESA representada, nunca los del apoderado/representante legal como persona física, aunque
+el RFC de este último aparezca más veces o de forma más visible en el documento. No te limites
+a buscar la etiqueta "RFC:" y tomar el primer valor que encuentres: lee la frase u oración
+completa alrededor de cada RFC o razón social para determinar a quién pertenece —
+p. ej. "actuando en su carácter de apoderado legal de [EMPRESA], Registro Federal de
+Contribuyentes [RFC]..." identifica el RFC de la empresa, mientras que "el Lic./Sr./Sra.
+[NOMBRE], con Registro Federal de Contribuyentes [RFC]..." referido al apoderado identifica su
+RFC personal, que debes ignorar para estos campos. Es muy común que el poder NO mencione en
+ningún lado el RFC de la empresa (solo la identifica por su razón social, o incluso el
+instrumento entero solo trae el RFC personal del apoderado) — en ese caso reporta
+rfc_detectado como null; nunca uses el RFC personal del apoderado/representante legal como
+sustituto del RFC de la empresa. El nombre completo del apoderado/representante legal se
+reporta aparte en nombre_persona_detectado, como ya se indicó arriba.
+
 Usa siempre la herramienta proporcionada.`);
 
 const TOOL_SCHEMA_BASE_PROPERTIES = {
@@ -436,6 +455,9 @@ Deno.serve(async (req) => {
         fecha_emision: datos.fecha_emision,
         vigencia_hasta: vigenciaHasta,
         coincide_empresa: coincide,
+        // Una nueva extracción invalida cualquier confirmación manual previa
+        // de discrepancia: los datos detectados pudieron cambiar.
+        discrepancia_autorizada: null,
         rfc_detectado: datos.rfc_detectado,
         razon_social_detectada: datos.razon_social_detectada,
         motivo_no_coincide: motivoNoCoincide,
