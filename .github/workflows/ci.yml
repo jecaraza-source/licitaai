@@ -31,7 +31,7 @@ jobs:
         run: npm run licenses
       - name: SBOM (CycloneDX)
         run: npm run sbom
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: sbom, path: sbom.cyclonedx.json, retention-days: 90 }
       - run: npm run build
         env:
@@ -63,7 +63,7 @@ jobs:
       # cobertura de los módulos de src/lib bajo prueba cae del umbral
       # (.c8rc.json). P1.3 — "CI debe fallar si cae cobertura".
       - run: npm run test:coverage
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: { name: coverage, path: coverage/, retention-days: 14 }
 
@@ -124,7 +124,7 @@ jobs:
         env:
           CI: true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: { name: playwright-report, path: playwright-report/, retention-days: 14 }
       - if: always()
