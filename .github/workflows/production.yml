@@ -45,7 +45,7 @@ jobs:
           supabase db dump --linked -f "backup/pre-deploy-$(date -u +%Y%m%dT%H%M%SZ).sql"
           supabase db dump --linked --data-only -f "backup/pre-deploy-data-$(date -u +%Y%m%dT%H%M%SZ).sql"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: db-backup-pre-deploy
           path: backup/
