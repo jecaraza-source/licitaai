@@ -37,7 +37,11 @@ jobs:
       - name: Aplicar migraciones a staging
         run: |
           supabase link --project-ref "$STAGING_REF"
-          supabase db push
+          # --include-all: staging tiene aplicadas migraciones posteriores a
+          # 20260908163639/…829 (el hardening de anon se aplicó primero en
+          # producción y se reconcilió en #33), así que sin el flag `db push`
+          # se niega a insertarlas "antes de la última migración remota".
+          supabase db push --include-all
 
       - name: Desplegar Edge Functions a staging
         run: supabase functions deploy --project-ref "$STAGING_REF"
