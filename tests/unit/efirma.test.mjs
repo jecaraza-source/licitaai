@@ -1,4 +1,4 @@
-// P0.3 — unit tests for the e.firma crypto primitives (src/lib/efirma.ts).
+// P0.3 — unit tests for the e.firma crypto primitives (src/lib/efirma.ts; verificación en src/lib/efirma-servidor.ts con node:crypto).
 // Generates synthetic self-signed RSA certs/keys with node-forge (never
 // touches real SAT credentials) to verify: sign/verify round-trips, wrong
 // password fails, tampered documents fail verification, a signature from
@@ -7,7 +7,8 @@
 // verification is mathematically proof of correspondence), and the hash
 // helper is deterministic. Run: npx tsx tests/unit/efirma.test.mjs
 import forge from "node-forge";
-import { parseCertificado, firmarDocumento, verificarFirma, hashDocumentoHex, certPermiteFirmar } from "../../src/lib/efirma.ts";
+import { parseCertificado, firmarDocumento, hashDocumentoHex, certPermiteFirmar } from "../../src/lib/efirma.ts";
+import { verificarFirma } from "../../src/lib/efirma-servidor.ts";
 
 function makeCertAndKey(rfc, password, expired = false) {
   const keys = forge.pki.rsa.generateKeyPair(2048);
@@ -25,7 +26,7 @@ function makeCertAndKey(rfc, password, expired = false) {
   const pkcs8Asn1 = forge.pki.wrapRsaPrivateKey(forge.pki.privateKeyToAsn1(keys.privateKey));
   const encryptedAsn1 = forge.pki.encryptPrivateKeyInfo(pkcs8Asn1, password, { algorithm: "aes256" });
   const keyBase64 = forge.util.encode64(forge.asn1.toDer(encryptedAsn1).getBytes());
-  return { cerBase64, keyBase64 };
+  return { cerBase64, keyBase64, privateKey: keys.privateKey };
 }
 
 let pass = 0, fail = 0;
@@ -79,6 +80,37 @@ check("certPermiteFirmar: permissive when no keyUsage extension", certPermiteFir
 // 8. Garbage input handling
 check("verificarFirma: garbage cer returns false, not throw", verificarFirma("not-base64-cert!!!", firma, doc) === false);
 check("verificarFirma: garbage firma returns false, not throw", verificarFirma(cerBase64, "not-a-signature", doc) === false);
+
+// 9. Verificación estricta (motivo de moverla de node-forge a node:crypto,
+// GHSA-86w9-cpqp-85rv): un bloque PKCS#1 v1.5 con basura tras el DigestInfo
+// lo acepta la verificación laxa de forge y debe rechazarlo OpenSSL.
+{
+  const { cerBase64: cerC, privateKey } = makeCertAndKey("DDDD040404DDD", "correct-pass");
+  const md = forge.md.sha256.create();
+  md.update(forge.util.createBuffer(doc).getBytes());
+  const oid = forge.asn1.oidToDer(forge.pki.oids.sha256).getBytes();
+  const digestInfo = forge.asn1
+    .toDer(
+      forge.asn1.create(forge.asn1.Class.UNIVERSAL, forge.asn1.Type.SEQUENCE, true, [
+        forge.asn1.create(forge.asn1.Class.UNIVERSAL, forge.asn1.Type.SEQUENCE, true, [
+          forge.asn1.create(forge.asn1.Class.UNIVERSAL, forge.asn1.Type.OID, false, oid),
+          forge.asn1.create(forge.asn1.Class.UNIVERSAL, forge.asn1.Type.NULL, false, ""),
+        ]),
+        forge.asn1.create(forge.asn1.Class.UNIVERSAL, forge.asn1.Type.OCTETSTRING, false, md.digest().getBytes()),
+      ]),
+    )
+    .getBytes();
+  const conBasura = {
+    // forge agrega el relleno 00 01 FF.. 00 por su cuenta (bt = 0x01).
+    encode() {
+      return digestInfo + "\x05\x00\x05\x00"; // elementos extra tras el DigestInfo
+    },
+  };
+  const firmaMala = forge.util.encode64(privateKey.sign(md, conBasura));
+  check("verificarFirma: DigestInfo con elementos extra se rechaza (estricto)", verificarFirma(cerC, firmaMala, doc) === false);
+  const firmaBuena = forge.util.encode64(privateKey.sign(md));
+  check("verificarFirma: el mismo documento con firma PKCS#1 normal sí verifica", verificarFirma(cerC, firmaBuena, doc) === true);
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
