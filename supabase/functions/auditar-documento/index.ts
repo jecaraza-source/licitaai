@@ -13,11 +13,20 @@ import {
 import { resolverModelo } from "../_shared/modelo-politica.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
 import { bloqueDocumentoParaClaude } from "../_shared/anthropic-content-block.ts";
+import {
+  construirContextoAuditoria,
+  estadoDesdeAuditoria,
+  REGLAS_COMPARACION,
+} from "../_shared/auditoria-documento.ts";
 
 const SYSTEM_PROMPT = conGuardia(`Eres un auditor experto en documentación legal y fiscal para licitaciones
 públicas mexicanas. Verifica el documento adjunto contra el requisito esperado y los datos
-de la empresa. Sé estricto: si algo no se puede confirmar en el documento, repórtalo como
-observación en vez de asumirlo válido. Usa siempre la herramienta proporcionada.`);
+de la empresa. Sé estricto con el requisito: si algo no se puede confirmar en el documento,
+repórtalo como observación en vez de asumirlo válido.
+
+${REGLAS_COMPARACION}
+
+Usa siempre la herramienta proporcionada.`);
 
 const TOOL_SCHEMA = {
   type: "object" as const,
@@ -77,13 +86,13 @@ Deno.serve(async (req) => {
     const documento = await requireDocumentoById(ctx, documento_id);
     if (documento instanceof Response) return documento;
 
-    let checklistItem: { descripcion: string; categoria: string; fundamento_legal: string | null; vigencia_requerida: string | null } | null = null;
+    let checklistItem: { descripcion: string; categoria: string; fundamento_legal: string | null; vigencia_requerida: string | null; estado: string } | null = null;
     if (checklist_item_id) {
       const item = await requireChecklistItem(ctx, checklist_item_id, documento.licitacion_id);
       if (item instanceof Response) return item;
       const { data } = await ctx.service
         .from("checklist_items")
-        .select("descripcion, categoria, fundamento_legal, vigencia_requerida")
+        .select("descripcion, categoria, fundamento_legal, vigencia_requerida, estado")
         .eq("id", item.id)
         .single();
       checklistItem = data;
@@ -115,16 +124,11 @@ Deno.serve(async (req) => {
       ? "application/pdf"
       : "image/jpeg";
 
-    const contexto = `
-Requisito esperado: ${checklistItem?.descripcion ?? "Documento general"} (categoría: ${checklistItem?.categoria ?? "N/D"})
-Fundamento legal: ${checklistItem?.fundamento_legal ?? "N/D"}
-Vigencia requerida: ${checklistItem?.vigencia_requerida ?? "N/D"}
-Fecha de entrega de propuesta (para validar vigencia): ${licitacion?.fecha_entrega_propuesta ?? "N/D"}
-
-Datos de la empresa participante (deben coincidir si el documento los menciona):
-Razón social: ${empresa?.razon_social ?? "N/D"}
-RFC: ${empresa?.rfc ?? "N/D"}
-`.trim();
+    const contexto = construirContextoAuditoria({
+      requisito: checklistItem,
+      fechaEntregaPropuesta: licitacion?.fecha_entrega_propuesta ?? null,
+      empresa,
+    });
 
     const response = await withRetry(() =>
       anthropic.messages.create({
@@ -170,12 +174,12 @@ RFC: ${empresa?.rfc ?? "N/D"}
     await supabase.from("documentos").update({ auditoria_json: auditoria }).eq("id", documento_id);
 
     if (checklist_item_id) {
+      // GRIS ("No aplica") es decisión de una persona: se vincula el
+      // documento pero el estado no se toca (estadoDesdeAuditoria → null).
+      const estado = estadoDesdeAuditoria(auditoria.valido, auditoria.nivel_riesgo, checklistItem?.estado);
       await supabase
         .from("checklist_items")
-        .update({
-          documento_id,
-          estado: auditoria.valido ? "VERDE" : "ROJO",
-        })
+        .update(estado ? { documento_id, estado } : { documento_id })
         .eq("id", checklist_item_id);
     }
 
