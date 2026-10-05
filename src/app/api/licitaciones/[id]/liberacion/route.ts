@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
-import { buildItemsLiberacion, getGateStatus } from "@/lib/liberacion";
+import { buildItemsLiberacion, getGateStatus, liberacionAmpliadaActiva } from "@/lib/liberacion";
 import type { ChecklistLiberacionItem } from "@/types";
 
 const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
@@ -17,18 +17,20 @@ export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
 export const PUT = apiRoute({ paramsSchema, bodySchema: putBodySchema }, async ({ ctx, params, body }) => {
   requireWriteRole(ctx);
 
-  const [{ data: existente }, { data: licitacion }] = await Promise.all([
+  const [{ data: existente }, { data: licitacion }, ampliado] = await Promise.all([
     ctx.supabase
       .from("checklist_liberacion")
       .select("items_json")
       .eq("licitacion_id", params.id)
       .maybeSingle(),
     ctx.supabase.from("licitaciones").select("es_investigacion_mercado").eq("id", params.id).maybeSingle(),
+    liberacionAmpliadaActiva(ctx.supabase, ctx.organizationId),
   ]);
 
   const actuales = buildItemsLiberacion(
     (existente?.items_json as ChecklistLiberacionItem[]) ?? [],
     licitacion?.es_investigacion_mercado ?? false,
+    ampliado,
   );
   const actualizados = actuales.map((i) => (i.id === body.itemId ? { ...i, checked: body.checked } : i));
 

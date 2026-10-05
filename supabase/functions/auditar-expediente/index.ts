@@ -13,13 +13,20 @@ import { getEmpresaPerfilActiva } from "../_shared/empresa-perfil.ts";
 import { authenticate, jsonError, registrarUsoIA, requireLicitacion } from "../_shared/auth.ts";
 import { resolverModelo } from "../_shared/modelo-politica.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
+import {
+  compararConsistencia,
+  documentosComparables,
+  type DocumentoParaComparar,
+} from "../_shared/consistencia-expediente.ts";
 
 const SYSTEM_PROMPT = conGuardia(`Eres un auditor experto en expedientes de licitaciones públicas mexicanas.
 Recibes los datos de la empresa participante, la propuesta económica y los resultados de auditoría
 individual de cada documento de un expediente. Verifica consistencia cruzada entre TODAS las fuentes:
 razón social, RFC, representante legal, número de procedimiento, cantidades, unidades y montos, y
 vigencias válidas para la fecha de entrega de propuesta. Un mismo dato no debe aparecer de forma
-distinta entre documentos. Clasifica cada hallazgo como pendiente crítico (bloqueador para participar),
+distinta entre documentos. RFC, razón social y número de procedimiento ya se compararon por regla
+(se te entregan como "Hallazgos verificados"): no los repitas ni los contradigas; concéntrate en lo
+que no se compara por regla (vigencias, cantidades y montos, requisitos faltantes). Clasifica cada hallazgo como pendiente crítico (bloqueador para participar),
 advertencia (riesgo menor) o inconsistencia puntual (un campo con valores distintos entre dos fuentes).
 Usa siempre la herramienta proporcionada.`);
 
@@ -103,6 +110,29 @@ Deno.serve(async (req) => {
       return jsonError(400, "No hay checklist para esta licitación");
     }
 
+    // Paso 15 — comparación determinista de RFC, razón social y número de
+    // procedimiento. Lo que la IA ve son hallazgos ya verificados, no datos
+    // para que los compare ella.
+    const documentos: DocumentoParaComparar[] = checklistItems.flatMap((i) => {
+      const doc = Array.isArray(i.documentos) ? i.documentos[0] : i.documentos;
+      if (!doc) return [];
+      const campos = (doc.auditoria_json as { campos_detectados?: DocumentoParaComparar["campos"] } | null)
+        ?.campos_detectados;
+      return [{ nombre: doc.nombre as string, campos: campos ?? null }];
+    });
+    const hallazgos = compararConsistencia(
+      {
+        rfc: empresa?.rfc,
+        razon_social: empresa?.razon_social,
+        numero_procedimiento: licitacion?.numero_expediente,
+      },
+      documentos,
+    );
+    const verificacion = {
+      documentos_comparados: documentosComparables(documentos),
+      documentos_total: documentos.length,
+    };
+
     const contexto = `
 Número de expediente: ${licitacion?.numero_expediente ?? "N/D"}
 Fecha de entrega de propuesta: ${licitacion?.fecha_entrega_propuesta ?? "N/D"}
@@ -110,6 +140,9 @@ Fecha de entrega de propuesta: ${licitacion?.fecha_entrega_propuesta ?? "N/D"}
 Datos de referencia de la empresa (fuente de verdad para razón social y RFC):
 Razón social: ${empresa?.razon_social ?? "N/D"}
 RFC: ${empresa?.rfc ?? "N/D"}
+
+Hallazgos verificados por regla (${verificacion.documentos_comparados} de ${verificacion.documentos_total} documentos comparados):
+${hallazgos.length === 0 ? "Sin diferencias en RFC, razón social ni número de procedimiento." : JSON.stringify(hallazgos, null, 2)}
 
 Propuesta económica (hoja maestra — cantidades y montos de referencia):
 ${JSON.stringify(partidasEconomicas ?? [], null, 2)}
@@ -157,14 +190,35 @@ ${JSON.stringify(checklistItems, null, 2)}
       inconsistencias: [],
     };
 
+    // Los hallazgos deterministas van primero y no dependen de lo que diga la
+    // IA: aunque el modelo falle o los omita, quedan en el reporte.
+    const r = reporte as {
+      advertencias?: string[];
+      inconsistencias?: { campo: string; detalle: string }[];
+    } & Record<string, unknown>;
+    const reporteFinal = {
+      ...r,
+      inconsistencias: [
+        ...hallazgos
+          .filter((h) => h.severidad === "inconsistencia")
+          .map((h) => ({ campo: h.campo, detalle: h.detalle, origen: h.origen })),
+        ...(r.inconsistencias ?? []),
+      ],
+      advertencias: [
+        ...hallazgos.filter((h) => h.severidad === "advertencia").map((h) => `${h.campo}: ${h.detalle}`),
+        ...(r.advertencias ?? []),
+      ],
+      verificacion_automatica: verificacion,
+    };
+
     await supabase.from("actividad_log").insert({
       licitacion_id,
       accion: "auditoria_expediente",
-      metadata_json: reporte as Record<string, unknown>,
+      metadata_json: reporteFinal as Record<string, unknown>,
     });
 
     return new Response(
-      JSON.stringify({ ...{ ok: true, data: reporte }, _usage: { tokens_input: response.usage?.input_tokens ?? 0, tokens_output: response.usage?.output_tokens ?? 0, modelo: modeloIA, provider: "anthropic" } }),
+      JSON.stringify({ ...{ ok: true, data: reporteFinal }, _usage: { tokens_input: response.usage?.input_tokens ?? 0, tokens_output: response.usage?.output_tokens ?? 0, modelo: modeloIA, provider: "anthropic" } }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

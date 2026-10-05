@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { RevisorEconomicaCard } from "@/components/licitaciones/revisor-economica-card";
 
 interface FilaPartida {
   id: string;
@@ -73,6 +74,7 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
   const [guardando, setGuardando] = useState(false);
   const [analizando, setAnalizando] = useState(false);
   const [dictamen, setDictamen] = useState<string | null>(null);
+  const [versionGuardado, setVersionGuardado] = useState(0);
 
   useEffect(() => {
     fetch(`/api/licitaciones/${licitacionId}/propuesta-economica`)
@@ -127,6 +129,7 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
       return;
     }
     toast.success("Propuesta económica guardada");
+    setVersionGuardado((v) => v + 1);
   }
 
   async function handleAnalizar() {
@@ -281,6 +284,8 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
           )}
         </CardContent>
       </Card>
+
+      {filas.length > 0 && <RevisorEconomicaCard licitacionId={licitacionId} refreshKey={versionGuardado} />}
 
       {filas.length > 0 && (
         <Card>

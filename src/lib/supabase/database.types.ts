@@ -2383,6 +2383,64 @@ export type Database = {
         }
         Relationships: []
       }
+      revisiones_independientes: {
+        Row: {
+          ambito: string
+          contenido_hash: string | null
+          created_at: string
+          elaborado_por: string | null
+          id: string
+          licitacion_id: string
+          revisado_at: string | null
+          revisor_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ambito: string
+          contenido_hash?: string | null
+          created_at?: string
+          elaborado_por?: string | null
+          id?: string
+          licitacion_id: string
+          revisado_at?: string | null
+          revisor_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ambito?: string
+          contenido_hash?: string | null
+          created_at?: string
+          elaborado_por?: string | null
+          id?: string
+          licitacion_id?: string
+          revisado_at?: string | null
+          revisor_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revisiones_independientes_elaborado_por_fkey"
+            columns: ["elaborado_por"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revisiones_independientes_licitacion_id_fkey"
+            columns: ["licitacion_id"]
+            isOneToOne: false
+            referencedRelation: "licitaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revisiones_independientes_revisor_id_fkey"
+            columns: ["revisor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seguimiento: {
         Row: {
           acta_apertura_economica_documento_id: string | null
