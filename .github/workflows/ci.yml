@@ -74,7 +74,10 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - uses: supabase/setup-cli@v1
-        with: { version: latest }
+        # Fijada: con `latest` el formato de los tipos generados cambió sin
+        # aviso (sin formatear, `NonNullable<Json>`) y rompió el chequeo P1.4.
+        # Súbela junto con `npm run typegen` cuando se quiera actualizar.
+        with: { version: 2.119.0 }
       - run: npm ci
 
       - name: Levantar Supabase local
