@@ -24,8 +24,24 @@ interface GateStatus {
   jerarquiaAutorizada: boolean;
   analisisIaSinRevisar: { id: string; tipo_analisis: string; documento_id: string | null }[];
   gateAprobacionIaActivo: boolean;
+  revisionIndependiente: {
+    activo: boolean;
+    pendientes: { ambito: "TECNICA" | "ECONOMICA"; motivo: string }[];
+  };
   bloqueado: boolean;
 }
+
+const MOTIVO_REVISION: Record<string, string> = {
+  SIN_REVISOR: "no tiene revisor asignado",
+  REVISOR_ES_AUTOR: "el revisor es quien la elaboró",
+  SIN_CONFIRMAR: "el revisor aún no confirma",
+  CONTENIDO_CAMBIO: "cambió después de la revisión",
+};
+
+const DONDE_REVISAR: Record<string, string> = {
+  TECNICA: "Propuesta técnica",
+  ECONOMICA: "Propuesta económica",
+};
 
 function formatFechaHora(fecha: string) {
   return new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeStyle: "short" }).format(
@@ -248,6 +264,14 @@ export function LiberacionTab({
               {gate.rojos} requisito(s) en rojo · {gate.amarillosCriticos} crítico(s) en amarillo ·{" "}
               {gate.pendientesLiberacion} punto(s) de este checklist sin confirmar ·{" "}
               {gate.jerarquiaAutorizada ? "Supervisor autorizó" : "falta autorización del Supervisor"}
+              {gate.revisionIndependiente.activo && (
+                <>
+                  {" · "}
+                  {gate.revisionIndependiente.pendientes.length === 0
+                    ? "revisión independiente completa"
+                    : `${gate.revisionIndependiente.pendientes.length} propuesta(s) sin revisión independiente`}
+                </>
+              )}
               {gate.gateAprobacionIaActivo && (
                 <>
                   {" · "}
@@ -257,6 +281,15 @@ export function LiberacionTab({
                 </>
               )}
             </p>
+            {gate.revisionIndependiente.activo &&
+              gate.revisionIndependiente.pendientes.map((p) => (
+                <p key={p.ambito} className="mt-1 text-sm text-destructive">
+                  {p.ambito === "TECNICA" ? "La propuesta técnica" : "La propuesta económica"}{" "}
+                  {MOTIVO_REVISION[p.motivo] ?? "requiere revisión"}: asígnalo o confírmalo en la
+                  pestaña {DONDE_REVISAR[p.ambito]} (el revisor debe ser distinto de quien la
+                  elaboró).
+                </p>
+              ))}
             {gate.gateAprobacionIaActivo && gate.analisisIaSinRevisar.length > 0 && (
               <p className="mt-1 text-sm text-destructive">
                 Revisa (aprobar/rechazar) los análisis de IA en la pestaña Análisis IA antes de

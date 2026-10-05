@@ -59,4 +59,7 @@ export const estadoLicitacionSchema = z.object({
   /** B5 — solo ADMIN: enviar pese a tener análisis de IA sin revisar
    * (queda registrado en la bitácora inmutable). */
   omitir_revision_ia: z.boolean().optional(),
+  /** Paso 17 — solo ADMIN: enviar pese a propuestas sin revisión
+   * independiente vigente (queda en la bitácora inmutable). */
+  omitir_revision_independiente: z.boolean().optional(),
 });

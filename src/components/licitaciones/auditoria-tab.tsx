@@ -58,6 +58,8 @@ interface UsuarioOrg {
 interface Inconsistencia {
   campo: string;
   detalle: string;
+  /** "determinista" = comparado por regla, no por la IA (Paso 15). */
+  origen?: string;
 }
 
 interface PendienteCritico {
@@ -70,6 +72,7 @@ interface Reporte {
   pendientes_criticos: PendienteCritico[];
   advertencias: string[];
   inconsistencias?: Inconsistencia[];
+  verificacion_automatica?: { documentos_comparados: number; documentos_total: number };
 }
 
 interface GateInfo {
@@ -404,10 +407,26 @@ export function AuditoriaTab({ licitacionId }: { licitacionId: string }) {
                     <li key={i} className="text-sm">
                       <span className="font-medium">{inc.campo}:</span>{" "}
                       <span className="text-muted-foreground">{inc.detalle}</span>
+                      {inc.origen === "determinista" && (
+                        <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 align-middle text-[10px] font-medium text-muted-foreground">
+                          verificado por regla
+                        </span>
+                      )}
                     </li>
                   ))}
                 </ul>
               </div>
+            )}
+            {data.ultimoReporte.verificacion_automatica && (
+              <p className="text-xs text-muted-foreground">
+                Verificación automática de RFC, razón social y número de procedimiento:{" "}
+                {data.ultimoReporte.verificacion_automatica.documentos_comparados} de{" "}
+                {data.ultimoReporte.verificacion_automatica.documentos_total} documento(s)
+                comparados.
+                {data.ultimoReporte.verificacion_automatica.documentos_comparados <
+                  data.ultimoReporte.verificacion_automatica.documentos_total &&
+                  " Los documentos auditados antes de esta función no entran: vuelve a auditarlos para incluirlos."}
+              </p>
             )}
             {data.ultimoReporte.pendientes_criticos.length > 0 && (
               <ul className="flex flex-col gap-1">

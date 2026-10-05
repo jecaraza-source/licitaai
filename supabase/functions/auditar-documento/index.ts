@@ -37,12 +37,25 @@ const TOOL_SCHEMA = {
     campos_detectados: {
       type: "object",
       properties: {
-        rfc: { type: ["string", "null"] },
-        razon_social: { type: ["string", "null"] },
+        rfc: {
+          type: ["string", "null"],
+          description:
+            "RFC del PARTICIPANTE tal como aparece en el documento. null si el documento no lo trae o si el único RFC visible es de un tercero (emisor, banco, notario, proveedor) o de una persona que no es el participante.",
+        },
+        razon_social: {
+          type: ["string", "null"],
+          description:
+            "Razón social del PARTICIPANTE tal como aparece en el documento. null si no aparece o si solo aparece la de un tercero emisor.",
+        },
         fecha_emision: { type: ["string", "null"] },
         fecha_vigencia: { type: ["string", "null"] },
         representante_legal: { type: ["string", "null"] },
         tiene_firma_o_sello: { type: ["boolean", "null"] },
+        numero_procedimiento: {
+          type: ["string", "null"],
+          description:
+            "Número de procedimiento, licitación, invitación o expediente al que se refiere el documento, tal como está escrito. null si no menciona ninguno.",
+        },
       },
       required: [
         "rfc",
@@ -51,6 +64,7 @@ const TOOL_SCHEMA = {
         "fecha_vigencia",
         "representante_legal",
         "tiene_firma_o_sello",
+        "numero_procedimiento",
       ],
       additionalProperties: false,
     },
