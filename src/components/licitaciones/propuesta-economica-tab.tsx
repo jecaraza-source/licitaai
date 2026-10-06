@@ -6,7 +6,17 @@ import { descargarWorkbook } from "@/lib/exportar-excel";
 import { CheckCircle2, Sparkles, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -34,6 +44,8 @@ interface FilaPartida {
   cantidad_compras_mx: number | null;
   precio_unitario_compras_mx: number | null;
   total_compras_mx: number | null;
+  cantidad_minima: number | null;
+  cantidad_maxima: number | null;
 }
 
 interface Config {
@@ -43,7 +55,24 @@ interface Config {
   condiciones_pago: string | null;
   tiempo_entrega_dias: number | null;
   validez_oferta_dias: number | null;
+  decimales: number;
+  precios_ajustables: boolean;
+  vigencia_precios_dias: number | null;
+  descuentos: string | null;
+  contrato_abierto: boolean;
+  importe_minimo: number | null;
+  importe_maximo: number | null;
 }
+
+// Paso 12 — qué tipo de precio pide el procedimiento.
+const TIPOS_PRECIO: Record<string, string> = {
+  UNITARIO: "Precio unitario",
+  POR_PARTIDA: "Precio por partida",
+  MENSUAL: "Precio mensual",
+  POR_EVENTO: "Precio por evento",
+  POR_ELEMENTO: "Precio por elemento",
+  GLOBAL: "Precio global",
+};
 
 const IVA_RATE = 0.16;
 
@@ -52,15 +81,22 @@ function formatMonto(monto: number | null) {
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(monto);
 }
 
-function calcularFila(fila: FilaPartida): FilaPartida {
+function redondear(valor: number, decimales: number) {
+  const factor = 10 ** decimales;
+  return Math.round((valor + Number.EPSILON) * factor) / factor;
+}
+
+function calcularFila(fila: FilaPartida, decimales = 2): FilaPartida {
   const cantidad = fila.cantidad ?? 0;
   const pu = fila.precio_unitario_ofertado;
   if (pu === null) {
     return { ...fila, subtotal: null, iva: null, total: null, margen_porcentaje: null };
   }
-  const subtotal = cantidad * pu;
-  const iva = subtotal * IVA_RATE;
-  const total = subtotal + iva;
+  // El redondeo sigue el número de decimales que exige el procedimiento: lo
+  // que se captura en Compras MX debe salir de esta misma hoja maestra.
+  const subtotal = redondear(cantidad * pu, decimales);
+  const iva = redondear(subtotal * IVA_RATE, decimales);
+  const total = redondear(subtotal + iva, decimales);
   const margen =
     fila.precio_referencia_mercado && fila.precio_referencia_mercado > 0
       ? ((pu - fila.precio_referencia_mercado) / fila.precio_referencia_mercado) * 100
@@ -80,7 +116,8 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
     fetch(`/api/licitaciones/${licitacionId}/propuesta-economica`)
       .then((res) => res.json())
       .then((json) => {
-        setFilas((json.data?.partidas ?? []).map(calcularFila));
+        const decimales: number = json.data?.config?.decimales ?? 2;
+        setFilas((json.data?.partidas ?? []).map((f: FilaPartida) => calcularFila(f, decimales)));
         setConfig(json.data?.config ?? null);
       });
   }, [licitacionId]);
@@ -89,9 +126,26 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
     setFilas((prev) =>
       (prev ?? []).map((f) =>
         f.id === id
-          ? calcularFila({ ...f, precio_unitario_ofertado: precio === "" ? null : Number(precio) })
+          ? calcularFila(
+              { ...f, precio_unitario_ofertado: precio === "" ? null : Number(precio) },
+              config?.decimales ?? 2,
+            )
           : f,
       ),
+    );
+  }
+
+  function actualizarConfig(cambios: Partial<Config>) {
+    setConfig((prev) => (prev ? { ...prev, ...cambios } : prev));
+    if (cambios.decimales !== undefined) {
+      const d = cambios.decimales;
+      setFilas((prev) => (prev ?? []).map((f) => calcularFila(f, d)));
+    }
+  }
+
+  function actualizarCantidadLimite(id: string, campo: "cantidad_minima" | "cantidad_maxima", valor: string) {
+    setFilas((prev) =>
+      (prev ?? []).map((f) => (f.id === id ? { ...f, [campo]: valor === "" ? null : Number(valor) } : f)),
     );
   }
 
@@ -117,6 +171,18 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
 
   async function handleGuardar() {
     if (!filas) return;
+    if (
+      config?.importe_minimo != null &&
+      config?.importe_maximo != null &&
+      config.importe_minimo > config.importe_maximo
+    ) {
+      toast.error("El importe mínimo no puede ser mayor al máximo");
+      return;
+    }
+    if (filas.some((f) => f.cantidad_minima != null && f.cantidad_maxima != null && f.cantidad_minima > f.cantidad_maxima)) {
+      toast.error("Hay partidas con cantidad mínima mayor a la máxima");
+      return;
+    }
     setGuardando(true);
     const res = await fetch(`/api/licitaciones/${licitacionId}/propuesta-economica`, {
       method: "PUT",
@@ -208,6 +274,128 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
         </div>
       </div>
 
+      {config && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Condiciones económicas del procedimiento</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <p className="text-xs text-muted-foreground">
+              Verifica qué pide el procedimiento antes de capturar importes. Los decimales
+              definen el redondeo de la hoja maestra; nunca asumas que el PDF económico y Compras
+              MX pueden calcularse por separado.
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs text-muted-foreground">Tipo de precio solicitado</Label>
+                <Select
+                  value={config.tipo_precio ?? "__sin_definir__"}
+                  onValueChange={(v) => actualizarConfig({ tipo_precio: v === "__sin_definir__" ? null : v })}
+                >
+                  <SelectTrigger size="sm" className="w-full">
+                    <SelectValue>
+                      {(v: string | null) => (!v || v === "__sin_definir__" ? "Sin definir" : (TIPOS_PRECIO[v] ?? v))}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__sin_definir__">Sin definir</SelectItem>
+                    {Object.entries(TIPOS_PRECIO).map(([v, label]) => (
+                      <SelectItem key={v} value={v}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="eco-decimales" className="text-xs text-muted-foreground">Número de decimales</Label>
+                <Input
+                  id="eco-decimales"
+                  type="number"
+                  min={0}
+                  max={6}
+                  value={config.decimales}
+                  onChange={(e) => {
+                    const n = Math.trunc(Number(e.target.value));
+                    if (Number.isFinite(n) && n >= 0 && n <= 6) actualizarConfig({ decimales: n });
+                  }}
+                  className="h-8"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="eco-vigencia" className="text-xs text-muted-foreground">Vigencia de precios (días)</Label>
+                <Input
+                  id="eco-vigencia"
+                  type="number"
+                  min={1}
+                  value={config.vigencia_precios_dias ?? ""}
+                  onChange={(e) =>
+                    actualizarConfig({ vigencia_precios_dias: e.target.value === "" ? null : Math.trunc(Number(e.target.value)) })
+                  }
+                  className="h-8"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="eco-imin" className="text-xs text-muted-foreground">Importe mínimo</Label>
+                <Input
+                  id="eco-imin"
+                  type="number"
+                  min={0}
+                  value={config.importe_minimo ?? ""}
+                  onChange={(e) => actualizarConfig({ importe_minimo: e.target.value === "" ? null : Number(e.target.value) })}
+                  className="h-8"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="eco-imax" className="text-xs text-muted-foreground">Importe máximo</Label>
+                <Input
+                  id="eco-imax"
+                  type="number"
+                  min={0}
+                  value={config.importe_maximo ?? ""}
+                  onChange={(e) => actualizarConfig({ importe_maximo: e.target.value === "" ? null : Number(e.target.value) })}
+                  className="h-8"
+                />
+              </div>
+              <div className="flex flex-col justify-end gap-2">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Checkbox
+                    checked={config.precios_ajustables}
+                    onCheckedChange={(c) => actualizarConfig({ precios_ajustables: c === true })}
+                  />
+                  Precios ajustables (en vez de fijos)
+                </label>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Checkbox
+                    checked={config.contrato_abierto}
+                    onCheckedChange={(c) => actualizarConfig({ contrato_abierto: c === true })}
+                  />
+                  Contrato abierto
+                </label>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="eco-descuentos" className="text-xs text-muted-foreground">Descuentos</Label>
+              <Textarea
+                id="eco-descuentos"
+                value={config.descuentos ?? ""}
+                onChange={(e) => actualizarConfig({ descuentos: e.target.value === "" ? null : e.target.value })}
+                placeholder="Descuentos solicitados o permitidos por el procedimiento"
+                className="min-h-14 resize-none text-xs"
+              />
+            </div>
+            {config.contrato_abierto && resumen.total > 0 &&
+              ((config.importe_minimo != null && resumen.total < config.importe_minimo) ||
+                (config.importe_maximo != null && resumen.total > config.importe_maximo)) && (
+                <p className="flex items-center gap-1 text-xs font-medium text-destructive">
+                  <TriangleAlert className="size-3.5" />
+                  El total general queda fuera del rango de importes del contrato abierto.
+                </p>
+              )}
+          </CardContent>
+        </Card>
+      )}
+
       {dictamen && (
         <Card className="border-primary/30 bg-primary/5">
           <CardHeader>
@@ -233,6 +421,8 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
                   <TableHead>Partida</TableHead>
                   <TableHead>Cantidad</TableHead>
                   <TableHead>Unidad</TableHead>
+                  <TableHead>Mín.</TableHead>
+                  <TableHead>Máx.</TableHead>
                   <TableHead>P.U. Referencia</TableHead>
                   <TableHead>P.U. Ofertado</TableHead>
                   <TableHead>Diferencia %</TableHead>
@@ -256,6 +446,18 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
                       <TableCell className="max-w-xs truncate">{f.descripcion}</TableCell>
                       <TableCell>{f.cantidad ?? "—"}</TableCell>
                       <TableCell>{f.unidad ?? "—"}</TableCell>
+                      {(["cantidad_minima", "cantidad_maxima"] as const).map((campo) => (
+                        <TableCell key={campo}>
+                          <Input
+                            type="number"
+                            min="0"
+                            aria-label={campo === "cantidad_minima" ? "Cantidad mínima" : "Cantidad máxima"}
+                            className="w-20"
+                            value={f[campo] ?? ""}
+                            onChange={(e) => actualizarCantidadLimite(f.id, campo, e.target.value)}
+                          />
+                        </TableCell>
+                      ))}
                       <TableCell>{formatMonto(f.precio_referencia_mercado)}</TableCell>
                       <TableCell>
                         <Input

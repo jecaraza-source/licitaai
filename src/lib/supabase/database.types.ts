@@ -600,8 +600,10 @@ export type Database = {
       checklist_items: {
         Row: {
           aclaracion_id: string | null
+          cargado_compras_mx: boolean
           categoria: string
           causa_desechamiento: string | null
+          coincide_compras_mx: boolean
           critico: boolean
           descripcion: string
           documento_id: string | null
@@ -613,6 +615,7 @@ export type Database = {
           id: string
           licitacion_id: string
           observaciones: string | null
+          padre_id: string | null
           requerido: boolean
           responsable_id: string | null
           tipo_formato: string | null
@@ -620,8 +623,10 @@ export type Database = {
         }
         Insert: {
           aclaracion_id?: string | null
+          cargado_compras_mx?: boolean
           categoria: string
           causa_desechamiento?: string | null
+          coincide_compras_mx?: boolean
           critico?: boolean
           descripcion: string
           documento_id?: string | null
@@ -633,6 +638,7 @@ export type Database = {
           id?: string
           licitacion_id: string
           observaciones?: string | null
+          padre_id?: string | null
           requerido?: boolean
           responsable_id?: string | null
           tipo_formato?: string | null
@@ -640,8 +646,10 @@ export type Database = {
         }
         Update: {
           aclaracion_id?: string | null
+          cargado_compras_mx?: boolean
           categoria?: string
           causa_desechamiento?: string | null
+          coincide_compras_mx?: boolean
           critico?: boolean
           descripcion?: string
           documento_id?: string | null
@@ -653,6 +661,7 @@ export type Database = {
           id?: string
           licitacion_id?: string
           observaciones?: string | null
+          padre_id?: string | null
           requerido?: boolean
           responsable_id?: string | null
           tipo_formato?: string | null
@@ -678,6 +687,13 @@ export type Database = {
             columns: ["licitacion_id"]
             isOneToOne: false
             referencedRelation: "licitaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_items_padre_id_fkey"
+            columns: ["padre_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_items"
             referencedColumns: ["id"]
           },
           {
@@ -900,6 +916,7 @@ export type Database = {
       documentos: {
         Row: {
           auditoria_json: Json | null
+          carpeta: string | null
           created_at: string
           firma_digital_json: Json | null
           id: string
@@ -913,6 +930,7 @@ export type Database = {
         }
         Insert: {
           auditoria_json?: Json | null
+          carpeta?: string | null
           created_at?: string
           firma_digital_json?: Json | null
           id?: string
@@ -926,6 +944,7 @@ export type Database = {
         }
         Update: {
           auditoria_json?: Json | null
+          carpeta?: string | null
           created_at?: string
           firma_digital_json?: Json | null
           id?: string
@@ -1706,17 +1725,21 @@ export type Database = {
       }
       licitaciones: {
         Row: {
+          acciones_internas: NonNullable<Json>
           alerta_vencimiento_enviada_at: string | null
           convocante_representante_cargo: string | null
           convocante_representante_nombre: string | null
           created_at: string
           created_by: string | null
           documentos_convocante_no_aplica: NonNullable<Json>
+          enlace_compras_mx: string | null
           es_investigacion_mercado: boolean
           estado_id: string
           estado_licitacion: string
+          expediente_fuente_completo: boolean
           fecha_apertura_economica: string | null
           fecha_apertura_tecnica: string | null
+          fecha_cierre_interno: string | null
           fecha_entrega_propuesta: string | null
           fecha_fallo: string | null
           fecha_junta_aclaraciones: string | null
@@ -1727,23 +1750,29 @@ export type Database = {
           modalidad_procedimiento: string | null
           monto_maximo: number | null
           numero_expediente: string
+          numero_interno: string | null
           organization_id: string
           sistema: string
           tipo: string
           titulo: string
+          unidad_compradora: string | null
         }
         Insert: {
+          acciones_internas?: NonNullable<Json>
           alerta_vencimiento_enviada_at?: string | null
           convocante_representante_cargo?: string | null
           convocante_representante_nombre?: string | null
           created_at?: string
           created_by?: string | null
           documentos_convocante_no_aplica?: NonNullable<Json>
+          enlace_compras_mx?: string | null
           es_investigacion_mercado?: boolean
           estado_id: string
           estado_licitacion?: string
+          expediente_fuente_completo?: boolean
           fecha_apertura_economica?: string | null
           fecha_apertura_tecnica?: string | null
+          fecha_cierre_interno?: string | null
           fecha_entrega_propuesta?: string | null
           fecha_fallo?: string | null
           fecha_junta_aclaraciones?: string | null
@@ -1754,23 +1783,29 @@ export type Database = {
           modalidad_procedimiento?: string | null
           monto_maximo?: number | null
           numero_expediente: string
+          numero_interno?: string | null
           organization_id: string
           sistema: string
           tipo: string
           titulo: string
+          unidad_compradora?: string | null
         }
         Update: {
+          acciones_internas?: NonNullable<Json>
           alerta_vencimiento_enviada_at?: string | null
           convocante_representante_cargo?: string | null
           convocante_representante_nombre?: string | null
           created_at?: string
           created_by?: string | null
           documentos_convocante_no_aplica?: NonNullable<Json>
+          enlace_compras_mx?: string | null
           es_investigacion_mercado?: boolean
           estado_id?: string
           estado_licitacion?: string
+          expediente_fuente_completo?: boolean
           fecha_apertura_economica?: string | null
           fecha_apertura_tecnica?: string | null
+          fecha_cierre_interno?: string | null
           fecha_entrega_propuesta?: string | null
           fecha_fallo?: string | null
           fecha_junta_aclaraciones?: string | null
@@ -1781,10 +1816,12 @@ export type Database = {
           modalidad_procedimiento?: string | null
           monto_maximo?: number | null
           numero_expediente?: string
+          numero_interno?: string | null
           organization_id?: string
           sistema?: string
           tipo?: string
           titulo?: string
+          unidad_compradora?: string | null
         }
         Relationships: [
           {
@@ -1931,33 +1968,54 @@ export type Database = {
       propuesta_economica_config: {
         Row: {
           condiciones_pago: string | null
+          contrato_abierto: boolean
+          decimales: number
+          descuentos: string | null
           id: string
+          importe_maximo: number | null
+          importe_minimo: number | null
           incluye_iva: boolean
           licitacion_id: string
           moneda: string
+          precios_ajustables: boolean
           tiempo_entrega_dias: number | null
           tipo_precio: string | null
           validez_oferta_dias: number | null
+          vigencia_precios_dias: number | null
         }
         Insert: {
           condiciones_pago?: string | null
+          contrato_abierto?: boolean
+          decimales?: number
+          descuentos?: string | null
           id?: string
+          importe_maximo?: number | null
+          importe_minimo?: number | null
           incluye_iva?: boolean
           licitacion_id: string
           moneda?: string
+          precios_ajustables?: boolean
           tiempo_entrega_dias?: number | null
           tipo_precio?: string | null
           validez_oferta_dias?: number | null
+          vigencia_precios_dias?: number | null
         }
         Update: {
           condiciones_pago?: string | null
+          contrato_abierto?: boolean
+          decimales?: number
+          descuentos?: string | null
           id?: string
+          importe_maximo?: number | null
+          importe_minimo?: number | null
           incluye_iva?: boolean
           licitacion_id?: string
           moneda?: string
+          precios_ajustables?: boolean
           tiempo_entrega_dias?: number | null
           tipo_precio?: string | null
           validez_oferta_dias?: number | null
+          vigencia_precios_dias?: number | null
         }
         Relationships: [
           {
@@ -1973,6 +2031,8 @@ export type Database = {
         Row: {
           cantidad: number | null
           cantidad_compras_mx: number | null
+          cantidad_maxima: number | null
+          cantidad_minima: number | null
           descripcion: string
           id: string
           iva: number | null
@@ -1990,6 +2050,8 @@ export type Database = {
         Insert: {
           cantidad?: number | null
           cantidad_compras_mx?: number | null
+          cantidad_maxima?: number | null
+          cantidad_minima?: number | null
           descripcion: string
           id?: string
           iva?: number | null
@@ -2007,6 +2069,8 @@ export type Database = {
         Update: {
           cantidad?: number | null
           cantidad_compras_mx?: number | null
+          cantidad_maxima?: number | null
+          cantidad_minima?: number | null
           descripcion?: string
           id?: string
           iva?: number | null

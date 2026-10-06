@@ -4,7 +4,11 @@
 // Run: npx tsx tests/unit/api-validate.test.mjs
 import { z } from "zod";
 import { validarParams, validarQuery, validarBody } from "../../src/lib/api/validate.ts";
-import { ApiError } from "../../src/lib/api/errors.ts";
+
+// No usamos `instanceof ApiError`: según cómo `tsx` resuelva "./errors" vs
+// "errors.ts", el módulo puede cargarse dos veces y la identidad de la clase
+// difiere aunque el error lanzado sea el correcto. Se comprueba por forma.
+const esApiError = (e) => e instanceof Error && e.name === "ApiError";
 
 let pass = 0;
 let fail = 0;
@@ -30,7 +34,7 @@ function check(name, ok, detail) {
     validarParams(schema, { id: "not-a-uuid" });
     check("validarParams() rejects a malformed UUID", false, "did not throw");
   } catch (e) {
-    check("validarParams() rejects a malformed UUID", e instanceof ApiError && e.code === "VALIDATION_ERROR");
+    check("validarParams() rejects a malformed UUID", esApiError(e) && e.code === "VALIDATION_ERROR");
   }
 }
 
@@ -51,7 +55,7 @@ function check(name, ok, detail) {
     validarQuery(schema, new URLSearchParams("estado=NO_EXISTE"));
     check("validarQuery() rejects a value outside the enum", false, "did not throw");
   } catch (e) {
-    check("validarQuery() rejects a value outside the enum", e instanceof ApiError && e.status === 400);
+    check("validarQuery() rejects a value outside the enum", esApiError(e) && e.status === 400);
   }
 }
 
@@ -73,7 +77,7 @@ function check(name, ok, detail) {
     await validarBody(schema, req);
     check("validarBody() rejects malformed JSON with a controlled ApiError, not an uncaught exception", false, "did not throw");
   } catch (e) {
-    check("validarBody() rejects malformed JSON with a controlled ApiError, not an uncaught exception", e instanceof ApiError && e.code === "VALIDATION_ERROR");
+    check("validarBody() rejects malformed JSON with a controlled ApiError, not an uncaught exception", esApiError(e) && e.code === "VALIDATION_ERROR");
   }
 }
 {
@@ -85,7 +89,7 @@ function check(name, ok, detail) {
   } catch (e) {
     check(
       "validarBody() rejects a body missing a required field",
-      e instanceof ApiError && e.code === "VALIDATION_ERROR" && e.details?.fieldErrors?.titulo?.length > 0,
+      esApiError(e) && e.code === "VALIDATION_ERROR" && e.details?.fieldErrors?.titulo?.length > 0,
     );
   }
 }
@@ -102,7 +106,7 @@ function check(name, ok, detail) {
   } catch (e) {
     check(
       "validarBody() rejects a request whose declared Content-Length exceeds the max, before parsing",
-      e instanceof ApiError && e.code === "PAYLOAD_TOO_LARGE",
+      esApiError(e) && e.code === "PAYLOAD_TOO_LARGE",
     );
   }
 }
