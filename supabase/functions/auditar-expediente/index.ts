@@ -13,6 +13,7 @@ import { getEmpresaPerfilActiva } from "../_shared/empresa-perfil.ts";
 import { authenticate, jsonError, registrarUsoIA, requireLicitacion } from "../_shared/auth.ts";
 import { resolverModelo } from "../_shared/modelo-politica.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
+import { EQUIVALENCIAS_RAZON_SOCIAL } from "../_shared/razon-social.ts";
 import {
   compararConsistencia,
   documentosComparables,
@@ -26,7 +27,11 @@ razón social, RFC, representante legal, número de procedimiento, cantidades, u
 vigencias válidas para la fecha de entrega de propuesta. Un mismo dato no debe aparecer de forma
 distinta entre documentos. RFC, razón social y número de procedimiento ya se compararon por regla
 (se te entregan como "Hallazgos verificados"): no los repitas ni los contradigas; concéntrate en lo
-que no se compara por regla (vigencias, cantidades y montos, requisitos faltantes). Clasifica cada hallazgo como pendiente crítico (bloqueador para participar),
+que no se compara por regla (vigencias, cantidades y montos, requisitos faltantes).
+
+${EQUIVALENCIAS_RAZON_SOCIAL}
+
+Clasifica cada hallazgo como pendiente crítico (bloqueador para participar),
 advertencia (riesgo menor) o inconsistencia puntual (un campo con valores distintos entre dos fuentes).
 Usa siempre la herramienta proporcionada.`);
 

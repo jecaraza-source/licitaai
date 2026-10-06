@@ -2,6 +2,8 @@
 // se traduce su veredicto al semáforo del checklist. Vive aparte de la Edge
 // Function para poder probarla sin Deno ni llamadas a IA.
 
+import { EQUIVALENCIAS_RAZON_SOCIAL } from "./razon-social.ts";
+
 export type EstadoChecklist = "VERDE" | "AMARILLO" | "ROJO" | "GRIS";
 
 /**
@@ -70,6 +72,7 @@ Reglas para comparar contra los datos de referencia:
 - Si el documento es de una persona física (identificación oficial, poder, escrito de
   personalidad), compara su nombre contra el representante legal registrado, nunca contra el
   RFC o la razón social de la empresa.
+- ${EQUIVALENCIAS_RAZON_SOCIAL}
 - Si falta el dato de referencia para comparar, o el documento no lo trae, repórtalo como
   observación ("no verificable"); no lo marques como inválido por eso.
 - Usa valido: false solo cuando haya un incumplimiento real del requisito. Gradúa
