@@ -34,8 +34,12 @@ async function main() {
     email, password: "TestPassword123!", email_confirm: true,
     user_metadata: { nombre: "T", signup_ticket: ticket.id },
   });
-  const anon = createClient(URL, ANON_KEY);
-  const { data: sess } = await anon.auth.signInWithPassword({ email, password: "TestPassword123!" });
+  // Cliente solo para iniciar sesión: tras signIn queda con la sesión del
+  // usuario y sus llamadas correrían como `authenticated`, no como `anon`.
+  const loginClient = createClient(URL, ANON_KEY);
+  const { data: sess } = await loginClient.auth.signInWithPassword({ email, password: "TestPassword123!" });
+  // Cliente sin sesión: sus llamadas corren realmente como el rol `anon`.
+  const anon = createClient(URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const asUser = createClient(URL, ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${sess.session.access_token}` } },
   });
