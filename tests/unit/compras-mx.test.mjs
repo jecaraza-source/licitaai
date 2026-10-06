@@ -34,7 +34,7 @@ check("fecha ilegible no se trata como error", validarCierreInterno("no-es-fecha
 
 // --- Paso 2: la lista de carpetas debe coincidir con el CHECK de la migración ---
 const sql = readFileSync(
-  new URL("../../supabase/migrations/20261006000000_compras_mx_cierre_brechas.sql", import.meta.url),
+  new URL("../../supabase/migrations/20261006010000_compras_mx_cierre_brechas.sql", import.meta.url),
   "utf8",
 );
 const bloque = sql.slice(sql.indexOf("documentos_carpeta_check"));
