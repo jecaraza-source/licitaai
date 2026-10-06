@@ -8,6 +8,8 @@ export interface RequisitoTrazable {
   estado: EstadoChecklistItem;
   padre_id: string | null;
   fuente: string | null;
+  pagina_fuente: string | null;
+  pagina_evidencia: string | null;
   observaciones: string | null;
   documento_id: string | null;
   cargado_compras_mx: boolean;
@@ -26,14 +28,27 @@ export const PREGUNTAS = [
   { id: "coincide", label: "¿Coincide con Compras MX?" },
 ] as const;
 
+/**
+ * "Fuente, apartado y página" / "Archivo y página": el texto base más la
+ * página si se capturó. La página no condiciona que la pregunta cuente como
+ * respondida (hay requisitos cuya fuente no tiene página); se muestra para
+ * que el vacío sea visible.
+ */
+function conPagina(base: string | null | undefined, pagina: string | null | undefined): string | null {
+  const texto = base?.trim();
+  if (!texto) return null;
+  const pag = pagina?.trim();
+  return pag ? `${texto}, p. ${pag}` : texto;
+}
+
 /** Respuesta de cada pregunta, o null si aún no se puede responder. */
 export function respuestasTrazabilidad(r: RequisitoTrazable): Record<(typeof PREGUNTAS)[number]["id"], string | null> {
   return {
-    donde_se_pidio: r.fuente?.trim() || null,
+    donde_se_pidio: conPagina(r.fuente, r.pagina_fuente),
     que_exige: r.descripcion.trim() || null,
     quien: r.responsable?.nombre ?? null,
     con_que: r.observaciones?.trim() || r.documentos?.nombre || null,
-    donde_esta: r.documentos?.nombre ?? null,
+    donde_esta: conPagina(r.documentos?.nombre, r.pagina_evidencia),
     se_cargo: r.cargado_compras_mx ? "Sí" : "No",
     coincide: r.coincide_compras_mx ? "Sí" : "No",
   };

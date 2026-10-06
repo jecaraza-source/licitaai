@@ -18,7 +18,7 @@ export const POST = apiRoute({ paramsSchema, bodySchema: postSchema }, async ({ 
 
   const { data: padre, error: errorPadre } = await ctx.supabase
     .from("checklist_items")
-    .select("categoria, requerido, critico, fuente, fundamento_legal, vigencia_requerida, padre_id")
+    .select("categoria, requerido, critico, fuente, pagina_fuente, fundamento_legal, vigencia_requerida, padre_id")
     .eq("id", body.padre_id)
     .eq("licitacion_id", params.id)
     .maybeSingle();
@@ -36,6 +36,7 @@ export const POST = apiRoute({ paramsSchema, bodySchema: postSchema }, async ({ 
       requerido: padre.requerido,
       critico: padre.critico,
       fuente: padre.fuente,
+      pagina_fuente: padre.pagina_fuente,
       fundamento_legal: padre.fundamento_legal,
       vigencia_requerida: padre.vigencia_requerida,
     })

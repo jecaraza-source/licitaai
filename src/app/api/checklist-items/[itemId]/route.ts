@@ -20,6 +20,16 @@ const patchBodySchema = z.object({
   tipo_formato: z.enum(TIPOS_FORMATO).nullable().optional(),
   cargado_compras_mx: z.boolean().optional(),
   coincide_compras_mx: z.boolean().optional(),
+  // Paso 4 — columnas de control de la matriz. subsanable es tri-estado:
+  // null = sin definir, true = subsanable, false = causa de desechamiento.
+  subsanable: z.boolean().nullable().optional(),
+  requiere_firma: z.boolean().optional(),
+  requiere_membrete: z.boolean().optional(),
+  requiere_folio: z.boolean().optional(),
+  campo_compras_mx: z.string().trim().max(200).nullable().optional(),
+  // §28 — página donde se pidió y página donde está la evidencia.
+  pagina_fuente: z.string().trim().max(60).nullable().optional(),
+  pagina_evidencia: z.string().trim().max(60).nullable().optional(),
 });
 
 export const PATCH = apiRoute({ paramsSchema, bodySchema: patchBodySchema }, async ({ ctx, params, body }) => {

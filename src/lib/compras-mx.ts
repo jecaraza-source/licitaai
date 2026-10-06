@@ -29,16 +29,34 @@ export const CARPETA_VALUES = CARPETAS_EXPEDIENTE.map((c) => c.value) as [
  */
 export const EVENTOS_CRITICOS = [
   { campo: "fecha_publicacion", evento: "Publicación / recepción", accionSugerida: "Apertura de expediente" },
+  { campo: "fecha_limite_preguntas", evento: "Límite de preguntas", accionSugerida: "Cerrar preguntas previamente" },
   { campo: "fecha_junta_aclaraciones", evento: "Junta de aclaraciones", accionSugerida: "Revisar resultado" },
   { campo: "fecha_visita", evento: "Visita a instalaciones", accionSugerida: "Confirmar asistencia" },
+  { campo: "fecha_entrega_muestras", evento: "Entrega de muestras", accionSugerida: "Preparar" },
   { campo: "fecha_entrega_propuesta", evento: "Presentación de propuesta", accionSugerida: "Cierre interno anticipado" },
   { campo: "fecha_apertura_tecnica", evento: "Apertura técnica", accionSugerida: "Seguimiento" },
   { campo: "fecha_apertura_economica", evento: "Apertura económica", accionSugerida: "Seguimiento" },
   { campo: "fecha_fallo", evento: "Fallo", accionSugerida: "Seguimiento" },
+  { campo: "fecha_firma_contrato", evento: "Firma de contrato", accionSugerida: "Preparar documentación" },
+  { campo: "fecha_garantia", evento: "Garantía", accionSugerida: "Tramitar" },
 ] as const;
 
 export type CampoEvento = (typeof EVENTOS_CRITICOS)[number]["campo"];
 export const CAMPOS_EVENTO = EVENTOS_CRITICOS.map((e) => e.campo) as [CampoEvento, ...CampoEvento[]];
+
+/**
+ * Eventos cuya fecha se captura/edita desde la tarjeta de calendario. Las 7
+ * fechas originales se capturan al crear la licitación (no hay pantalla que
+ * las edite después), así que aquí solo se editan las 4 que se agregaron.
+ */
+export const CAMPOS_EVENTO_EDITABLES = [
+  "fecha_limite_preguntas",
+  "fecha_entrega_muestras",
+  "fecha_firma_contrato",
+  "fecha_garantia",
+] as const satisfies readonly CampoEvento[];
+
+export type CampoEventoEditable = (typeof CAMPOS_EVENTO_EDITABLES)[number];
 
 /**
  * Regla operativa del Paso 1: la fecha límite oficial es absoluta, así que el

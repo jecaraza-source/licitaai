@@ -10,7 +10,15 @@ const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido
 
 const textoOpcional = (max: number) => z.string().trim().max(max).nullable().optional();
 
+// Fechas de los eventos agregados al calendario (Paso 3). Las 7 originales
+// no se editan por aquí: se capturan al crear la licitación.
+const fechaEvento = z.string().datetime({ offset: true }).nullable().optional();
+
 const patchSchema = z.object({
+  fecha_limite_preguntas: fechaEvento,
+  fecha_entrega_muestras: fechaEvento,
+  fecha_firma_contrato: fechaEvento,
+  fecha_garantia: fechaEvento,
   unidad_compradora: textoOpcional(300),
   numero_interno: textoOpcional(120),
   enlace_compras_mx: z
@@ -58,7 +66,7 @@ export const PATCH = apiRoute({ paramsSchema, bodySchema: patchSchema }, async (
     .update(update)
     .eq("id", params.id)
     .select(
-      "unidad_compradora, numero_interno, enlace_compras_mx, fecha_cierre_interno, acciones_internas, expediente_fuente_completo",
+      "unidad_compradora, numero_interno, enlace_compras_mx, fecha_cierre_interno, acciones_internas, expediente_fuente_completo, fecha_limite_preguntas, fecha_entrega_muestras, fecha_firma_contrato, fecha_garantia",
     )
     .single();
   if (error) throw ApiError.notFound("Licitación no encontrada");
