@@ -15,6 +15,13 @@ jobs:
     # en GitHub (Settings → Environments): el job queda en espera de
     # aprobación manual antes de tocar producción (ADR 0009 · regla 8/11).
     environment: production
+    # El último paso (tag + release) hace `git push` de la etiqueta y
+    # `gh release create`: necesita escritura en el contenido del repo. Se
+    # declara aquí, solo para este job, en vez de depender del permiso por
+    # defecto del repositorio (que sin esto era solo-lectura y hacía fallar
+    # el paso con 403 "Permission denied to github-actions[bot]").
+    permissions:
+      contents: write
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
