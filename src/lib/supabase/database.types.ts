@@ -600,6 +600,7 @@ export type Database = {
       checklist_items: {
         Row: {
           aclaracion_id: string | null
+          campo_compras_mx: string | null
           cargado_compras_mx: boolean
           categoria: string
           causa_desechamiento: string | null
@@ -616,13 +617,20 @@ export type Database = {
           licitacion_id: string
           observaciones: string | null
           padre_id: string | null
+          pagina_evidencia: string | null
+          pagina_fuente: string | null
           requerido: boolean
+          requiere_firma: boolean
+          requiere_folio: boolean
+          requiere_membrete: boolean
           responsable_id: string | null
+          subsanable: boolean | null
           tipo_formato: string | null
           vigencia_requerida: string | null
         }
         Insert: {
           aclaracion_id?: string | null
+          campo_compras_mx?: string | null
           cargado_compras_mx?: boolean
           categoria: string
           causa_desechamiento?: string | null
@@ -639,13 +647,20 @@ export type Database = {
           licitacion_id: string
           observaciones?: string | null
           padre_id?: string | null
+          pagina_evidencia?: string | null
+          pagina_fuente?: string | null
           requerido?: boolean
+          requiere_firma?: boolean
+          requiere_folio?: boolean
+          requiere_membrete?: boolean
           responsable_id?: string | null
+          subsanable?: boolean | null
           tipo_formato?: string | null
           vigencia_requerida?: string | null
         }
         Update: {
           aclaracion_id?: string | null
+          campo_compras_mx?: string | null
           cargado_compras_mx?: boolean
           categoria?: string
           causa_desechamiento?: string | null
@@ -662,8 +677,14 @@ export type Database = {
           licitacion_id?: string
           observaciones?: string | null
           padre_id?: string | null
+          pagina_evidencia?: string | null
+          pagina_fuente?: string | null
           requerido?: boolean
+          requiere_firma?: boolean
+          requiere_folio?: boolean
+          requiere_membrete?: boolean
           responsable_id?: string | null
+          subsanable?: boolean | null
           tipo_formato?: string | null
           vigencia_requerida?: string | null
         }
@@ -1740,9 +1761,13 @@ export type Database = {
           fecha_apertura_economica: string | null
           fecha_apertura_tecnica: string | null
           fecha_cierre_interno: string | null
+          fecha_entrega_muestras: string | null
           fecha_entrega_propuesta: string | null
           fecha_fallo: string | null
+          fecha_firma_contrato: string | null
+          fecha_garantia: string | null
           fecha_junta_aclaraciones: string | null
+          fecha_limite_preguntas: string | null
           fecha_publicacion: string | null
           fecha_visita: string | null
           id: string
@@ -1773,9 +1798,13 @@ export type Database = {
           fecha_apertura_economica?: string | null
           fecha_apertura_tecnica?: string | null
           fecha_cierre_interno?: string | null
+          fecha_entrega_muestras?: string | null
           fecha_entrega_propuesta?: string | null
           fecha_fallo?: string | null
+          fecha_firma_contrato?: string | null
+          fecha_garantia?: string | null
           fecha_junta_aclaraciones?: string | null
+          fecha_limite_preguntas?: string | null
           fecha_publicacion?: string | null
           fecha_visita?: string | null
           id?: string
@@ -1806,9 +1835,13 @@ export type Database = {
           fecha_apertura_economica?: string | null
           fecha_apertura_tecnica?: string | null
           fecha_cierre_interno?: string | null
+          fecha_entrega_muestras?: string | null
           fecha_entrega_propuesta?: string | null
           fecha_fallo?: string | null
+          fecha_firma_contrato?: string | null
+          fecha_garantia?: string | null
           fecha_junta_aclaraciones?: string | null
+          fecha_limite_preguntas?: string | null
           fecha_publicacion?: string | null
           fecha_visita?: string | null
           id?: string

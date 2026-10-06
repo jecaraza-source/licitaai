@@ -50,6 +50,13 @@ interface ChecklistItem {
   padre_id: string | null;
   cargado_compras_mx: boolean;
   coincide_compras_mx: boolean;
+  subsanable: boolean | null;
+  requiere_firma: boolean;
+  requiere_membrete: boolean;
+  requiere_folio: boolean;
+  campo_compras_mx: string | null;
+  pagina_fuente: string | null;
+  pagina_evidencia: string | null;
   documentos: Documento | null;
   responsable: { id: string; nombre: string } | null;
 }
@@ -92,6 +99,12 @@ interface AuditoriaData {
   ultimoReporte: Reporte | null;
   gate: GateInfo;
 }
+
+const SUBSANABLE_LABELS: Record<string, string> = {
+  __sin_definir__: "Sin definir",
+  si: "Sí, se puede subsanar",
+  no: "No — causa de desechamiento",
+};
 
 const TIPO_FORMATO_LABELS: Record<string, string> = {
   A: "A — Obligatorio sin modificar",
@@ -166,6 +179,18 @@ function ChecklistRow({
               {item.critico && (
                 <span className="ml-2 inline-flex items-center rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
                   Crítico
+                </span>
+              )}
+              {item.subsanable === false && (
+                <span className="ml-2 inline-flex items-center rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
+                  No subsanable
+                </span>
+              )}
+              {(item.requiere_firma || item.requiere_membrete || item.requiere_folio) && (
+                <span className="ml-2 inline-flex items-center rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-secondary-foreground">
+                  {[item.requiere_firma && "Firma", item.requiere_membrete && "Membrete", item.requiere_folio && "Folio"]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </span>
               )}
               {hijos.length > 0 && (
@@ -250,7 +275,14 @@ function ChecklistRow({
               <Input
                 defaultValue={item.fuente ?? ""}
                 onBlur={(e) => actualizar("fuente", e.target.value || null)}
-                placeholder="Anexo Técnico, p. 12"
+                placeholder="Anexo Técnico, apartado 4.2"
+                className="h-8 text-xs"
+              />
+              <Input
+                aria-label="Página de la fuente"
+                defaultValue={item.pagina_fuente ?? ""}
+                onBlur={(e) => actualizar("pagina_fuente", e.target.value.trim() || null)}
+                placeholder="Página (ej. 12)"
                 className="h-8 text-xs"
               />
             </div>
@@ -309,6 +341,62 @@ function ChecklistRow({
             Documento: {item.documentos?.nombre ?? "Sin documento cargado"} · Súbelo o reemplázalo
             desde el tab Documentos. Los importes se concilian en Propuesta Económica.
           </p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs text-muted-foreground">Página de la evidencia</Label>
+              <Input
+                aria-label="Página de la evidencia"
+                defaultValue={item.pagina_evidencia ?? ""}
+                onBlur={(e) => actualizar("pagina_evidencia", e.target.value.trim() || null)}
+                placeholder="Página dentro del archivo (ej. 3)"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs text-muted-foreground">Campo de Compras MX asociado</Label>
+              <Input
+                aria-label="Campo de Compras MX asociado"
+                defaultValue={item.campo_compras_mx ?? ""}
+                onBlur={(e) => actualizar("campo_compras_mx", e.target.value.trim() || null)}
+                placeholder="Pantalla o campo donde se captura"
+                className="h-8 text-xs"
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <Label className="text-xs text-muted-foreground">¿Subsanable?</Label>
+              <Select
+                value={item.subsanable === null ? "__sin_definir__" : item.subsanable ? "si" : "no"}
+                onValueChange={(v) => actualizar("subsanable", v === "__sin_definir__" ? null : v === "si")}
+              >
+                <SelectTrigger size="sm" className="h-7 w-56 text-xs" aria-label="¿Subsanable?">
+                  <SelectValue>
+                    {(v: string | null) => SUBSANABLE_LABELS[v ?? "__sin_definir__"] ?? "Sin definir"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(SUBSANABLE_LABELS).map(([v, label]) => (
+                    <SelectItem key={v} value={v}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {(
+              [
+                ["requiere_firma", "Requiere firma"],
+                ["requiere_membrete", "Requiere membrete"],
+                ["requiere_folio", "Requiere folio"],
+              ] as const
+            ).map(([campo, etiqueta]) => (
+              <label key={campo} className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Checkbox checked={item[campo]} onCheckedChange={(c) => actualizar(campo, c === true)} />
+                {etiqueta}
+              </label>
+            ))}
+          </div>
           <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               <Checkbox

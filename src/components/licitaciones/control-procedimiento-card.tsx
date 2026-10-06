@@ -6,7 +6,13 @@ import { TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { EVENTOS_CRITICOS, validarCierreInterno, type CampoEvento } from "@/lib/compras-mx";
+import {
+  CAMPOS_EVENTO_EDITABLES,
+  EVENTOS_CRITICOS,
+  validarCierreInterno,
+  type CampoEvento,
+  type CampoEventoEditable,
+} from "@/lib/compras-mx";
 
 // Pasos 1 y 3 del proceso operativo de Compras MX: datos de registro del
 // procedimiento, cierre interno anticipado y calendario con acción interna.
@@ -20,6 +26,9 @@ export interface ControlProcedimiento {
 }
 
 type Fechas = Record<CampoEvento, string | null>;
+
+const esEditable = (campo: CampoEvento): campo is CampoEventoEditable =>
+  (CAMPOS_EVENTO_EDITABLES as readonly string[]).includes(campo);
 
 function formatFechaHora(valor: string | null) {
   if (!valor) return "Por definir";
@@ -44,6 +53,7 @@ export function ControlProcedimientoCard({
   fechas: Fechas;
 }) {
   const [control, setControl] = useState(inicial);
+  const [fechasEvento, setFechasEvento] = useState(fechas);
 
   async function guardar(cambios: Record<string, unknown>): Promise<boolean> {
     const res = await fetch(`/api/licitaciones/${licitacionId}/control`, {
@@ -57,11 +67,18 @@ export function ControlProcedimientoCard({
       return false;
     }
     setControl((prev) => ({ ...prev, ...json.data }));
+    setFechasEvento((prev) => {
+      const siguiente = { ...prev };
+      for (const campo of CAMPOS_EVENTO_EDITABLES) {
+        if (campo in json.data) siguiente[campo] = json.data[campo];
+      }
+      return siguiente;
+    });
     return true;
   }
 
-  const errorCierre = validarCierreInterno(control.fecha_cierre_interno, fechas.fecha_entrega_propuesta);
-  const sinCierre = !control.fecha_cierre_interno && !!fechas.fecha_entrega_propuesta;
+  const errorCierre = validarCierreInterno(control.fecha_cierre_interno, fechasEvento.fecha_entrega_propuesta);
+  const sinCierre = !control.fecha_cierre_interno && !!fechasEvento.fecha_entrega_propuesta;
 
   return (
     <Card>
@@ -145,7 +162,20 @@ export function ControlProcedimientoCard({
             {EVENTOS_CRITICOS.map((e) => (
               <div key={e.campo} className="grid grid-cols-1 items-center gap-2 p-2.5 sm:grid-cols-[1fr_1fr_1.4fr]">
                 <span className="text-sm font-medium">{e.evento}</span>
-                <span className="text-sm text-muted-foreground">{formatFechaHora(fechas[e.campo])}</span>
+                {esEditable(e.campo) ? (
+                  <Input
+                    type="datetime-local"
+                    aria-label={`Fecha: ${e.evento}`}
+                    defaultValue={aInputLocal(fechasEvento[e.campo])}
+                    onBlur={(ev) => {
+                      const nuevo = ev.target.value ? new Date(ev.target.value).toISOString() : null;
+                      if (nuevo !== fechasEvento[e.campo]) guardar({ [e.campo]: nuevo });
+                    }}
+                    className="h-8 text-xs"
+                  />
+                ) : (
+                  <span className="text-sm text-muted-foreground">{formatFechaHora(fechasEvento[e.campo])}</span>
+                )}
                 <Input
                   aria-label={`Acción interna: ${e.evento}`}
                   placeholder={e.accionSugerida}

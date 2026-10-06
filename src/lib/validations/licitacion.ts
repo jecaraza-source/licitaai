@@ -42,12 +42,16 @@ export const licitacionSchema = z.object({
       message: "Monto inválido",
     }),
   fecha_publicacion: optionalDateTime,
+  fecha_limite_preguntas: optionalDateTime,
   fecha_junta_aclaraciones: optionalDateTime,
   fecha_visita: optionalDateTime,
+  fecha_entrega_muestras: optionalDateTime,
   fecha_entrega_propuesta: optionalDateTime,
   fecha_apertura_tecnica: optionalDateTime,
   fecha_apertura_economica: optionalDateTime,
   fecha_fallo: optionalDateTime,
+  fecha_firma_contrato: optionalDateTime,
+  fecha_garantia: optionalDateTime,
   es_investigacion_mercado: z.boolean().optional().default(false),
 });
 
