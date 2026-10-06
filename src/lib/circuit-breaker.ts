@@ -4,14 +4,16 @@ import { isEnabled } from "@/lib/flags";
 
 // P2 · E2 — lectura del estado del circuit breaker desde las rutas de
 // Next.js (ADR 0005). El worker y las Edge Functions REGISTRAN
-// éxitos/fallos (service_role); las rutas solo LEEN para degradar
-// (no llamar a un proveedor que está caído).
+// éxitos/fallos y consultan `cb_estado` (RPC service_role, MUTA); las rutas
+// de Next.js solo LEEN `provider_health` por RLS para degradar — nunca
+// llaman a la RPC (revocada de anon/authenticated en 20260908163639).
 
 export type ProviderCB = "anthropic" | "openai" | "resend";
 
 /** ¿El circuito de este proveedor está abierto? false si el flag está
  * apagado o ante cualquier error (no bloquear por un fallo del propio
- * check). */
+ * check). Lee `provider_health` directamente (RLS), sin la RPC `cb_estado`
+ * que es solo del worker. */
 export async function circuitoAbierto(
   supabase: SupabaseClient,
   provider: ProviderCB,
@@ -21,8 +23,7 @@ export async function circuitoAbierto(
     if (!(await isEnabled(supabase, "resiliencia.circuit_breaker", { organizationId }))) {
       return false;
     }
-    const { data } = await supabase.rpc("cb_estado", { p_provider: provider });
-    return data === "OPEN";
+    return (await estadoCircuitos(supabase))[provider] === "OPEN";
   } catch {
     return false;
   }
