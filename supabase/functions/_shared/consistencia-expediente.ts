@@ -5,7 +5,10 @@
 // extrajo de cada archivo. La IA de `auditar-expediente` solo redacta el
 // resumen y revisa lo que no es comparable por regla (vigencias, montos…).
 //
-// Pura y sin imports: la usan la Edge Function (Deno) y los tests (tsx).
+// Pura (solo importa el módulo puro razon-social.ts): la usan la Edge Function
+// (Deno) y los tests (tsx).
+
+import { normalizarRazonSocial } from "./razon-social.ts";
 
 export type CampoConsistencia = "RFC" | "Razón social" | "Número de procedimiento";
 
@@ -56,20 +59,9 @@ export function normalizarProcedimiento(v: string | null | undefined): string {
   return (v ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-const SUFIJO_SOCIETARIO =
-  /\b(?:S ?A ?P ?I|S ?A ?B|S ?A ?S|S ?DE ?R ?L|S ?A|S ?C|A ?C)(?: ?DE ?C ?V)?$/;
-
-/** Mayúsculas, sin acentos ni puntuación y sin el régimen societario final
- * ("S.A. DE C.V.", "SA DE CV", "S. de R.L. de C.V."…). */
-export function normalizarRazonSocial(v: string | null | undefined): string {
-  const limpio = (v ?? "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9&]+/g, " ")
-    .trim();
-  return limpio.replace(SUFIJO_SOCIETARIO, "").trim();
-}
+// La normalización de la razón social (tipo de sociedad completo o abreviado)
+// vive en razon-social.ts para que Configuración y el expediente usen la misma.
+export { normalizarRazonSocial };
 
 function unoContieneAlOtro(a: string, b: string): boolean {
   return a !== "" && b !== "" && (a.includes(b) || b.includes(a));

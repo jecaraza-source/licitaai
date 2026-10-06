@@ -9,6 +9,7 @@ import { authenticate, jsonError, registrarUsoIA, requireDocumentoCorporativo } 
 import { resolverModelo } from "../_shared/modelo-politica.ts";
 import { contenidoCoincideConNombre } from "../_shared/file-validation.ts";
 import { conGuardia } from "../_shared/ai-guard.ts";
+import { EQUIVALENCIAS_RAZON_SOCIAL, razonesSocialesCoinciden } from "../_shared/razon-social.ts";
 import { bloqueDocumentoParaClaude } from "../_shared/anthropic-content-block.ts";
 
 const SYSTEM_PROMPT = conGuardia(`Eres un asistente que extrae datos de documentos oficiales mexicanos
@@ -41,6 +42,13 @@ Un documento puede llegar como varias páginas escaneadas juntas: no concluyas q
 falta sin haber revisado todas las páginas que recibiste. Aun así, si genuinamente no
 aparece en el documento, repórtalo como null en vez de adivinar — nunca inventes un número
 de escritura, notaría o folio.
+
+Para razon_social_detectada transcribe el nombre EXACTAMENTE como aparece en el documento,
+completo y sin abreviar ni expandir el tipo de sociedad (si dice "SOCIEDAD ANÓNIMA DE CAPITAL
+VARIABLE" no lo cambies a "SA de CV", y viceversa). La comparación contra la empresa la hace
+el sistema por regla y ya entiende estas equivalencias; tú no debes "corregir" el nombre.
+
+${EQUIVALENCIAS_RAZON_SOCIAL}
 
 Si el tipo de documento es "Comprobante de domicilio" (recibo de luz, agua, gas, teléfono u
 otro servicio): el recibo casi siempre trae, en el encabezado o pie de página, el RFC y/o la
@@ -291,15 +299,15 @@ function coincideEmpresa(
   }
 
   if (razonSocialDetectada && empresa.razon_social) {
-    const detectada = normalizarTexto(razonSocialDetectada);
-    const propia = normalizarTexto(empresa.razon_social);
-    const ok = detectada === propia || detectada.includes(propia) || propia.includes(detectada);
+    // El tipo de sociedad no cuenta: "SA de CV" = "Sociedad Anónima de Capital Variable".
+    const ok = razonesSocialesCoinciden(razonSocialDetectada, empresa.razon_social);
     return {
       coincide: ok,
       motivo: ok
         ? null
         : `La razón social del documento ("${razonSocialDetectada}") no coincide con la de tu empresa activa ` +
-          `("${empresa.razon_social}"). El documento no trae RFC para verificar; revísalo.`,
+          `("${empresa.razon_social}"). El documento no trae RFC para verificar; revísalo. ` +
+          `(Se comparó el nombre sin el tipo de sociedad: "SA de CV" y "Sociedad Anónima de Capital Variable" cuentan como iguales.)`,
     };
   }
 
