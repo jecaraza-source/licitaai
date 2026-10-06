@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { TrazabilidadRequisitosCard } from "@/components/licitaciones/trazabilidad-requisitos-card";
 import { CATEGORIA_LABELS, ESTADO_DOT, ESTADO_LABELS } from "@/lib/checklist-labels";
 import type { EstadoChecklistItem } from "@/types";
 
@@ -46,6 +47,9 @@ interface ChecklistItem {
   documento_id: string | null;
   aclaracion_id: string | null;
   tipo_formato: string | null;
+  padre_id: string | null;
+  cargado_compras_mx: boolean;
+  coincide_compras_mx: boolean;
   documentos: Documento | null;
   responsable: { id: string; nombre: string } | null;
 }
@@ -106,12 +110,37 @@ function ChecklistRow({
   item,
   onUpdated,
   usuarios,
+  licitacionId,
+  hijos = [],
 }: {
   item: ChecklistItem;
   usuarios: UsuarioOrg[];
   onUpdated: () => void;
+  licitacionId: string;
+  /** Paso 5: sub-requisitos de un requisito compuesto (un solo nivel). */
+  hijos?: ChecklistItem[];
 }) {
   const [expandido, setExpandido] = useState(false);
+  const [nuevoHijo, setNuevoHijo] = useState("");
+  const [agregando, setAgregando] = useState(false);
+
+  async function agregarHijo() {
+    const descripcion = nuevoHijo.trim();
+    if (!descripcion) return;
+    setAgregando(true);
+    const res = await fetch(`/api/licitaciones/${licitacionId}/checklist-items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ padre_id: item.id, descripcion }),
+    });
+    setAgregando(false);
+    if (!res.ok) {
+      toast.error("No se pudo agregar el sub-requisito");
+      return;
+    }
+    setNuevoHijo("");
+    onUpdated();
+  }
 
   async function actualizar(campo: string, valor: unknown) {
     await fetch(`/api/checklist-items/${item.id}`, {
@@ -137,6 +166,11 @@ function ChecklistRow({
               {item.critico && (
                 <span className="ml-2 inline-flex items-center rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
                   Crítico
+                </span>
+              )}
+              {hijos.length > 0 && (
+                <span className="ml-2 inline-flex items-center rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-secondary-foreground">
+                  {hijos.filter((h) => h.estado === "VERDE" || h.estado === "GRIS").length}/{hijos.length} sub-requisitos
                 </span>
               )}
               {item.aclaracion_id && (
@@ -273,9 +307,57 @@ function ChecklistRow({
           </div>
           <p className="text-xs text-muted-foreground">
             Documento: {item.documentos?.nombre ?? "Sin documento cargado"} · Súbelo o reemplázalo
-            desde el tab Documentos. ¿Coincide con Compras MX? No aplica a este renglón — ver
-            conciliación en Propuesta Económica.
+            desde el tab Documentos. Los importes se concilian en Propuesta Económica.
           </p>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox
+                checked={item.cargado_compras_mx}
+                onCheckedChange={(c) => actualizar("cargado_compras_mx", c === true)}
+              />
+              ¿Se cargó en Compras MX?
+            </label>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox
+                checked={item.coincide_compras_mx}
+                onCheckedChange={(c) => actualizar("coincide_compras_mx", c === true)}
+              />
+              ¿Coincide con lo capturado en Compras MX?
+            </label>
+          </div>
+
+          {!item.padre_id && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`sub-${item.id}`} className="text-xs text-muted-foreground">
+                Desglosar requisito compuesto (sub-requisito)
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id={`sub-${item.id}`}
+                  value={nuevoHijo}
+                  onChange={(e) => setNuevoHijo(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void agregarHijo();
+                    }
+                  }}
+                  placeholder="Ej. Currículum de cada especialista"
+                  className="h-8 text-xs"
+                />
+                <Button type="button" size="sm" variant="outline" onClick={agregarHijo} disabled={agregando || !nuevoHijo.trim()}>
+                  Agregar
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {hijos.length > 0 && (
+        <div className="ml-4.5 flex flex-col gap-2 border-l pl-3">
+          {hijos.map((h) => (
+            <ChecklistRow key={h.id} item={h} usuarios={usuarios} onUpdated={onUpdated} licitacionId={licitacionId} />
+          ))}
         </div>
       )}
     </div>
@@ -328,7 +410,7 @@ export function AuditoriaTab({ licitacionId }: { licitacionId: string }) {
 
   const grupos = Object.entries(
     data.checklist.reduce<Record<string, ChecklistItem[]>>((acc, item) => {
-      (acc[item.categoria] ??= []).push(item);
+      if (!item.padre_id) (acc[item.categoria] ??= []).push(item);
       return acc;
     }, {}),
   );
@@ -462,12 +544,21 @@ export function AuditoriaTab({ licitacionId }: { licitacionId: string }) {
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
               {items.map((item) => (
-                <ChecklistRow key={item.id} item={item} usuarios={usuarios} onUpdated={cargar} />
+                <ChecklistRow
+                  key={item.id}
+                  item={item}
+                  usuarios={usuarios}
+                  onUpdated={cargar}
+                  licitacionId={licitacionId}
+                  hijos={data.checklist.filter((h) => h.padre_id === item.id)}
+                />
               ))}
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <TrazabilidadRequisitosCard items={data.checklist} />
     </div>
   );
 }

@@ -599,6 +599,9 @@ export type Database = {
       }
       checklist_items: {
         Row: {
+          padre_id: string | null
+          cargado_compras_mx: boolean
+          coincide_compras_mx: boolean
           aclaracion_id: string | null
           categoria: string
           causa_desechamiento: string | null
@@ -619,6 +622,9 @@ export type Database = {
           vigencia_requerida: string | null
         }
         Insert: {
+          padre_id?: string | null
+          cargado_compras_mx?: boolean
+          coincide_compras_mx?: boolean
           aclaracion_id?: string | null
           categoria: string
           causa_desechamiento?: string | null
@@ -639,6 +645,9 @@ export type Database = {
           vigencia_requerida?: string | null
         }
         Update: {
+          padre_id?: string | null
+          cargado_compras_mx?: boolean
+          coincide_compras_mx?: boolean
           aclaracion_id?: string | null
           categoria?: string
           causa_desechamiento?: string | null
@@ -899,6 +908,7 @@ export type Database = {
       }
       documentos: {
         Row: {
+          carpeta: string | null
           auditoria_json: Json | null
           created_at: string
           firma_digital_json: Json | null
@@ -912,6 +922,7 @@ export type Database = {
           tipo_documento: string
         }
         Insert: {
+          carpeta?: string | null
           auditoria_json?: Json | null
           created_at?: string
           firma_digital_json?: Json | null
@@ -925,6 +936,7 @@ export type Database = {
           tipo_documento: string
         }
         Update: {
+          carpeta?: string | null
           auditoria_json?: Json | null
           created_at?: string
           firma_digital_json?: Json | null
@@ -1706,6 +1718,12 @@ export type Database = {
       }
       licitaciones: {
         Row: {
+          unidad_compradora: string | null
+          numero_interno: string | null
+          enlace_compras_mx: string | null
+          fecha_cierre_interno: string | null
+          acciones_internas: Json
+          expediente_fuente_completo: boolean
           alerta_vencimiento_enviada_at: string | null
           convocante_representante_cargo: string | null
           convocante_representante_nombre: string | null
@@ -1733,6 +1751,12 @@ export type Database = {
           titulo: string
         }
         Insert: {
+          unidad_compradora?: string | null
+          numero_interno?: string | null
+          enlace_compras_mx?: string | null
+          fecha_cierre_interno?: string | null
+          acciones_internas?: Json
+          expediente_fuente_completo?: boolean
           alerta_vencimiento_enviada_at?: string | null
           convocante_representante_cargo?: string | null
           convocante_representante_nombre?: string | null
@@ -1760,6 +1784,12 @@ export type Database = {
           titulo: string
         }
         Update: {
+          unidad_compradora?: string | null
+          numero_interno?: string | null
+          enlace_compras_mx?: string | null
+          fecha_cierre_interno?: string | null
+          acciones_internas?: Json
+          expediente_fuente_completo?: boolean
           alerta_vencimiento_enviada_at?: string | null
           convocante_representante_cargo?: string | null
           convocante_representante_nombre?: string | null
@@ -1930,6 +1960,13 @@ export type Database = {
       }
       propuesta_economica_config: {
         Row: {
+          decimales: number
+          precios_ajustables: boolean
+          vigencia_precios_dias: number | null
+          descuentos: string | null
+          contrato_abierto: boolean
+          importe_minimo: number | null
+          importe_maximo: number | null
           condiciones_pago: string | null
           id: string
           incluye_iva: boolean
@@ -1940,6 +1977,13 @@ export type Database = {
           validez_oferta_dias: number | null
         }
         Insert: {
+          decimales?: number
+          precios_ajustables?: boolean
+          vigencia_precios_dias?: number | null
+          descuentos?: string | null
+          contrato_abierto?: boolean
+          importe_minimo?: number | null
+          importe_maximo?: number | null
           condiciones_pago?: string | null
           id?: string
           incluye_iva?: boolean
@@ -1950,6 +1994,13 @@ export type Database = {
           validez_oferta_dias?: number | null
         }
         Update: {
+          decimales?: number
+          precios_ajustables?: boolean
+          vigencia_precios_dias?: number | null
+          descuentos?: string | null
+          contrato_abierto?: boolean
+          importe_minimo?: number | null
+          importe_maximo?: number | null
           condiciones_pago?: string | null
           id?: string
           incluye_iva?: boolean
@@ -1971,6 +2022,8 @@ export type Database = {
       }
       propuesta_economica_partidas: {
         Row: {
+          cantidad_minima: number | null
+          cantidad_maxima: number | null
           cantidad: number | null
           cantidad_compras_mx: number | null
           descripcion: string
@@ -1988,6 +2041,8 @@ export type Database = {
           unidad: string | null
         }
         Insert: {
+          cantidad_minima?: number | null
+          cantidad_maxima?: number | null
           cantidad?: number | null
           cantidad_compras_mx?: number | null
           descripcion: string
@@ -2005,6 +2060,8 @@ export type Database = {
           unidad?: string | null
         }
         Update: {
+          cantidad_minima?: number | null
+          cantidad_maxima?: number | null
           cantidad?: number | null
           cantidad_compras_mx?: number | null
           descripcion?: string

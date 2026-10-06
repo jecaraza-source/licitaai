@@ -20,6 +20,9 @@ import { ResponsabilidadesCard } from "@/components/licitaciones/responsabilidad
 import { AuditoriaTab } from "@/components/licitaciones/auditoria-tab";
 import { LiberacionTab } from "@/components/licitaciones/liberacion-tab";
 import { SeguimientoTab } from "@/components/licitaciones/seguimiento-tab";
+import { ControlProcedimientoCard } from "@/components/licitaciones/control-procedimiento-card";
+import { ExpedienteCarpetasCard } from "@/components/licitaciones/expediente-carpetas-card";
+import { CAMPOS_EVENTO, type CampoEvento } from "@/lib/compras-mx";
 
 // P2 · F3 — code-split de las pestañas con dependencias pesadas (react-pdf,
 // TipTap, exceljs, generadores docx). Radix TabsContent solo monta la
@@ -183,6 +186,21 @@ export default async function LicitacionDetallePage({
               <ProcesoTimeline licitacion={licitacion} />
             </CardContent>
           </Card>
+          <ControlProcedimientoCard
+            licitacionId={licitacion.id}
+            inicial={{
+              unidad_compradora: licitacion.unidad_compradora,
+              numero_interno: licitacion.numero_interno,
+              enlace_compras_mx: licitacion.enlace_compras_mx,
+              fecha_cierre_interno: licitacion.fecha_cierre_interno,
+              acciones_internas: (licitacion.acciones_internas ?? {}) as Partial<Record<CampoEvento, string>>,
+            }}
+            fechas={Object.fromEntries(CAMPOS_EVENTO.map((c) => [c, licitacion[c]])) as Record<CampoEvento, string | null>}
+          />
+          <ExpedienteCarpetasCard
+            licitacionId={licitacion.id}
+            fuenteCompletaInicial={licitacion.expediente_fuente_completo}
+          />
           <ResumenAnexoTecnicoCard
             tipo={licitacion.tipo}
             esInvestigacionMercado={licitacion.es_investigacion_mercado}
