@@ -35,7 +35,7 @@ jobs:
             echo "::warning::Sin SUPABASE_DB_URL_RO / BACKUP_PASSPHRASE — backup omitido (infra no autorizada aún)."
             echo "listo=0" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.guard.outputs.listo == '1'
         with: { node-version: 24 }
       - name: Instalar pg_dump 16
@@ -73,7 +73,7 @@ jobs:
             echo "::warning::Sin credenciales de prod — snapshot de config omitido."
             echo "listo=0" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.guard.outputs.listo == '1'
         with: { node-version: 24, cache: npm }
       - run: npm ci
