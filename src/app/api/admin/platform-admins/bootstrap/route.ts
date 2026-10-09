@@ -51,17 +51,29 @@ export async function POST(req: Request) {
   }
   const { email, nombre } = parsed.data;
 
+  // Si el correo ya tiene una cuenta de Supabase Auth (p. ej. se probó este
+  // mismo bootstrap antes, o ya es staff de una organización cliente),
+  // inviteUserByEmail falla — se reutiliza esa cuenta existente en vez de
+  // fallar (mismo fallback que POST /api/admin/platform-admins).
   const invitacion = await service.auth.admin.inviteUserByEmail(email);
-  if (invitacion.error || !invitacion.data.user) {
-    return NextResponse.json(
-      { error: invitacion.error?.message ?? "No se pudo invitar" },
-      { status: 500 },
-    );
+  let userId = invitacion.data.user?.id;
+  if (invitacion.error || !userId) {
+    const { data: listado, error: listError } = await service.auth.admin.listUsers();
+    const existenteAuth = listError
+      ? undefined
+      : listado.users.find((u) => u.email?.toLowerCase() === email);
+    if (!existenteAuth) {
+      return NextResponse.json(
+        { error: invitacion.error?.message ?? "No se pudo invitar" },
+        { status: 500 },
+      );
+    }
+    userId = existenteAuth.id;
   }
 
   const { data: fila, error: insertError } = await service
     .from("platform_admins")
-    .insert({ id: invitacion.data.user.id, email, nombre, rol: "ADMIN" })
+    .insert({ id: userId, email, nombre, rol: "ADMIN" })
     .select("id, email, nombre, rol, created_at")
     .single();
   if (insertError) {
