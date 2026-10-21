@@ -1,15 +1,27 @@
 name: Backup · Postgres + config
 
 # P2 · H6 (ADR 0010). Respaldo lógico interino mientras no se apruebe el
-# PITR de Supabase. Ver docs/p2/14-backup-y-restauracion.md.
+# PITR de Supabase. Ver docs/p2/14-backup-y-restauracion.md (§6: puesta en
+# marcha, una sola vez).
 #
-# Secrets requeridos (Environment "production"):
-#   SUPABASE_DB_URL_RO   URL de conexión de solo-lectura a prod
-#   BACKUP_PASSPHRASE    frase para el cifrado del dump
-#   BACKUP_UPLOAD_CMD    (opcional) comando de subida a almacenamiento
-#                        externo en OTRA región; recibe la ruta como $1
-# Sin SUPABASE_DB_URL_RO el job se salta (no falla) — el repo funciona sin
-# infraestructura hasta que se autorice.
+# Environment "backup", SIN revisores requeridos: el respaldo es automático.
+# Con "production" cada corrida quedaba esperando aprobación manual y la
+# cancelaba la del día siguiente (concurrency), así que ninguna completaba.
+# Conviene restringir "backup" a la rama main (Settings → Environments →
+# backup → Deployment branches) para que solo main lea sus secretos.
+#
+# Secretos del Environment "backup":
+#   SUPABASE_DB_URL_RO   URL de Postgres de solo lectura, por el POOLER en modo
+#                        sesión (el host directo db.<ref>.supabase.co es solo
+#                        IPv6 y los runners de GitHub no lo alcanzan)
+#   BACKUP_PASSPHRASE    frase del cifrado del dump (guardarla también en el
+#                        gestor de contraseñas: sin ella el dump no se abre)
+#   BACKUP_UPLOAD_CMD    (opcional) comando que sube el archivo ($1) a
+#                        almacenamiento en OTRA región
+#   PROD_SUPABASE_URL, PROD_SERVICE_ROLE_KEY   (opcionales) snapshot de config
+#
+# Si faltan SUPABASE_DB_URL_RO o BACKUP_PASSPHRASE el job FALLA. Antes se
+# saltaba con un aviso y nadie notaba que no había respaldo.
 
 on:
   schedule:
@@ -23,72 +35,111 @@ concurrency:
 jobs:
   postgres:
     runs-on: ubuntu-latest
-    environment: production
+    environment: backup
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: ¿Hay credenciales de backup?
-        id: guard
+
+      - name: Verificar credenciales de respaldo
+        env:
+          SUPABASE_DB_URL_RO: ${{ secrets.SUPABASE_DB_URL_RO }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
         run: |
-          if [ -n "${{ secrets.SUPABASE_DB_URL_RO }}" ] && [ -n "${{ secrets.BACKUP_PASSPHRASE }}" ]; then
-            echo "listo=1" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::Sin SUPABASE_DB_URL_RO / BACKUP_PASSPHRASE — backup omitido (infra no autorizada aún)."
-            echo "listo=0" >> "$GITHUB_OUTPUT"
+          faltan=""
+          [ -n "$SUPABASE_DB_URL_RO" ] || faltan="$faltan SUPABASE_DB_URL_RO"
+          [ -n "$BACKUP_PASSPHRASE" ] || faltan="$faltan BACKUP_PASSPHRASE"
+          if [ -n "$faltan" ]; then
+            echo "::error::Faltan secretos en el Environment 'backup':$faltan. Sin ellos NO hay respaldo automático (docs/p2/14-backup-y-restauracion.md §6)."
+            exit 1
           fi
+
       - uses: actions/setup-node@v4
-        if: steps.guard.outputs.listo == '1'
         with: { node-version: 24 }
-      - name: Instalar pg_dump 16
-        if: steps.guard.outputs.listo == '1'
+
+      # pg_dump se niega a respaldar un servidor MÁS NUEVO que él. Producción
+      # es Postgres 17, así que el cliente debe ser 17 (con 16 fallaba).
+      - name: Instalar pg_dump 17
         run: |
           sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
-          sudo apt-get update && sudo apt-get install -y postgresql-client-16
+          sudo apt-get update && sudo apt-get install -y postgresql-client-17
+          pg_dump --version
+
       - name: pg_dump cifrado + verificación de integridad
-        if: steps.guard.outputs.listo == '1'
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_RO }}
           BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
           BACKUP_UPLOAD_CMD: ${{ secrets.BACKUP_UPLOAD_CMD }}
         run: node scripts/backup-db.mjs
-      - name: Guardar como artifact (retención 30 d) si no hay destino externo
-        if: steps.guard.outputs.listo == '1'
+
+      - name: Resumen del respaldo
+        run: |
+          {
+            echo "### Respaldo de Postgres"
+            echo ""
+            echo "Generado $(date -u +%FT%TZ). Cifrado y verificado (descifrado + gunzip -t)."
+            echo ""
+            echo '```'
+            ls -lh backups/
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar como artifact (retención 30 d)
         uses: actions/upload-artifact@v4
         with:
           name: pg-backup
           path: backups/*.sql.gz.enc
           retention-days: 30
+          if-no-files-found: error
 
   config-snapshot:
     runs-on: ubuntu-latest
-    environment: production
+    environment: backup
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+
+      # Lo crítico es el dump de Postgres (job de arriba, falla si faltan
+      # credenciales). El snapshot de config necesita la service-role key de
+      # producción en GitHub, así que sigue siendo opcional: sin ella se omite,
+      # pero queda anotado en el resumen de la corrida.
       - name: ¿Hay credenciales?
         id: guard
+        env:
+          PROD_SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          PROD_SERVICE_ROLE_KEY: ${{ secrets.PROD_SERVICE_ROLE_KEY }}
         run: |
-          if [ -n "${{ secrets.PROD_SUPABASE_URL }}" ] && [ -n "${{ secrets.PROD_SERVICE_ROLE_KEY }}" ]; then
+          if [ -n "$PROD_SUPABASE_URL" ] && [ -n "$PROD_SERVICE_ROLE_KEY" ]; then
             echo "listo=1" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::Sin credenciales de prod — snapshot de config omitido."
+            echo "::warning::Sin PROD_SUPABASE_URL / PROD_SERVICE_ROLE_KEY — snapshot de config omitido."
+            echo "### Snapshot de configuración OMITIDO (faltan PROD_SUPABASE_URL / PROD_SERVICE_ROLE_KEY)" >> "$GITHUB_STEP_SUMMARY"
             echo "listo=0" >> "$GITHUB_OUTPUT"
           fi
+
       - uses: actions/setup-node@v4
         if: steps.guard.outputs.listo == '1'
         with: { node-version: 24, cache: npm }
+
       - run: npm ci
         if: steps.guard.outputs.listo == '1'
+
       - name: Snapshot de feature_flags / ai_org_policy / retención
         if: steps.guard.outputs.listo == '1'
         env:
           SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PROD_SERVICE_ROLE_KEY }}
         run: node scripts/backup-config.mjs
-      - name: Commit del snapshot si cambió
+
+      # Antes se hacía commit + push a main, pero main exige PR y review, así
+      # que el push nunca prosperaba (y el job lo daba por bueno con un aviso).
+      - name: Guardar el snapshot como artifact (retención 30 d)
         if: steps.guard.outputs.listo == '1'
-        run: |
-          git config user.name "licitaai-backup"
-          git config user.email "backup@users.noreply.github.com"
-          git add supabase/config-snapshot
-          git diff --cached --quiet || git commit -m "chore(backup): snapshot de configuración $(date -u +%F)"
-          git push || echo "::warning::push del snapshot falló (¿protección de rama?)"
+        uses: actions/upload-artifact@v4
+        with:
+          name: config-snapshot
+          path: supabase/config-snapshot/
+          retention-days: 30
+          if-no-files-found: error
