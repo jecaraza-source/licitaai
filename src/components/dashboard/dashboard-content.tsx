@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Rocket, Clock, FileEdit, Send } from "lucide-react";
+import { Rocket, Clock, FileEdit, Send, TriangleAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EstadoBadge } from "@/components/licitaciones/estado-badge";
 import { EstadoBarChart } from "@/components/dashboard/estado-bar-chart";
@@ -72,20 +73,54 @@ function Countdown({ fecha }: { fecha: string | null }) {
 export function DashboardContent() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recientes, setRecientes] = useState<Licitacion[] | null>(null);
+  const [errorStats, setErrorStats] = useState(false);
+  const [errorRecientes, setErrorRecientes] = useState(false);
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
-    fetch("/api/dashboard/stats")
-      .then((res) => res.json())
-      .then((json) => setStats(json.data))
-      .catch(() => {});
-    fetch("/api/licitaciones?page=1&pageSize=5")
-      .then((res) => res.json())
-      .then((json) => setRecientes(json.data?.data ?? []))
-      .catch(() => {});
-  }, []);
+    let activo = true;
+    const pedir = (url: string) =>
+      fetch(url).then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.json();
+      });
+
+    pedir("/api/dashboard/stats")
+      .then((json) => activo && setStats(json.data))
+      .catch(() => activo && setErrorStats(true));
+    pedir("/api/licitaciones?page=1&pageSize=5")
+      .then((json) => activo && setRecientes(json.data?.data ?? []))
+      .catch(() => activo && setErrorRecientes(true));
+
+    return () => {
+      activo = false;
+    };
+  }, [intento]);
+
+  function reintentar() {
+    setErrorStats(false);
+    setErrorRecientes(false);
+    setIntento((n) => n + 1);
+  }
+
+  const hayError = errorStats || errorRecientes;
 
   return (
     <div className="flex flex-col gap-6">
+      {hayError && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm"
+        >
+          <TriangleAlert className="size-4 shrink-0 text-destructive" />
+          <p className="flex-1">
+            No se pudieron cargar algunos datos del resumen. Revisa tu conexión e inténtalo de nuevo.
+          </p>
+          <Button size="sm" variant="outline" onClick={reintentar}>
+            Reintentar
+          </Button>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         {KPI_LABELS.map(({ key, label, icon: Icon, color }) => (
           <Card key={key} size="sm" className={cn("gap-1.5", KPI_ESTILOS[color].card)}>
@@ -105,6 +140,10 @@ export function DashboardContent() {
             <CardContent>
               {stats ? (
                 <p className="text-lg font-bold">{stats[key]}</p>
+              ) : errorStats ? (
+                <p className="text-lg font-bold text-muted-foreground" aria-label="No disponible">
+                  —
+                </p>
               ) : (
                 <Skeleton className="h-6 w-10" />
               )}
@@ -120,6 +159,8 @@ export function DashboardContent() {
         <CardContent>
           {stats ? (
             <EstadoBarChart porEstado={stats.porEstado} />
+          ) : errorStats ? (
+            <p className="text-sm text-muted-foreground">No disponible por ahora.</p>
           ) : (
             <Skeleton className="h-40 w-full" />
           )}
@@ -131,7 +172,9 @@ export function DashboardContent() {
           <CardTitle>Licitaciones recientes</CardTitle>
         </CardHeader>
         <CardContent>
-          {recientes === null ? (
+          {recientes === null && errorRecientes ? (
+            <p className="text-sm text-muted-foreground">No disponible por ahora.</p>
+          ) : recientes === null ? (
             <div className="flex flex-col gap-3">
               {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-14 w-full" />

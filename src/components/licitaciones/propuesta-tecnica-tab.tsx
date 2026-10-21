@@ -76,7 +76,19 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contenido_json: { secciones: next } }),
-      }).catch(() => {});
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error(String(res.status));
+        })
+        .catch(() =>
+          // Antes el fallo del autoguardado era silencioso: el usuario seguía
+          // escribiendo creyendo que se guardaba. Con `id`, varios fallos
+          // seguidos reutilizan un solo aviso.
+          toast.error("No se pudo guardar el último cambio de la propuesta", {
+            id: "autoguardado-propuesta-tecnica",
+            description: "Se reintentará con el siguiente cambio. Si persiste, revisa tu conexión.",
+          }),
+        );
     }, 1200);
   }
 
