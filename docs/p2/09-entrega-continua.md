@@ -27,6 +27,8 @@ Flujo: `feature/x` → PR a `main` (CI) → merge → *(opcional)* promover a `s
 | `.github/workflows/staging.yml` | push a `staging` | `check` → verificar migraciones contra base limpia → `supabase db push` (staging) → `functions deploy` → Vercel deploy → **smoke** |
 | `.github/workflows/production.yml` | push a `main` | *(espera aprobación)* → `check` → verificar migraciones → **`supabase db dump` (respaldo, artefacto 30 días)** → `supabase db push` (prod) → `functions deploy` → Vercel deploy prod → **smoke** → tag + GitHub Release con notas generadas |
 
+**La integración Git de Vercel no despliega `main`** (`vercel.json` → `git.deploymentEnabled.main = false`). Antes, cada merge a `main` publicaba la app en producción de inmediato, *antes* de que nadie aprobara `production.yml`: la aprobación solo protegía migraciones y funciones, y la app podía llegar antes que sus migraciones. Ahora producción solo se despliega con `vercel deploy --prod` desde `production.yml`, tras la aprobación. Los previews de los PR y de otras ramas no cambian.
+
 `scripts/smoke.mjs <url>`: `/api/health` 200, `/api/ready` sin 503 (Postgres + Storage OK), `/login` 200, `/` redirige a `/login`.
 
 **No se ejecutan migraciones destructivas automáticas**: el paso "verificar migraciones contra una base limpia" (`supabase db reset`) corre antes de cualquier `db push`, y `lint:migrations` bloquea el merge si hay una sentencia de pérdida de datos sin marcar.
