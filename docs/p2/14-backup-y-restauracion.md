@@ -11,7 +11,7 @@ automatizado, cómo se prueba una restauración y la decisión sobre PITR.
 | **Postgres** (esquema + datos) | `pg_dump` cifrado (`scripts/backup-db.mjs`) vía GitHub Actions (`.github/workflows/backup.yml`) | diario 06:00 UTC | artifact 30 d, o `BACKUP_UPLOAD_CMD` → almacenamiento externo en otra región | **24 h** (interino; ver §4) |
 | **Postgres** (PITR) | Supabase PITR | continuo | Supabase | **≤ 1 h** — *pendiente de aprobación de costo (H8)* |
 | **Storage** (objetos de cliente) | `scripts/backup-storage.mjs` (manifiesto + checksums; `BACKUP_STORAGE_FULL=1` descarga todo) | semanal | externo | 7 d |
-| **Config operativa** (`feature_flags`, `ai_org_policy`, `ai_model_pricing`, `data_retention_policy`) | `scripts/backup-config.mjs` → `supabase/config-snapshot/*.json` commiteado | diario | git (repo privado) | 24 h |
+| **Config operativa** (`feature_flags`, `ai_org_policy`, `ai_model_pricing`, `data_retention_policy`) | `scripts/backup-config.mjs` → `supabase/config-snapshot/*.json`, subido como artifact (el commit a `main` no es posible: la rama exige PR y review) | diario | artifact 30 d | 24 h |
 | **Esquema / migraciones / `config.toml`** | git | por commit | git | 0 |
 | **Secretos** | gestor externo (1Password/Vault) + procedimiento de rotación documentado | — | fuera de git | N/A — se **re-inyectan**, no se restauran |
 
@@ -95,3 +95,43 @@ Sin decisión aún → el riesgo R9 sigue abierto.
 | Fecha | Tipo | RTO real | Notas |
 |---|---|---|---|
 | — | — | — | *(primer drill pendiente de proyecto de restauración)* |
+
+## 6. Puesta en marcha del respaldo diario (una sola vez)
+
+Estado a 2026-10-21: **el respaldo diario no ha completado nunca.** Causas, ya
+corregidas en el workflow: (1) el job usaba el Environment `production`, que exige
+aprobación manual, y cada corrida quedaba esperando y la cancelaba la del día
+siguiente; (2) si faltaban secretos se saltaba con un aviso, sin fallar; (3)
+instalaba `pg_dump` 16 y producción es Postgres 17 (`pg_dump` se niega a respaldar
+un servidor más nuevo que él). Lo que sigue requiere credenciales y lo hace una
+persona, no el repositorio.
+
+1. **Rol de solo lectura en producción** (SQL Editor de Supabase, proyecto
+   `licitaai`):
+
+   ```sql
+   create role backup_ro login password '<contraseña larga y aleatoria>';
+   grant pg_read_all_data to backup_ro;
+   ```
+
+2. **Cadena de conexión por el pooler en modo sesión**, no por el host directo
+   (`db.<ref>.supabase.co` es solo IPv6 y los runners de GitHub no lo alcanzan):
+
+   ```
+   postgresql://backup_ro.<ref>:<contraseña>@aws-0-us-east-1.pooler.supabase.com:5432/postgres
+   ```
+
+3. **Environment `backup`** en GitHub (Settings → Environments → New environment):
+   sin revisores requeridos, y en *Deployment branches* limitado a `main`.
+4. **Secretos del Environment `backup`:** `SUPABASE_DB_URL_RO` (la cadena del paso 2) y
+   `BACKUP_PASSPHRASE` (guárdala también en el gestor de contraseñas: **sin ella
+   los respaldos no se pueden abrir**). Opcional: `BACKUP_UPLOAD_CMD` para copiar el
+   archivo a almacenamiento en otra región. Para el snapshot de configuración,
+   opcionales `PROD_SUPABASE_URL` y `PROD_SERVICE_ROLE_KEY`.
+5. **Probar:** Actions → *Backup · Postgres + config* → *Run workflow*. Debe terminar en
+   verde con el artifact `pg-backup`.
+6. **Primer drill de restauración** (§3) en un proyecto aislado. Un respaldo sin
+   restauración probada no cuenta como evidencia.
+
+Mientras falten los secretos del paso 4 el job **falla a propósito**: un respaldo que
+no corre debe verse rojo.
