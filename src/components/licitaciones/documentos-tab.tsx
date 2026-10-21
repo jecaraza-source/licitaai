@@ -142,7 +142,15 @@ function RequisitoRow({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ documento_id: doc.id }),
-        }).catch(() => {});
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error(String(res.status));
+          })
+          .catch(() =>
+            toast.warning("El documento se guardó, pero no se pudo iniciar su procesamiento", {
+              description: "Su contenido no estará disponible para el análisis hasta que se procese.",
+            }),
+          );
       }
 
       const res = await fetch(`/api/checklist-items/${item.id}/documento`, {
@@ -389,7 +397,15 @@ function DocumentoConvocanteRow({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ documento_id: doc.id }),
-        }).catch(() => {});
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error(String(res.status));
+          })
+          .catch(() =>
+            toast.warning("El documento se guardó, pero no se pudo iniciar su procesamiento", {
+              description: "Su contenido no estará disponible para el análisis hasta que se procese.",
+            }),
+          );
       }
 
       toast.success(`"${label}" guardado`);

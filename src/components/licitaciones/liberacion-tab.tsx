@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { useDropzone } from "react-dropzone";
 import { CheckCircle2, FileCheck2, ShieldAlert, TriangleAlert, UploadCloud } from "lucide-react";
@@ -12,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { cn, sanitizeFilename } from "@/lib/utils";
+import { hrefPestana } from "@/lib/navegacion";
 import { IndiceMaestroCard } from "@/components/licitaciones/indice-maestro-card";
 import { JerarquiaAutorizacionCard } from "@/components/licitaciones/jerarquia-autorizacion-card";
 import type { ChecklistLiberacionItem, EvidenciaEnvio } from "@/types";
@@ -42,6 +44,13 @@ const DONDE_REVISAR: Record<string, string> = {
   TECNICA: "Propuesta técnica",
   ECONOMICA: "Propuesta económica",
 };
+
+const PESTANA_REVISION: Record<string, string> = {
+  TECNICA: "propuesta-tecnica",
+  ECONOMICA: "propuesta-economica",
+};
+
+const ENLACE = "font-medium underline underline-offset-2";
 
 function formatFechaHora(fecha: string) {
   return new Intl.DateTimeFormat("es-MX", { dateStyle: "medium", timeStyle: "short" }).format(
@@ -286,13 +295,21 @@ export function LiberacionTab({
                 <p key={p.ambito} className="mt-1 text-sm text-destructive">
                   {p.ambito === "TECNICA" ? "La propuesta técnica" : "La propuesta económica"}{" "}
                   {MOTIVO_REVISION[p.motivo] ?? "requiere revisión"}: asígnalo o confírmalo en la
-                  pestaña {DONDE_REVISAR[p.ambito]} (el revisor debe ser distinto de quien la
+                  pestaña{" "}
+                  <Link href={hrefPestana(licitacionId, PESTANA_REVISION[p.ambito])} className={ENLACE}>
+                    {DONDE_REVISAR[p.ambito]}
+                  </Link>{" "}
+                  (el revisor debe ser distinto de quien la
                   elaboró).
                 </p>
               ))}
             {gate.gateAprobacionIaActivo && gate.analisisIaSinRevisar.length > 0 && (
               <p className="mt-1 text-sm text-destructive">
-                Revisa (aprobar/rechazar) los análisis de IA en la pestaña Análisis IA antes de
+                Revisa (aprobar/rechazar) los análisis de IA en la pestaña{" "}
+                <Link href={hrefPestana(licitacionId, "analisis")} className={ENLACE}>
+                  Análisis IA
+                </Link>{" "}
+                antes de
                 enviar: {gate.analisisIaSinRevisar.map((a) => a.tipo_analisis).join(", ")}.
               </p>
             )}
@@ -307,7 +324,10 @@ export function LiberacionTab({
           <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
           <p>
             Resuelve los requisitos en rojo y los críticos en amarillo desde la pestaña{" "}
-            <strong>Auditoría</strong> antes de continuar.
+            <Link href={hrefPestana(licitacionId, "auditoria")} className={ENLACE}>
+              Auditoría
+            </Link>{" "}
+            antes de continuar.
           </p>
         </div>
       )}

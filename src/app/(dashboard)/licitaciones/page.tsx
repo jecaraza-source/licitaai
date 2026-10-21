@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { FileStack, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -42,7 +43,9 @@ export default async function LicitacionesPage() {
           />
         )}
       </div>
-      <LicitacionesTable />
+      <Suspense fallback={null}>
+        <LicitacionesTable />
+      </Suspense>
     </div>
   );
 }

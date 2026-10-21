@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Scale, Settings, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
@@ -51,6 +52,21 @@ export function UserMenu({ nombre, email }: { nombre: string; email: string }) {
             <span className="font-medium">{nombre}</span>
             <span className="text-xs font-normal text-muted-foreground">{email}</span>
           </DropdownMenuLabel>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem render={<Link href="/configuracion" />}>
+            <Settings />
+            Configuración
+          </DropdownMenuItem>
+          <DropdownMenuItem render={<Link href="/referencias" />}>
+            <Scale />
+            Referencias legales
+          </DropdownMenuItem>
+          <DropdownMenuItem render={<Link href="/aviso-privacidad" />}>
+            <ShieldCheck />
+            Aviso de privacidad
+          </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={handleLogout}>

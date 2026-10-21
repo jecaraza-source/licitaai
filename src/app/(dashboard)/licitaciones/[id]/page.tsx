@@ -1,7 +1,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarClock, Gavel, Wallet } from "lucide-react";
+import { CalendarClock, ChevronRight, Gavel, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -108,13 +108,15 @@ export default async function LicitacionDetallePage({
 
   return (
     <div className="flex flex-col gap-6">
-      <Link
-        href="/licitaciones"
-        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" />
-        Volver a licitaciones
-      </Link>
+      <nav aria-label="Ruta de navegación" className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <Link href="/licitaciones" className="transition-colors hover:text-foreground">
+          Licitaciones
+        </Link>
+        <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
+        <span aria-current="page" className="truncate font-medium text-foreground">
+          {licitacion.numero_expediente}
+        </span>
+      </nav>
 
       <div className="rounded-xl border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">

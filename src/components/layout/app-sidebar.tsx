@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FileStack, LayoutDashboard, PlusCircle, Scale, Settings } from "lucide-react";
+import { esRutaActiva } from "@/lib/navegacion";
 import {
   Sidebar,
   SidebarContent,
@@ -80,7 +81,7 @@ export function AppSidebar({
           <SidebarGroupContent>
             <SidebarMenu>
               {items.filter((item) => item.href === "/dashboard" || item.href.startsWith("/licitaciones")).map((item) => {
-                const isActive = item.href === "/licitaciones" ? pathname === "/licitaciones" : pathname.startsWith(item.href);
+                const isActive = esRutaActiva(item.href, pathname);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
@@ -103,7 +104,7 @@ export function AppSidebar({
           <SidebarGroupContent>
             <SidebarMenu>
               {items.filter((item) => item.href === "/referencias" || item.href === "/configuracion").map((item) => {
-                const isActive = pathname.startsWith(item.href);
+                const isActive = esRutaActiva(item.href, pathname);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton isActive={isActive} tooltip={item.label} size="lg" className="text-base [&_svg]:size-5" render={<Link href={item.href}><item.icon /><span>{item.label}</span></Link>} />
