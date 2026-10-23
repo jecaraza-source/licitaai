@@ -30,3 +30,14 @@ export async function rolPlataforma(
 export async function esPlatformAdmin(supabase: SupabaseClient, userId: string): Promise<boolean> {
   return (await rolPlataforma(supabase, userId)) !== null;
 }
+
+/**
+ * ¿Se muestra el menú "Admin" en la barra lateral? Solo a admins de
+ * plataforma (rol ADMIN). Un OPERADOR puede entrar a /admin/salud por su
+ * dirección, pero el menú queda reservado a quienes pueden además gestionar
+ * a otros admins. Es solo presentación: el acceso lo protege el layout de
+ * /admin en el servidor.
+ */
+export function puedeVerMenuAdmin(rol: RolPlataforma | null | undefined): boolean {
+  return rol === "ADMIN";
+}

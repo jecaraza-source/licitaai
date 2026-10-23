@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileStack, LayoutDashboard, PlusCircle, Scale, Settings } from "lucide-react";
+import { Activity, FileStack, LayoutDashboard, PlusCircle, Scale, Settings, Users } from "lucide-react";
 import { esRutaActiva } from "@/lib/navegacion";
 import {
   Sidebar,
@@ -31,12 +31,20 @@ const MANAGEMENT_ITEMS = [
   { href: "/configuracion", label: "Configuración", icon: Settings },
 ];
 
+const ADMIN_ITEMS = [
+  { href: "/admin/salud", label: "Salud", icon: Activity },
+  { href: "/admin/usuarios", label: "Usuarios", icon: Users },
+];
+
 export function AppSidebar({
   puedeEscribir = true,
+  mostrarAdmin = false,
   logoUrl,
   empresaNombre,
 }: {
   puedeEscribir?: boolean;
+  /** Admins de plataforma: muestra el grupo "Admin" al pie de la barra. */
+  mostrarAdmin?: boolean;
   logoUrl?: string | null;
   empresaNombre?: string | null;
 }) {
@@ -115,15 +123,38 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="items-center group-data-[collapsible=icon]:hidden">
-        <Image
-          src={LICITAAI_LOGO}
-          alt="LicitaAI"
-          width={220}
-          height={90}
-          unoptimized
-          className="h-42 w-auto max-w-full object-contain"
-        />
+      <SidebarFooter>
+        <div className="flex justify-center group-data-[collapsible=icon]:hidden">
+          <Image
+            src={LICITAAI_LOGO}
+            alt="LicitaAI"
+            width={220}
+            height={90}
+            unoptimized
+            className="h-42 w-auto max-w-full object-contain"
+          />
+        </div>
+        {mostrarAdmin && (
+          <SidebarGroup className="p-0">
+            <SidebarGroupLabel className="px-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Admin
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {ADMIN_ITEMS.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      tooltip={`Admin · ${item.label}`}
+                      size="lg"
+                      className="text-base [&_svg]:size-5"
+                      render={<Link href={item.href}><item.icon /><span>{item.label}</span></Link>}
+                    />
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarFooter>
     </Sidebar>
   );
