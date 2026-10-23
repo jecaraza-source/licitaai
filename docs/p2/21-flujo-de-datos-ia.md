@@ -50,7 +50,7 @@ de chat Pro/Plus no intervienen).
 | Dónde | Qué dice | Qué hace el código |
 |---|---|---|
 | Aviso de privacidad (antes de este cambio) | "No compartimos propuestas económicas… con esos proveedores" | **Sí se envían** partidas y precios en `propuesta-economica/analizar`, `auditar-expediente` y `generar-estudio-mercado` |
-| **Términos de uso** (`src/lib/terminos.ts`, punto 3) | "No se envían propuestas económicas ni llaves/certificados a esos proveedores" | Igual que arriba. **Pendiente de corregir**: cambiar los términos exige subir `TERMINOS_VERSION`, lo que obliga a todos los usuarios a aceptar de nuevo |
+| **Términos de uso** (`src/lib/terminos.ts`, punto 3) | "No se envían propuestas económicas ni llaves/certificados a esos proveedores" | Igual que arriba. **Corregido** en la versión `2026-10-23`, que obliga a todos los usuarios a aceptar de nuevo |
 | Aviso (antes) | Solo mencionaba "documentos que subes" | También se envían datos del perfil de la empresa, preguntas, textos redactados y búsquedas web |
 
 ## 5. Controles que ya existen
@@ -65,6 +65,6 @@ de chat Pro/Plus no intervienen).
 - Ninguna de las dos páginas consultadas describe cómo obtener un DPA: **pendiente** (A3).
 
 ## 7. Qué decidir a partir de esta tabla
-1. **Corregir los términos de uso** y subir la versión (obliga a re-aceptar).
+1. ~~Corregir los términos de uso y subir la versión~~ (hecho, versión `2026-10-23`).
 2. **Minimizar**, si se quiere: no enviar a OpenAI el texto de documentos personales del checklist (INE, poderes); poder apagar la búsqueda web del estudio de mercado.
 3. **A3:** pedir el DPA a cada proveedor y, si procede, la retención cero. Confirmar que las cuentas de la API están a nombre de la empresa.
