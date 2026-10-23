@@ -27,12 +27,12 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
       PROD_REF: ${{ secrets.PRODUCTION_PROJECT_REF }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
-      - uses: supabase/setup-cli@v1
-        with: { version: latest }
+      - uses: supabase/setup-cli@v3
+        with: { version: 2.119.0 }  # fijada: con `latest` el CLI cambia sin aviso (rompió el chequeo de tipos de CI, #39)
       - run: npm ci
 
       - name: Verificaciones rápidas
@@ -52,7 +52,7 @@ jobs:
           supabase db dump --linked -f "backup/pre-deploy-$(date -u +%Y%m%dT%H%M%SZ).sql"
           supabase db dump --linked --data-only -f "backup/pre-deploy-data-$(date -u +%Y%m%dT%H%M%SZ).sql"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: db-backup-pre-deploy
           path: backup/
