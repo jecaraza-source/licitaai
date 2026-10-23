@@ -23,9 +23,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/dashboard");
   }
 
+  // Solo hay "volver a LicitaAI" si la cuenta pertenece a una organización:
+  // sin perfil, /dashboard redirige de vuelta a /admin.
+  const { data: perfil } = await supabase
+    .from("users")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
   return (
     <div className="flex min-h-svh flex-col">
       <nav className="flex items-center gap-4 border-b px-6 py-3 text-sm font-medium">
+        {perfil && (
+          <Link href="/dashboard" className="text-foreground/70 hover:text-foreground">
+            ← LicitaAI
+          </Link>
+        )}
         <span className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
           Plataforma
         </span>

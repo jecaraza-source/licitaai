@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
-import { esPlatformAdmin } from "@/lib/platform-admin";
+import { esPlatformAdmin, puedeVerMenuAdmin, rolPlataforma } from "@/lib/platform-admin";
 import { buildCompanyThemeStyle } from "@/lib/theme-colors";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
@@ -47,6 +47,10 @@ export default async function DashboardLayout({
   const email = perfil?.email ?? user.email ?? "";
   const puedeEscribir = perfil?.rol !== "VIEWER";
 
+  // Menú "Admin" de la barra lateral: solo para admins de plataforma. Una
+  // consulta mínima (la policy deja leer solo la propia fila).
+  const mostrarAdmin = puedeVerMenuAdmin(await rolPlataforma(supabase, user.id));
+
   const empresaActiva = perfil?.organization_id
     ? await getEmpresaPerfilActiva(supabase, perfil.organization_id, user.id)
     : null;
@@ -71,6 +75,7 @@ export default async function DashboardLayout({
       {themeStyle && <style dangerouslySetInnerHTML={{ __html: themeStyle }} />}
       <AppSidebar
         puedeEscribir={puedeEscribir}
+        mostrarAdmin={mostrarAdmin}
         logoUrl={empresaActiva?.logo_url ?? null}
         empresaNombre={empresaActiva?.razon_social ?? null}
       />
