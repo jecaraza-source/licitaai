@@ -19,6 +19,8 @@ const partidaSchema = z.object({
   cantidad_compras_mx: numeroOrNull,
   precio_unitario_compras_mx: numeroOrNull,
   total_compras_mx: numeroOrNull,
+  cantidad_minima: numeroOrNull,
+  cantidad_maxima: numeroOrNull,
 });
 
 const configSchema = z
@@ -29,6 +31,13 @@ const configSchema = z
     condiciones_pago: z.string().nullable(),
     tiempo_entrega_dias: numeroOrNull,
     validez_oferta_dias: numeroOrNull,
+    decimales: z.number().int().min(0).max(6),
+    precios_ajustables: z.boolean(),
+    vigencia_precios_dias: z.number().int().positive().nullable(),
+    descuentos: z.string().nullable(),
+    contrato_abierto: z.boolean(),
+    importe_minimo: z.number().min(0).nullable(),
+    importe_maximo: z.number().min(0).nullable(),
   })
   .partial();
 
@@ -74,6 +83,8 @@ export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
         cantidad_compras_mx: null,
         precio_unitario_compras_mx: null,
         total_compras_mx: null,
+        cantidad_minima: null,
+        cantidad_maxima: null,
         _nueva: true,
       };
     });
@@ -88,6 +99,13 @@ export const GET = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
         condiciones_pago: null,
         tiempo_entrega_dias: null,
         validez_oferta_dias: null,
+        decimales: 2,
+        precios_ajustables: false,
+        vigencia_precios_dias: null,
+        descuentos: null,
+        contrato_abierto: false,
+        importe_minimo: null,
+        importe_maximo: null,
       },
       partidas: filas,
     },

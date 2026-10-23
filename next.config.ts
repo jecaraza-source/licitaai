@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 // Derivado de la variable de entorno en vez de estar fijo al proyecto de
 // producción — de lo contrario, apuntar NEXT_PUBLIC_SUPABASE_URL a un

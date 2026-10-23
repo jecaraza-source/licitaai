@@ -25,12 +25,19 @@ export function RevisorPropuestaCard({
   revisorId,
   revisadoAt,
   onUpdated,
+  endpoint = `/api/licitaciones/${licitacionId}/propuesta-tecnica/revisor`,
+  aviso,
 }: {
   licitacionId: string;
+  /** Quien elaboró lo que se revisa; si es null, se excluye a quien está en sesión. */
   createdBy: string | null;
   revisorId: string | null;
   revisadoAt: string | null;
   onUpdated: () => void;
+  /** Ruta que atiende `asignar`/`confirmar`. Por defecto, la propuesta técnica. */
+  endpoint?: string;
+  /** Texto de advertencia (p. ej. "cambió después de la revisión"). */
+  aviso?: string | null;
 }) {
   const [usuarios, setUsuarios] = useState<UsuarioOrg[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
@@ -46,7 +53,7 @@ export function RevisorPropuestaCard({
 
   async function asignar(revisor_id: string) {
     setGuardando(true);
-    const res = await fetch(`/api/licitaciones/${licitacionId}/propuesta-tecnica/revisor`, {
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "asignar", revisor_id }),
@@ -63,7 +70,7 @@ export function RevisorPropuestaCard({
 
   async function confirmar() {
     setGuardando(true);
-    const res = await fetch(`/api/licitaciones/${licitacionId}/propuesta-tecnica/revisor`, {
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "confirmar" }),
@@ -78,7 +85,8 @@ export function RevisorPropuestaCard({
     onUpdated();
   }
 
-  const opciones = usuarios.filter((u) => u.id !== createdBy);
+  const autor = createdBy ?? userId;
+  const opciones = usuarios.filter((u) => u.id !== autor);
 
   return (
     <Card className="h-fit lg:sticky lg:top-4">
@@ -108,6 +116,8 @@ export function RevisorPropuestaCard({
             ))}
           </SelectContent>
         </Select>
+
+        {aviso && <p className="text-xs font-medium text-amber-600">{aviso}</p>}
 
         {revisadoAt ? (
           <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">

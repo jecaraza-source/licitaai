@@ -18,20 +18,20 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run lint:migrations
       - run: npm run test:hygiene
-      - run: npm audit --omit=dev --audit-level=high
+      - run: node scripts/audit-gate.mjs
       - name: Licencias de dependencias de producción (P1.8)
         run: npm run licenses
       - name: SBOM (CycloneDX)
         run: npm run sbom
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with: { name: sbom, path: sbom.cyclonedx.json, retention-days: 90 }
       - run: npm run build
         env:
@@ -43,7 +43,7 @@ jobs:
   deno-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: denoland/setup-deno@v2
         with: { deno-version: v2.x }
       - name: deno check (Edge Functions)
@@ -55,26 +55,29 @@ jobs:
   unit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
       - run: npm ci
       # test:coverage corre los mismos tests unitarios + falla si la
       # cobertura de los módulos de src/lib bajo prueba cae del umbral
       # (.c8rc.json). P1.3 — "CI debe fallar si cae cobertura".
       - run: npm run test:coverage
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: { name: coverage, path: coverage/, retention-days: 14 }
 
   supabase-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
-      - uses: supabase/setup-cli@v1
-        with: { version: latest }
+      - uses: supabase/setup-cli@v3
+        # Fijada: con `latest` el formato de los tipos generados cambió sin
+        # aviso (sin formatear, `NonNullable<Json>`) y rompió el chequeo P1.4.
+        # Súbela junto con `npm run typegen` cuando se quiera actualizar.
+        with: { version: 2.119.0 }
       - run: npm ci
 
       - name: Levantar Supabase local
@@ -124,7 +127,7 @@ jobs:
         env:
           CI: true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: { name: playwright-report, path: playwright-report/, retention-days: 14 }
       - if: always()
@@ -133,9 +136,9 @@ jobs:
   secret-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: ${{ github.workspace }}/.gitleaks.toml

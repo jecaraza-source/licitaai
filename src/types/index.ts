@@ -501,6 +501,9 @@ export interface DocumentoCorporativo {
   razon_social_detectada: string | null;
   /** Explicación legible de por qué `coincide_empresa === false`. */
   motivo_no_coincide: string | null;
+  /** El usuario confirmó manualmente el documento cuando `coincide_empresa === null`
+   * (no había RFC ni razón social para verificar). Null = sin decidir. */
+  discrepancia_autorizada: boolean | null;
   nombre_persona_detectado: string | null;
   datos_extraidos_json: Record<string, unknown>;
   created_at: string;

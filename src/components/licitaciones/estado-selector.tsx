@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ESTADOS_LICITACION } from "@/lib/validations/licitacion";
+import { hrefPestana } from "@/lib/navegacion";
 import type { EstadoLicitacion } from "@/types";
 
 const ESTADO_LABELS: Record<EstadoLicitacion, string> = {
@@ -46,15 +47,25 @@ export function EstadoSelector({
 
     if (!res.ok) {
       setEstado(anterior);
+      const irALiberacion = {
+        label: "Ir a Liberación",
+        onClick: () => router.push(hrefPestana(licitacionId, "liberacion")),
+      };
       const json = await res.json().catch(() => null);
       const gate = json?.error?.details?.gate ?? json?.gate;
       if (res.status === 409 && gate) {
         const { rojos, amarillosCriticos, pendientesLiberacion } = gate;
         toast.error("No se puede marcar como enviada", {
           description: `Faltan: ${rojos} requisito(s) en rojo, ${amarillosCriticos} crítico(s) en amarillo, ${pendientesLiberacion} punto(s) del checklist de liberación. Revisa las pestañas Auditoría y Liberación.`,
+          action: irALiberacion,
         });
       } else {
-        toast.error("No se pudo cambiar el estado", { description: json?.error?.message ?? json?.error });
+        toast.error("No se pudo cambiar el estado", {
+          description: json?.error?.message ?? json?.error,
+          // Un 409 es un bloqueo de la compuerta (revisión independiente, análisis
+          // de IA sin revisar…): el detalle está en Liberación.
+          ...(res.status === 409 ? { action: irALiberacion } : {}),
+        });
       }
       return;
     }

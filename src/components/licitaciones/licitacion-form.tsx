@@ -48,12 +48,16 @@ const SISTEMA_POR_ESTADO: Record<string, (typeof SISTEMAS)[number]> = {
 
 const DATE_FIELDS = [
   { name: "fecha_publicacion", label: "Publicación" },
+  { name: "fecha_limite_preguntas", label: "Límite de preguntas" },
   { name: "fecha_junta_aclaraciones", label: "Junta de aclaraciones" },
   { name: "fecha_visita", label: "Visita a instalaciones" },
+  { name: "fecha_entrega_muestras", label: "Entrega de muestras" },
   { name: "fecha_entrega_propuesta", label: "Entrega de propuesta" },
   { name: "fecha_apertura_tecnica", label: "Apertura técnica" },
   { name: "fecha_apertura_economica", label: "Apertura económica" },
   { name: "fecha_fallo", label: "Fallo" },
+  { name: "fecha_firma_contrato", label: "Firma de contrato" },
+  { name: "fecha_garantia", label: "Garantía" },
 ] as const;
 
 export function LicitacionForm() {

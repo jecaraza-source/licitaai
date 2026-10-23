@@ -17,11 +17,11 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
       STAGING_REF: ${{ secrets.STAGING_PROJECT_REF }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
-      - uses: supabase/setup-cli@v1
-        with: { version: latest }
+      - uses: supabase/setup-cli@v3
+        with: { version: 2.119.0 }  # fijada: con `latest` el CLI cambia sin aviso (rompió el chequeo de tipos de CI, #39)
       - run: npm ci
 
       - name: Verificaciones rápidas
@@ -37,7 +37,11 @@ jobs:
       - name: Aplicar migraciones a staging
         run: |
           supabase link --project-ref "$STAGING_REF"
-          supabase db push
+          # --include-all: staging tiene aplicadas migraciones posteriores a
+          # 20260908163639/…829 (el hardening de anon se aplicó primero en
+          # producción y se reconcilió en #33), así que sin el flag `db push`
+          # se niega a insertarlas "antes de la última migración remota".
+          supabase db push --include-all
 
       - name: Desplegar Edge Functions a staging
         run: supabase functions deploy --project-ref "$STAGING_REF"

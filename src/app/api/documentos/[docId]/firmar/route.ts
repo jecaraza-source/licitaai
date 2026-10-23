@@ -1,12 +1,8 @@
 import { z } from "zod";
 import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 import { getEmpresaPerfilActiva } from "@/lib/empresa-perfil";
-import {
-  certPermiteFirmar,
-  hashDocumentoHex,
-  parseCertificado,
-  verificarFirma,
-} from "@/lib/efirma";
+import { certPermiteFirmar, hashDocumentoHex, parseCertificado } from "@/lib/efirma";
+import { verificarFirma } from "@/lib/efirma-servidor";
 
 // El certificado (.cer) es información pública — un X.509 típico pesa unos
 // pocos KB; una firma RSA-4096 en base64 son ~700 caracteres. Estos topes

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   flexRender,
   getCoreRowModel,
@@ -30,6 +31,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { EstadoBadge } from "@/components/licitaciones/estado-badge";
 import { ESTADOS_ID, ESTADOS_LICITACION, TIPOS_LICITACION } from "@/lib/validations/licitacion";
 import { cn } from "@/lib/utils";
+import { TODOS, aplicarFiltrosAQuery, parseFiltrosLista } from "@/lib/navegacion";
 import type { Licitacion } from "@/types";
 
 interface LicitacionConScore extends Licitacion {
@@ -73,18 +75,28 @@ function formatFecha(fecha: string | null) {
   return new Intl.DateTimeFormat("es-MX", { dateStyle: "medium" }).format(new Date(fecha));
 }
 
-const ALL = "__all__";
+const ALL = TODOS;
 
 export function LicitacionesTable() {
+  // Los filtros, la búsqueda y la página viven en la URL (?q=…&estado=…&pagina=2):
+  // al abrir una licitación y volver, la lista queda como estaba, y se puede
+  // compartir un enlace a "las enviadas". Valores desconocidos se descartan.
+  const searchParams = useSearchParams();
+  const [inicial] = useState(() => parseFiltrosLista(searchParams));
   const [rows, setRows] = useState<LicitacionConScore[]>([]);
   const [count, setCount] = useState(0);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(inicial.page);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [estadoLicitacion, setEstadoLicitacion] = useState<string>(ALL);
-  const [tipo, setTipo] = useState<string>(ALL);
-  const [estadoId, setEstadoId] = useState<string>(ALL);
+  const [search, setSearch] = useState(inicial.search);
+  const [estadoLicitacion, setEstadoLicitacion] = useState<string>(inicial.estadoLicitacion);
+  const [tipo, setTipo] = useState<string>(inicial.tipo);
+  const [estadoId, setEstadoId] = useState<string>(inicial.estadoId);
   const [empresaScore, setEmpresaScore] = useState<number>(0);
+
+  useEffect(() => {
+    const qs = aplicarFiltrosAQuery(window.location.search, { search, estadoLicitacion, tipo, estadoId, page });
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }, [page, search, estadoLicitacion, tipo, estadoId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -100,6 +112,10 @@ export function LicitacionesTable() {
       .then((json) => {
         setRows(json.data?.data ?? []);
         setCount(json.data?.count ?? 0);
+        // Un enlace guardado (?pagina=5) puede apuntar más allá de lo que hoy
+        // existe: se ajusta a la última página real.
+        const ultimaPagina = Math.max(1, Math.ceil((json.data?.count ?? 0) / PAGE_SIZE));
+        if (json.data && page > ultimaPagina) setPage(ultimaPagina);
         setEmpresaScore(json.data?.empresaScore ?? 0);
         setLoading(false);
       })

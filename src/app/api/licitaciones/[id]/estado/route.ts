@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiRoute, ApiError, requireWriteRole } from "@/lib/api";
 import { estadoLicitacionSchema } from "@/lib/validations/licitacion";
 import { getGateStatus } from "@/lib/liberacion";
+import { MENSAJE_MOTIVO, NOMBRE_AMBITO } from "@/lib/revision-independiente";
 
 const paramsSchema = z.object({ id: z.string().uuid("id debe ser un UUID válido") });
 
@@ -23,6 +24,34 @@ export const POST = apiRoute(
           "No se puede marcar como enviada: hay requisitos en rojo, requisitos críticos en amarillo, pendientes en el checklist de liberación o falta la autorización del supervisor.",
           { gate },
         );
+      }
+
+      // Paso 17 — doble check: la propuesta técnica y la económica necesitan
+      // una revisión vigente de alguien distinto del autor. Solo ADMIN puede
+      // omitirlo, y queda en la bitácora inmutable.
+      if (gate.revisionIndependiente.activo && gate.revisionIndependiente.pendientes.length > 0) {
+        const puedeOmitir = body.omitir_revision_independiente === true && ctx.rol === "ADMIN";
+        if (!puedeOmitir) {
+          throw ApiError.conflict(
+            "No se puede enviar sin revisión independiente: " +
+              gate.revisionIndependiente.pendientes
+                .map((p) => `${NOMBRE_AMBITO[p.ambito]} ${MENSAJE_MOTIVO[p.motivo]}`)
+                .join("; ") +
+              ". Quien no la elaboró debe confirmarla, o un administrador debe autorizar el envío explícitamente.",
+            { revisionIndependiente: gate.revisionIndependiente },
+          );
+        }
+        await ctx.supabase
+          .rpc("registrar_auditoria", {
+            p_accion: "licitacion_enviada_sin_revision_independiente",
+            p_recurso_tipo: "licitacion",
+            p_recurso_id: params.id,
+            p_detalle: {
+              pendientes: gate.revisionIndependiente.pendientes,
+              autorizado_por: ctx.userId,
+            },
+          })
+          .then(() => {}, () => {});
       }
 
       // B5 (D5) — gate duro de aprobación de IA. Solo un ADMIN puede

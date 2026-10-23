@@ -55,7 +55,7 @@ export function JerarquiaAutorizacionCard({
     cargar();
     fetch("/api/organizacion/staff")
       .then((res) => res.json())
-      .then((json) => setStaff(json.data ?? []));
+      .then((json) => setStaff(json.data?.miembros ?? []));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [licitacionId]);
 

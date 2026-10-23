@@ -5,6 +5,42 @@ const paramsSchema = z.object({
   id: z.string().uuid("id debe ser un UUID válido"),
   docId: z.string().uuid("docId debe ser un UUID válido"),
 });
+const patchBodySchema = z.object({
+  discrepancia_autorizada: z.boolean(),
+});
+
+export const PATCH = apiRoute(
+  { paramsSchema, bodySchema: patchBodySchema },
+  async ({ ctx, params, body }) => {
+    requireWriteRole(ctx);
+
+    const { data: doc } = await ctx.supabase
+      .from("documentos_corporativos")
+      .select("id, coincide_empresa")
+      .eq("id", params.docId)
+      .eq("empresa_perfil_id", params.id)
+      .maybeSingle();
+    if (!doc) throw ApiError.notFound("Documento no encontrado");
+
+    // Autorizar una discrepancia solo tiene sentido cuando no hubo datos
+    // para verificar automáticamente (coincide_empresa === null). Si el
+    // documento sí trae RFC/razón social y no coinciden, el usuario debe
+    // corregir el documento o la empresa activa, no "autorizarlo" aquí.
+    if (doc.coincide_empresa !== null) {
+      throw ApiError.validation("Este documento sí tiene datos para verificar automáticamente");
+    }
+
+    const { data, error } = await ctx.supabase
+      .from("documentos_corporativos")
+      .update({ discrepancia_autorizada: body.discrepancia_autorizada })
+      .eq("id", params.docId)
+      .select("id, discrepancia_autorizada")
+      .single();
+
+    if (error) throw ApiError.internal();
+    return { data };
+  },
+);
 
 export const DELETE = apiRoute({ paramsSchema }, async ({ ctx, params }) => {
   requireWriteRole(ctx);

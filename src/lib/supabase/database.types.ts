@@ -135,7 +135,7 @@ export type Database = {
           created_at: string
           hits: number
           last_hit_at: string | null
-          resultado_json: Json
+          resultado_json: NonNullable<Json>
           tokens_input: number
           tokens_output: number
         }
@@ -144,7 +144,7 @@ export type Database = {
           created_at?: string
           hits?: number
           last_hit_at?: string | null
-          resultado_json: Json
+          resultado_json: NonNullable<Json>
           tokens_input?: number
           tokens_output?: number
         }
@@ -153,7 +153,7 @@ export type Database = {
           created_at?: string
           hits?: number
           last_hit_at?: string | null
-          resultado_json?: Json
+          resultado_json?: NonNullable<Json>
           tokens_input?: number
           tokens_output?: number
         }
@@ -302,14 +302,14 @@ export type Database = {
           nivel_confianza: string | null
           organization_id: string
           origen: string
-          params_json: Json
+          params_json: NonNullable<Json>
           prompt_template_id: string | null
           prompt_version: number | null
           provider: string | null
           recurso_id: string
           recurso_tipo: string
           reemplaza_a: string | null
-          resultado_json: Json
+          resultado_json: NonNullable<Json>
           reused_from: string | null
           salida_incompleta: boolean
           tipo_analisis: string
@@ -332,14 +332,14 @@ export type Database = {
           nivel_confianza?: string | null
           organization_id: string
           origen?: string
-          params_json?: Json
+          params_json?: NonNullable<Json>
           prompt_template_id?: string | null
           prompt_version?: number | null
           provider?: string | null
           recurso_id: string
           recurso_tipo: string
           reemplaza_a?: string | null
-          resultado_json: Json
+          resultado_json: NonNullable<Json>
           reused_from?: string | null
           salida_incompleta?: boolean
           tipo_analisis: string
@@ -362,14 +362,14 @@ export type Database = {
           nivel_confianza?: string | null
           organization_id?: string
           origen?: string
-          params_json?: Json
+          params_json?: NonNullable<Json>
           prompt_template_id?: string | null
           prompt_version?: number | null
           provider?: string | null
           recurso_id?: string
           recurso_tipo?: string
           reemplaza_a?: string | null
-          resultado_json?: Json
+          resultado_json?: NonNullable<Json>
           reused_from?: string | null
           salida_incompleta?: boolean
           tipo_analisis?: string
@@ -563,7 +563,7 @@ export type Database = {
           accion: string
           actor_id: string | null
           created_at: string
-          detalle_json: Json
+          detalle_json: NonNullable<Json>
           hash: string
           id: number
           organization_id: string | null
@@ -575,7 +575,7 @@ export type Database = {
           accion: string
           actor_id?: string | null
           created_at?: string
-          detalle_json?: Json
+          detalle_json?: NonNullable<Json>
           hash: string
           id?: never
           organization_id?: string | null
@@ -587,7 +587,7 @@ export type Database = {
           accion?: string
           actor_id?: string | null
           created_at?: string
-          detalle_json?: Json
+          detalle_json?: NonNullable<Json>
           hash?: string
           id?: never
           organization_id?: string | null
@@ -600,8 +600,11 @@ export type Database = {
       checklist_items: {
         Row: {
           aclaracion_id: string | null
+          campo_compras_mx: string | null
+          cargado_compras_mx: boolean
           categoria: string
           causa_desechamiento: string | null
+          coincide_compras_mx: boolean
           critico: boolean
           descripcion: string
           documento_id: string | null
@@ -613,15 +616,25 @@ export type Database = {
           id: string
           licitacion_id: string
           observaciones: string | null
+          padre_id: string | null
+          pagina_evidencia: string | null
+          pagina_fuente: string | null
           requerido: boolean
+          requiere_firma: boolean
+          requiere_folio: boolean
+          requiere_membrete: boolean
           responsable_id: string | null
+          subsanable: boolean | null
           tipo_formato: string | null
           vigencia_requerida: string | null
         }
         Insert: {
           aclaracion_id?: string | null
+          campo_compras_mx?: string | null
+          cargado_compras_mx?: boolean
           categoria: string
           causa_desechamiento?: string | null
+          coincide_compras_mx?: boolean
           critico?: boolean
           descripcion: string
           documento_id?: string | null
@@ -633,15 +646,25 @@ export type Database = {
           id?: string
           licitacion_id: string
           observaciones?: string | null
+          padre_id?: string | null
+          pagina_evidencia?: string | null
+          pagina_fuente?: string | null
           requerido?: boolean
+          requiere_firma?: boolean
+          requiere_folio?: boolean
+          requiere_membrete?: boolean
           responsable_id?: string | null
+          subsanable?: boolean | null
           tipo_formato?: string | null
           vigencia_requerida?: string | null
         }
         Update: {
           aclaracion_id?: string | null
+          campo_compras_mx?: string | null
+          cargado_compras_mx?: boolean
           categoria?: string
           causa_desechamiento?: string | null
+          coincide_compras_mx?: boolean
           critico?: boolean
           descripcion?: string
           documento_id?: string | null
@@ -653,8 +676,15 @@ export type Database = {
           id?: string
           licitacion_id?: string
           observaciones?: string | null
+          padre_id?: string | null
+          pagina_evidencia?: string | null
+          pagina_fuente?: string | null
           requerido?: boolean
+          requiere_firma?: boolean
+          requiere_folio?: boolean
+          requiere_membrete?: boolean
           responsable_id?: string | null
+          subsanable?: boolean | null
           tipo_formato?: string | null
           vigencia_requerida?: string | null
         }
@@ -681,6 +711,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "checklist_items_padre_id_fkey"
+            columns: ["padre_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "checklist_items_responsable_id_fkey"
             columns: ["responsable_id"]
             isOneToOne: false
@@ -692,19 +729,19 @@ export type Database = {
       checklist_liberacion: {
         Row: {
           id: string
-          items_json: Json
+          items_json: NonNullable<Json>
           licitacion_id: string
           updated_at: string
         }
         Insert: {
           id?: string
-          items_json?: Json
+          items_json?: NonNullable<Json>
           licitacion_id: string
           updated_at?: string
         }
         Update: {
           id?: string
-          items_json?: Json
+          items_json?: NonNullable<Json>
           licitacion_id?: string
           updated_at?: string
         }
@@ -796,7 +833,7 @@ export type Database = {
           confirmacion: string
           created_at: string
           datos_purgados_at: string | null
-          detalle_json: Json
+          detalle_json: NonNullable<Json>
           estado: string
           export_job_id: string | null
           gracia_dias: number
@@ -813,7 +850,7 @@ export type Database = {
           confirmacion: string
           created_at?: string
           datos_purgados_at?: string | null
-          detalle_json?: Json
+          detalle_json?: NonNullable<Json>
           estado?: string
           export_job_id?: string | null
           gracia_dias?: number
@@ -830,7 +867,7 @@ export type Database = {
           confirmacion?: string
           created_at?: string
           datos_purgados_at?: string | null
-          detalle_json?: Json
+          detalle_json?: NonNullable<Json>
           estado?: string
           export_job_id?: string | null
           gracia_dias?: number
@@ -900,6 +937,7 @@ export type Database = {
       documentos: {
         Row: {
           auditoria_json: Json | null
+          carpeta: string | null
           created_at: string
           firma_digital_json: Json | null
           id: string
@@ -913,6 +951,7 @@ export type Database = {
         }
         Insert: {
           auditoria_json?: Json | null
+          carpeta?: string | null
           created_at?: string
           firma_digital_json?: Json | null
           id?: string
@@ -926,6 +965,7 @@ export type Database = {
         }
         Update: {
           auditoria_json?: Json | null
+          carpeta?: string | null
           created_at?: string
           firma_digital_json?: Json | null
           id?: string
@@ -951,7 +991,8 @@ export type Database = {
         Row: {
           coincide_empresa: boolean | null
           created_at: string
-          datos_extraidos_json: Json
+          datos_extraidos_json: NonNullable<Json>
+          discrepancia_autorizada: boolean | null
           empresa_perfil_id: string
           fecha_emision: string | null
           id: string
@@ -968,7 +1009,8 @@ export type Database = {
         Insert: {
           coincide_empresa?: boolean | null
           created_at?: string
-          datos_extraidos_json?: Json
+          datos_extraidos_json?: NonNullable<Json>
+          discrepancia_autorizada?: boolean | null
           empresa_perfil_id: string
           fecha_emision?: string | null
           id?: string
@@ -985,7 +1027,8 @@ export type Database = {
         Update: {
           coincide_empresa?: boolean | null
           created_at?: string
-          datos_extraidos_json?: Json
+          datos_extraidos_json?: NonNullable<Json>
+          discrepancia_autorizada?: boolean | null
           empresa_perfil_id?: string
           fecha_emision?: string | null
           id?: string
@@ -1030,7 +1073,7 @@ export type Database = {
           color_secundario: string | null
           correo_notificaciones: string | null
           cuenta_personal_discapacidad: boolean
-          documentos_no_aplican: Json
+          documentos_no_aplican: NonNullable<Json>
           domicilio_fiscal: string | null
           domicilio_notificaciones: string | null
           estratificacion_mipyme: string | null
@@ -1039,15 +1082,15 @@ export type Database = {
           garantia_tecnica_meses: number | null
           giro: string | null
           id: string
-          infraestructura_equipo_json: Json
-          licencias_permisos_json: Json
+          infraestructura_equipo_json: NonNullable<Json>
+          licencias_permisos_json: NonNullable<Json>
           logo_url: string | null
           nacionalidad: string
           normas_oficiales_aplican: boolean
           normas_oficiales_detalle: string | null
           objeto_social: string | null
           organization_id: string
-          personal_tecnico_json: Json
+          personal_tecnico_json: NonNullable<Json>
           razon_social: string | null
           representante_legal_escritura_fecha: string | null
           representante_legal_escritura_numero: string | null
@@ -1057,7 +1100,7 @@ export type Database = {
           representante_legal_notario: string | null
           representante_legal_registro_publico: string | null
           rfc: string | null
-          socios_accionistas_json: Json
+          socios_accionistas_json: NonNullable<Json>
           soporte_tecnico_contacto: string | null
           tiempo_inicio_servicio_dias: number | null
           updated_at: string
@@ -1075,7 +1118,7 @@ export type Database = {
           color_secundario?: string | null
           correo_notificaciones?: string | null
           cuenta_personal_discapacidad?: boolean
-          documentos_no_aplican?: Json
+          documentos_no_aplican?: NonNullable<Json>
           domicilio_fiscal?: string | null
           domicilio_notificaciones?: string | null
           estratificacion_mipyme?: string | null
@@ -1084,15 +1127,15 @@ export type Database = {
           garantia_tecnica_meses?: number | null
           giro?: string | null
           id?: string
-          infraestructura_equipo_json?: Json
-          licencias_permisos_json?: Json
+          infraestructura_equipo_json?: NonNullable<Json>
+          licencias_permisos_json?: NonNullable<Json>
           logo_url?: string | null
           nacionalidad?: string
           normas_oficiales_aplican?: boolean
           normas_oficiales_detalle?: string | null
           objeto_social?: string | null
           organization_id: string
-          personal_tecnico_json?: Json
+          personal_tecnico_json?: NonNullable<Json>
           razon_social?: string | null
           representante_legal_escritura_fecha?: string | null
           representante_legal_escritura_numero?: string | null
@@ -1102,7 +1145,7 @@ export type Database = {
           representante_legal_notario?: string | null
           representante_legal_registro_publico?: string | null
           rfc?: string | null
-          socios_accionistas_json?: Json
+          socios_accionistas_json?: NonNullable<Json>
           soporte_tecnico_contacto?: string | null
           tiempo_inicio_servicio_dias?: number | null
           updated_at?: string
@@ -1120,7 +1163,7 @@ export type Database = {
           color_secundario?: string | null
           correo_notificaciones?: string | null
           cuenta_personal_discapacidad?: boolean
-          documentos_no_aplican?: Json
+          documentos_no_aplican?: NonNullable<Json>
           domicilio_fiscal?: string | null
           domicilio_notificaciones?: string | null
           estratificacion_mipyme?: string | null
@@ -1129,15 +1172,15 @@ export type Database = {
           garantia_tecnica_meses?: number | null
           giro?: string | null
           id?: string
-          infraestructura_equipo_json?: Json
-          licencias_permisos_json?: Json
+          infraestructura_equipo_json?: NonNullable<Json>
+          licencias_permisos_json?: NonNullable<Json>
           logo_url?: string | null
           nacionalidad?: string
           normas_oficiales_aplican?: boolean
           normas_oficiales_detalle?: string | null
           objeto_social?: string | null
           organization_id?: string
-          personal_tecnico_json?: Json
+          personal_tecnico_json?: NonNullable<Json>
           razon_social?: string | null
           representante_legal_escritura_fecha?: string | null
           representante_legal_escritura_numero?: string | null
@@ -1147,7 +1190,7 @@ export type Database = {
           representante_legal_notario?: string | null
           representante_legal_registro_publico?: string | null
           rfc?: string | null
-          socios_accionistas_json?: Json
+          socios_accionistas_json?: NonNullable<Json>
           soporte_tecnico_contacto?: string | null
           tiempo_inicio_servicio_dias?: number | null
           updated_at?: string
@@ -1415,7 +1458,7 @@ export type Database = {
           finished_at: string | null
           id: string
           idempotency_key: string | null
-          input_json: Json
+          input_json: NonNullable<Json>
           intentos: number
           lease_expires_at: string | null
           max_intentos: number
@@ -1456,7 +1499,7 @@ export type Database = {
           finished_at?: string | null
           id?: string
           idempotency_key?: string | null
-          input_json?: Json
+          input_json?: NonNullable<Json>
           intentos?: number
           lease_expires_at?: string | null
           max_intentos?: number
@@ -1497,7 +1540,7 @@ export type Database = {
           finished_at?: string | null
           id?: string
           idempotency_key?: string | null
-          input_json?: Json
+          input_json?: NonNullable<Json>
           intentos?: number
           lease_expires_at?: string | null
           max_intentos?: number
@@ -1607,24 +1650,24 @@ export type Database = {
           estado: string
           id: string
           licitacion_id: string
-          preguntas_json: Json
-          respuestas_json: Json
+          preguntas_json: NonNullable<Json>
+          respuestas_json: NonNullable<Json>
         }
         Insert: {
           created_at?: string
           estado?: string
           id?: string
           licitacion_id: string
-          preguntas_json?: Json
-          respuestas_json?: Json
+          preguntas_json?: NonNullable<Json>
+          respuestas_json?: NonNullable<Json>
         }
         Update: {
           created_at?: string
           estado?: string
           id?: string
           licitacion_id?: string
-          preguntas_json?: Json
-          respuestas_json?: Json
+          preguntas_json?: NonNullable<Json>
+          respuestas_json?: NonNullable<Json>
         }
         Relationships: [
           {
@@ -1703,20 +1746,28 @@ export type Database = {
       }
       licitaciones: {
         Row: {
+          acciones_internas: NonNullable<Json>
           alerta_vencimiento_enviada_at: string | null
           convocante_representante_cargo: string | null
           convocante_representante_nombre: string | null
           created_at: string
           created_by: string | null
-          documentos_convocante_no_aplica: Json
+          documentos_convocante_no_aplica: NonNullable<Json>
+          enlace_compras_mx: string | null
           es_investigacion_mercado: boolean
           estado_id: string
           estado_licitacion: string
+          expediente_fuente_completo: boolean
           fecha_apertura_economica: string | null
           fecha_apertura_tecnica: string | null
+          fecha_cierre_interno: string | null
+          fecha_entrega_muestras: string | null
           fecha_entrega_propuesta: string | null
           fecha_fallo: string | null
+          fecha_firma_contrato: string | null
+          fecha_garantia: string | null
           fecha_junta_aclaraciones: string | null
+          fecha_limite_preguntas: string | null
           fecha_publicacion: string | null
           fecha_visita: string | null
           id: string
@@ -1724,26 +1775,36 @@ export type Database = {
           modalidad_procedimiento: string | null
           monto_maximo: number | null
           numero_expediente: string
+          numero_interno: string | null
           organization_id: string
           sistema: string
           tipo: string
           titulo: string
+          unidad_compradora: string | null
         }
         Insert: {
+          acciones_internas?: NonNullable<Json>
           alerta_vencimiento_enviada_at?: string | null
           convocante_representante_cargo?: string | null
           convocante_representante_nombre?: string | null
           created_at?: string
           created_by?: string | null
-          documentos_convocante_no_aplica?: Json
+          documentos_convocante_no_aplica?: NonNullable<Json>
+          enlace_compras_mx?: string | null
           es_investigacion_mercado?: boolean
           estado_id: string
           estado_licitacion?: string
+          expediente_fuente_completo?: boolean
           fecha_apertura_economica?: string | null
           fecha_apertura_tecnica?: string | null
+          fecha_cierre_interno?: string | null
+          fecha_entrega_muestras?: string | null
           fecha_entrega_propuesta?: string | null
           fecha_fallo?: string | null
+          fecha_firma_contrato?: string | null
+          fecha_garantia?: string | null
           fecha_junta_aclaraciones?: string | null
+          fecha_limite_preguntas?: string | null
           fecha_publicacion?: string | null
           fecha_visita?: string | null
           id?: string
@@ -1751,26 +1812,36 @@ export type Database = {
           modalidad_procedimiento?: string | null
           monto_maximo?: number | null
           numero_expediente: string
+          numero_interno?: string | null
           organization_id: string
           sistema: string
           tipo: string
           titulo: string
+          unidad_compradora?: string | null
         }
         Update: {
+          acciones_internas?: NonNullable<Json>
           alerta_vencimiento_enviada_at?: string | null
           convocante_representante_cargo?: string | null
           convocante_representante_nombre?: string | null
           created_at?: string
           created_by?: string | null
-          documentos_convocante_no_aplica?: Json
+          documentos_convocante_no_aplica?: NonNullable<Json>
+          enlace_compras_mx?: string | null
           es_investigacion_mercado?: boolean
           estado_id?: string
           estado_licitacion?: string
+          expediente_fuente_completo?: boolean
           fecha_apertura_economica?: string | null
           fecha_apertura_tecnica?: string | null
+          fecha_cierre_interno?: string | null
+          fecha_entrega_muestras?: string | null
           fecha_entrega_propuesta?: string | null
           fecha_fallo?: string | null
+          fecha_firma_contrato?: string | null
+          fecha_garantia?: string | null
           fecha_junta_aclaraciones?: string | null
+          fecha_limite_preguntas?: string | null
           fecha_publicacion?: string | null
           fecha_visita?: string | null
           id?: string
@@ -1778,10 +1849,12 @@ export type Database = {
           modalidad_procedimiento?: string | null
           monto_maximo?: number | null
           numero_expediente?: string
+          numero_interno?: string | null
           organization_id?: string
           sistema?: string
           tipo?: string
           titulo?: string
+          unidad_compradora?: string | null
         }
         Relationships: [
           {
@@ -1898,7 +1971,7 @@ export type Database = {
           id: string
           modelo_sugerido: string | null
           nombre: string
-          params_json: Json
+          params_json: NonNullable<Json>
           version: number
         }
         Insert: {
@@ -1909,7 +1982,7 @@ export type Database = {
           id: string
           modelo_sugerido?: string | null
           nombre: string
-          params_json?: Json
+          params_json?: NonNullable<Json>
           version?: number
         }
         Update: {
@@ -1920,7 +1993,7 @@ export type Database = {
           id?: string
           modelo_sugerido?: string | null
           nombre?: string
-          params_json?: Json
+          params_json?: NonNullable<Json>
           version?: number
         }
         Relationships: []
@@ -1928,33 +2001,54 @@ export type Database = {
       propuesta_economica_config: {
         Row: {
           condiciones_pago: string | null
+          contrato_abierto: boolean
+          decimales: number
+          descuentos: string | null
           id: string
+          importe_maximo: number | null
+          importe_minimo: number | null
           incluye_iva: boolean
           licitacion_id: string
           moneda: string
+          precios_ajustables: boolean
           tiempo_entrega_dias: number | null
           tipo_precio: string | null
           validez_oferta_dias: number | null
+          vigencia_precios_dias: number | null
         }
         Insert: {
           condiciones_pago?: string | null
+          contrato_abierto?: boolean
+          decimales?: number
+          descuentos?: string | null
           id?: string
+          importe_maximo?: number | null
+          importe_minimo?: number | null
           incluye_iva?: boolean
           licitacion_id: string
           moneda?: string
+          precios_ajustables?: boolean
           tiempo_entrega_dias?: number | null
           tipo_precio?: string | null
           validez_oferta_dias?: number | null
+          vigencia_precios_dias?: number | null
         }
         Update: {
           condiciones_pago?: string | null
+          contrato_abierto?: boolean
+          decimales?: number
+          descuentos?: string | null
           id?: string
+          importe_maximo?: number | null
+          importe_minimo?: number | null
           incluye_iva?: boolean
           licitacion_id?: string
           moneda?: string
+          precios_ajustables?: boolean
           tiempo_entrega_dias?: number | null
           tipo_precio?: string | null
           validez_oferta_dias?: number | null
+          vigencia_precios_dias?: number | null
         }
         Relationships: [
           {
@@ -1970,6 +2064,8 @@ export type Database = {
         Row: {
           cantidad: number | null
           cantidad_compras_mx: number | null
+          cantidad_maxima: number | null
+          cantidad_minima: number | null
           descripcion: string
           id: string
           iva: number | null
@@ -1987,6 +2083,8 @@ export type Database = {
         Insert: {
           cantidad?: number | null
           cantidad_compras_mx?: number | null
+          cantidad_maxima?: number | null
+          cantidad_minima?: number | null
           descripcion: string
           id?: string
           iva?: number | null
@@ -2004,6 +2102,8 @@ export type Database = {
         Update: {
           cantidad?: number | null
           cantidad_compras_mx?: number | null
+          cantidad_maxima?: number | null
+          cantidad_minima?: number | null
           descripcion?: string
           id?: string
           iva?: number | null
@@ -2037,7 +2137,7 @@ export type Database = {
       }
       propuestas: {
         Row: {
-          contenido_json: Json
+          contenido_json: NonNullable<Json>
           created_at: string
           created_by: string | null
           estado: string
@@ -2050,7 +2150,7 @@ export type Database = {
           version: number
         }
         Insert: {
-          contenido_json?: Json
+          contenido_json?: NonNullable<Json>
           created_at?: string
           created_by?: string | null
           estado?: string
@@ -2063,7 +2163,7 @@ export type Database = {
           version?: number
         }
         Update: {
-          contenido_json?: Json
+          contenido_json?: NonNullable<Json>
           created_at?: string
           created_by?: string | null
           estado?: string
@@ -2326,19 +2426,19 @@ export type Database = {
       }
       responsabilidades_procedimiento: {
         Row: {
-          asignaciones_json: Json
+          asignaciones_json: NonNullable<Json>
           id: string
           licitacion_id: string
           updated_at: string
         }
         Insert: {
-          asignaciones_json?: Json
+          asignaciones_json?: NonNullable<Json>
           id?: string
           licitacion_id: string
           updated_at?: string
         }
         Update: {
-          asignaciones_json?: Json
+          asignaciones_json?: NonNullable<Json>
           id?: string
           licitacion_id?: string
           updated_at?: string
@@ -2356,7 +2456,7 @@ export type Database = {
       retencion_archive: {
         Row: {
           archivado_at: string
-          fila: Json
+          fila: NonNullable<Json>
           fila_id: string | null
           id: number
           organization_id: string | null
@@ -2364,7 +2464,7 @@ export type Database = {
         }
         Insert: {
           archivado_at?: string
-          fila: Json
+          fila: NonNullable<Json>
           fila_id?: string | null
           id?: never
           organization_id?: string | null
@@ -2372,13 +2472,71 @@ export type Database = {
         }
         Update: {
           archivado_at?: string
-          fila?: Json
+          fila?: NonNullable<Json>
           fila_id?: string | null
           id?: never
           organization_id?: string | null
           recurso?: string
         }
         Relationships: []
+      }
+      revisiones_independientes: {
+        Row: {
+          ambito: string
+          contenido_hash: string | null
+          created_at: string
+          elaborado_por: string | null
+          id: string
+          licitacion_id: string
+          revisado_at: string | null
+          revisor_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ambito: string
+          contenido_hash?: string | null
+          created_at?: string
+          elaborado_por?: string | null
+          id?: string
+          licitacion_id: string
+          revisado_at?: string | null
+          revisor_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ambito?: string
+          contenido_hash?: string | null
+          created_at?: string
+          elaborado_por?: string | null
+          id?: string
+          licitacion_id?: string
+          revisado_at?: string | null
+          revisor_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revisiones_independientes_elaborado_por_fkey"
+            columns: ["elaborado_por"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revisiones_independientes_licitacion_id_fkey"
+            columns: ["licitacion_id"]
+            isOneToOne: false
+            referencedRelation: "licitaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revisiones_independientes_revisor_id_fkey"
+            columns: ["revisor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       seguimiento: {
         Row: {
@@ -2599,7 +2757,7 @@ export type Database = {
           decision: string | null
           id: string
           licitacion_id: string
-          respuestas_json: Json
+          respuestas_json: NonNullable<Json>
           updated_at: string
         }
         Insert: {
@@ -2608,7 +2766,7 @@ export type Database = {
           decision?: string | null
           id?: string
           licitacion_id: string
-          respuestas_json?: Json
+          respuestas_json?: NonNullable<Json>
           updated_at?: string
         }
         Update: {
@@ -2617,7 +2775,7 @@ export type Database = {
           decision?: string | null
           id?: string
           licitacion_id?: string
-          respuestas_json?: Json
+          respuestas_json?: NonNullable<Json>
           updated_at?: string
         }
         Relationships: [
@@ -2705,14 +2863,14 @@ export type Database = {
           nivel_confianza: string | null
           organization_id: string
           origen: string
-          params_json: Json
+          params_json: NonNullable<Json>
           prompt_template_id: string | null
           prompt_version: number | null
           provider: string | null
           recurso_id: string
           recurso_tipo: string
           reemplaza_a: string | null
-          resultado_json: Json
+          resultado_json: NonNullable<Json>
           reused_from: string | null
           salida_incompleta: boolean
           tipo_analisis: string
@@ -2744,13 +2902,13 @@ export type Database = {
         }[]
       }
       cancelar_borrado_organizacion: {
-        Args: never
+        Args: Record<PropertyKey, never>
         Returns: {
           borrado_job_id: string | null
           confirmacion: string
           created_at: string
           datos_purgados_at: string | null
-          detalle_json: Json
+          detalle_json: NonNullable<Json>
           estado: string
           export_job_id: string | null
           gracia_dias: number
@@ -2785,7 +2943,7 @@ export type Database = {
           finished_at: string | null
           id: string
           idempotency_key: string | null
-          input_json: Json
+          input_json: NonNullable<Json>
           intentos: number
           lease_expires_at: string | null
           max_intentos: number
@@ -2834,7 +2992,10 @@ export type Database = {
         Args: { p_max_por_minuto?: number; p_ruta: string }
         Returns: boolean
       }
-      cleanup_expired_signup_tickets: { Args: never; Returns: number }
+      cleanup_expired_signup_tickets: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       completar_job: {
         Args: {
           p_costo?: number
@@ -2859,7 +3020,7 @@ export type Database = {
           finished_at: string | null
           id: string
           idempotency_key: string | null
-          input_json: Json
+          input_json: NonNullable<Json>
           intentos: number
           lease_expires_at: string | null
           max_intentos: number
@@ -2930,7 +3091,7 @@ export type Database = {
           finished_at: string | null
           id: string
           idempotency_key: string | null
-          input_json: Json
+          input_json: NonNullable<Json>
           intentos: number
           lease_expires_at: string | null
           max_intentos: number
@@ -2969,7 +3130,7 @@ export type Database = {
         Returns: string
       }
       cron_job_existe: { Args: { p_jobname: string }; Returns: boolean }
-      disparar_worker: { Args: never; Returns: undefined }
+      disparar_worker: { Args: Record<PropertyKey, never>; Returns: undefined }
       ejecutar_limpieza_retencion: {
         Args: { p_forzar_dry_run?: boolean }
         Returns: Json
@@ -2983,7 +3144,7 @@ export type Database = {
         }
         Returns: number
       }
-      expirar_jobs: { Args: never; Returns: number }
+      expirar_jobs: { Args: Record<PropertyKey, never>; Returns: number }
       exportar_datos_organizacion: { Args: { p_org: string }; Returns: Json }
       extension_existe: { Args: { p_nombre: string }; Returns: boolean }
       fallar_job: {
@@ -3007,7 +3168,7 @@ export type Database = {
           finished_at: string | null
           id: string
           idempotency_key: string | null
-          input_json: Json
+          input_json: NonNullable<Json>
           intentos: number
           lease_expires_at: string | null
           max_intentos: number
@@ -3041,7 +3202,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      finalizar_borrados_completados: { Args: never; Returns: Json }
+      finalizar_borrados_completados: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       guardar_propuesta_economica: {
         Args: { p_config?: Json; p_licitacion_id: string; p_partidas?: Json }
         Returns: undefined
@@ -3057,8 +3221,8 @@ export type Database = {
           valido: boolean
         }[]
       }
-      is_platform_admin: { Args: never; Returns: boolean }
-      is_write_role: { Args: never; Returns: boolean }
+      is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
+      is_write_role: { Args: Record<PropertyKey, never>; Returns: boolean }
       job_recurso_pertenece: {
         Args: { p_org: string; p_recurso_id: string; p_recurso_tipo: string }
         Returns: boolean
@@ -3100,7 +3264,7 @@ export type Database = {
           finished_at: string | null
           id: string
           idempotency_key: string | null
-          input_json: Json
+          input_json: NonNullable<Json>
           intentos: number
           lease_expires_at: string | null
           max_intentos: number
@@ -3135,8 +3299,8 @@ export type Database = {
         }
       }
       marcar_job_notificado: { Args: { p_job_id: string }; Returns: boolean }
-      metricas_operacion: { Args: never; Returns: Json }
-      metricas_valor: { Args: never; Returns: Json }
+      metricas_operacion: { Args: Record<PropertyKey, never>; Returns: Json }
+      metricas_valor: { Args: Record<PropertyKey, never>; Returns: Json }
       persistir_resultado_ia: {
         Args: {
           p_citas?: Json
@@ -3175,7 +3339,10 @@ export type Database = {
         Args: { p_detalle?: string; p_job_id: string; p_progreso: number }
         Returns: undefined
       }
-      promover_borrados_vencidos: { Args: never; Returns: Json }
+      promover_borrados_vencidos: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       purgar_cuentas_organizacion: { Args: { p_org: string }; Returns: number }
       reclamar_jobs: {
         Args: { p_limite?: number; p_worker_id: string }
@@ -3193,7 +3360,7 @@ export type Database = {
           finished_at: string | null
           id: string
           idempotency_key: string | null
-          input_json: Json
+          input_json: NonNullable<Json>
           intentos: number
           lease_expires_at: string | null
           max_intentos: number
@@ -3252,7 +3419,7 @@ export type Database = {
           finished_at: string | null
           id: string
           idempotency_key: string | null
-          input_json: Json
+          input_json: NonNullable<Json>
           intentos: number
           lease_expires_at: string | null
           max_intentos: number
@@ -3371,7 +3538,7 @@ export type Database = {
           confirmacion: string
           created_at: string
           datos_purgados_at: string | null
-          detalle_json: Json
+          detalle_json: NonNullable<Json>
           estado: string
           export_job_id: string | null
           gracia_dias: number
@@ -3391,8 +3558,8 @@ export type Database = {
         }
       }
       tabla_en_realtime: { Args: { p_tabla: string }; Returns: boolean }
-      user_org_id: { Args: never; Returns: string }
-      user_rol: { Args: never; Returns: string }
+      user_org_id: { Args: Record<PropertyKey, never>; Returns: string }
+      user_rol: { Args: Record<PropertyKey, never>; Returns: string }
       verificar_cadena_auditoria: {
         Args: { p_org: string }
         Returns: {
@@ -3418,12 +3585,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3445,13 +3612,12 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3470,13 +3636,12 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3495,13 +3660,12 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3514,11 +3678,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3535,4 +3699,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

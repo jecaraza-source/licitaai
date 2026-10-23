@@ -42,10 +42,15 @@ const DENEGADAS = [
   ["registrar_uso_ia_worker", { p_organization_id: "00000000-0000-0000-0000-000000000000", p_user_id: null, p_funcion: "x", p_modelo: "x", p_input_tokens: 1, p_output_tokens: 1 }],
   ["persistir_resultado_ia", { p_organization_id: "00000000-0000-0000-0000-000000000000", p_recurso_tipo: "licitacion", p_recurso_id: "00000000-0000-0000-0000-000000000000", p_documento_id: null, p_documento_sha256: null, p_tipo_analisis: "x", p_prompt_template_id: null, p_provider: null, p_modelo: null, p_tokens_input: 0, p_tokens_output: 0, p_costo_usd: null, p_latencia_ms: null, p_resultado_json: {}, p_nivel_confianza: null, p_salida_incompleta: false, p_job_id: null }],
   ["disparar_worker", {}],
+  // cb_estado MUTA provider_health (resuelve OPEN->HALF_OPEN al vencer
+  // abierto_hasta) y hoy solo la llaman el job-worker y las Edge Functions
+  // de IA vía service_role; Next.js lee provider_health directo por RLS
+  // (src/lib/circuit-breaker.ts). Revocada de anon/authenticated —
+  // migración 20260908163639_p2_revoke_anon_secdef_fns.
+  ["cb_estado", { p_provider: "anthropic" }],
 ];
 
 const PERMITIDAS = [
-  ["cb_estado", { p_provider: "anthropic" }],
   ["estimar_costo_ia", { p_modelo: "claude-sonnet-5", p_tokens_input: 1, p_tokens_output: 1 }],
 ];
 

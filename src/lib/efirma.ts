@@ -52,8 +52,13 @@ export function parseCertificado(cerBase64: string): CertificadoInfo {
  * Es código isomórfico (solo usa `forge`, sin APIs de Node) a propósito:
  * se ejecuta en el navegador — la llave privada y la contraseña nunca
  * viajan al servidor. El servidor solo recibe el certificado (público) y
- * la firma resultante, y verifica esa firma con verificarFirma() antes de
- * aceptarla.
+ * la firma resultante, y verifica esa firma con verificarFirma()
+ * (efirma-servidor.ts, node:crypto) antes de aceptarla.
+ *
+ * `forge` se queda aquí porque el navegador no puede descifrar el .key del
+ * SAT (PKCS#8 cifrado) con WebCrypto ni tiene X.509 nativo. Su advisory
+ * GHSA-86w9-cpqp-85rv es de VERIFICACIÓN de firmas, que ya no se hace con
+ * forge en ninguna parte.
  */
 export function firmarDocumento(
   keyBase64: string,
@@ -82,34 +87,6 @@ export function hashDocumentoHex(documentBytes: ArrayBuffer): string {
   const md = forge.md.sha256.create();
   md.update(forge.util.createBuffer(documentBytes).getBytes());
   return md.digest().toHex();
-}
-
-/**
- * Verifica criptográficamente que `firmaBase64` sea una firma RSA-SHA256
- * válida de `documentBytes`, generada por la llave privada correspondiente
- * a la llave pública de `cerBase64`. Esto es lo que realmente prueba que
- * "la llave privada corresponde al certificado" — si la verificación pasa,
- * matemáticamente no puede haberse generado con otra llave.
- */
-export function verificarFirma(
-  cerBase64: string,
-  firmaBase64: string,
-  documentBytes: ArrayBuffer,
-): boolean {
-  try {
-    const der = forge.util.decode64(cerBase64);
-    const asn1 = forge.asn1.fromDer(der);
-    const cert = forge.pki.certificateFromAsn1(asn1);
-
-    const md = forge.md.sha256.create();
-    md.update(forge.util.createBuffer(documentBytes).getBytes());
-
-    const signature = forge.util.decode64(firmaBase64);
-    const publicKey = cert.publicKey as forge.pki.rsa.PublicKey;
-    return publicKey.verify(md.digest().bytes(), signature);
-  } catch {
-    return false;
-  }
 }
 
 /** true si el certificado NO declara explícitamente la extensión

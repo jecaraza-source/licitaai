@@ -118,9 +118,20 @@ function EmpresaMismatchBadge({ doc }: { doc: DocumentoCorporativo }) {
   );
 }
 
-/** Bajo el nombre del documento: el motivo concreto cuando NO coincide, o
- * una confirmación cuando sí coincide y hubo datos para verificar. */
-function CoincidenciaEmpresaDetalle({ doc }: { doc: DocumentoCorporativo }) {
+/** Bajo el nombre del documento: el motivo concreto cuando NO coincide, una
+ * confirmación cuando sí coincide y hubo datos para verificar, o un cuadro
+ * pidiendo autorización manual cuando el documento no traía RFC ni razón
+ * social para verificar (comprobante de domicilio sin RFC del titular,
+ * poder que solo trae el RFC del representante legal, etc.). */
+function CoincidenciaEmpresaDetalle({
+  doc,
+  autorizando,
+  onAutorizar,
+}: {
+  doc: DocumentoCorporativo;
+  autorizando: boolean;
+  onAutorizar: (docId: string) => void;
+}) {
   if (doc.coincide_empresa === false) {
     const detalle =
       doc.motivo_no_coincide ??
@@ -145,6 +156,42 @@ function CoincidenciaEmpresaDetalle({ doc }: { doc: DocumentoCorporativo }) {
       <div className="flex items-start gap-2 rounded-md bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400">
         <BadgeCheck className="size-3.5 shrink-0 translate-y-0.5" />
         <span>Verificado: {que} coincide con tu empresa activa.</span>
+      </div>
+    );
+  }
+
+  if (doc.coincide_empresa === null) {
+    if (doc.discrepancia_autorizada === true) {
+      return (
+        <div className="flex items-start gap-2 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+          <BadgeCheck className="size-3.5 shrink-0 translate-y-0.5" />
+          <span>
+            No se detectó RFC ni razón social en el documento para verificarlo automáticamente;
+            confirmaste manualmente que corresponde a tu empresa.
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-start gap-2 rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+        <TriangleAlert className="size-3.5 shrink-0 translate-y-0.5" />
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          <span>
+            No se detectó el RFC ni la razón social de tu empresa en este documento, así que no se
+            pudo verificar automáticamente. ¿Confirmas que corresponde a tu empresa activa?
+          </span>
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            disabled={autorizando}
+            onClick={() => onAutorizar(doc.id)}
+            className="shrink-0 border-amber-600/40 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+          >
+            {autorizando ? "Confirmando…" : "Sí, confirmar"}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -241,6 +288,7 @@ export function DocumentosCorporativosCard({
   const [subiendo, setSubiendo] = useState(false);
   const [analizandoIds, setAnalizandoIds] = useState<string[]>([]);
   const [fechasManuales, setFechasManuales] = useState<Record<string, string>>({});
+  const [autorizandoIds, setAutorizandoIds] = useState<string[]>([]);
 
   // P1.5 — `cargar` estable (useCallback) para poder listarla como
   // dependencia de los efectos/callbacks que la usan, en vez de silenciar
@@ -312,6 +360,33 @@ export function DocumentosCorporativosCard({
       }
     },
     [empresaId, cargar],
+  );
+
+  const autorizarDiscrepancia = useCallback(
+    async (docId: string) => {
+      setAutorizandoIds((prev) => [...prev, docId]);
+      try {
+        const res = await fetch(`/api/empresa-perfil/${empresaId}/documentos/${docId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ discrepancia_autorizada: true }),
+        });
+        if (!res.ok) {
+          toast.error("No se pudo guardar la confirmación");
+          return;
+        }
+        setDocumentos((prev) =>
+          prev
+            ? prev.map((d) => (d.id === docId ? { ...d, discrepancia_autorizada: true } : d))
+            : prev,
+        );
+      } catch {
+        toast.error("No se pudo guardar la confirmación", { description: "Error de red inesperado" });
+      } finally {
+        setAutorizandoIds((prev) => prev.filter((id) => id !== docId));
+      }
+    },
+    [empresaId],
   );
 
   const subirDocumento = useCallback(
@@ -498,7 +573,11 @@ export function DocumentosCorporativosCard({
                   </div>
                   {!analizando && (
                     <div className="flex flex-col gap-1.5 pl-6">
-                      <CoincidenciaEmpresaDetalle doc={doc} />
+                      <CoincidenciaEmpresaDetalle
+                        doc={doc}
+                        autorizando={autorizandoIds.includes(doc.id)}
+                        onAutorizar={autorizarDiscrepancia}
+                      />
                       {verificacionRepresentante && (
                         <RepresentanteVerificacion verificacion={verificacionRepresentante} />
                       )}
