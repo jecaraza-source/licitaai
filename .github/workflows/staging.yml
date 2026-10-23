@@ -17,11 +17,11 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
       STAGING_REF: ${{ secrets.STAGING_PROJECT_REF }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: 24, cache: npm }
-      - uses: supabase/setup-cli@v1
-        with: { version: latest }
+      - uses: supabase/setup-cli@v3
+        with: { version: 2.119.0 }  # fijada: con `latest` el CLI cambia sin aviso (rompió el chequeo de tipos de CI, #39)
       - run: npm ci
 
       - name: Verificaciones rápidas
