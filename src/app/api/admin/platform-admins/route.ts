@@ -88,7 +88,10 @@ export async function POST(req: Request) {
   const invitacion = await service.auth.admin.inviteUserByEmail(email);
   let userId = invitacion.data.user?.id;
   if (invitacion.error || !userId) {
-    const { data: listado, error: listError } = await service.auth.admin.listUsers();
+    const { data: listado, error: listError } = await service.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000, // por defecto solo trae 50 cuentas y la existente podría quedar fuera
+    });
     const existenteAuth = listError
       ? undefined
       : listado.users.find((u) => u.email?.toLowerCase() === email);
