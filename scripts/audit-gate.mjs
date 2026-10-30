@@ -4,19 +4,7 @@
 // fallar para que se reevalúe en vez de quedar aceptada para siempre.
 import { execSync } from "node:child_process";
 
-const ALLOWLIST = [
-  {
-    advisory: "GHSA-86w9-cpqp-85rv",
-    paquete: "node-forge",
-    revisar_antes_de: "2026-11-05",
-    motivo:
-      "Sin versión corregida publicada. El advisory es de VERIFICACIÓN de firmas RSA " +
-      "PKCS#1 v1.5, y la verificación ya se hace con node:crypto (src/lib/efirma-servidor.ts); " +
-      "forge solo se usa en el navegador para descifrar el .key del SAT y firmar " +
-      "(src/lib/efirma.ts). Autorizada por el responsable del proyecto el 2026-10-05. " +
-      "Reevaluar al salir un fix o al reemplazar forge en el cliente.",
-  },
-];
+const ALLOWLIST = [];
 
 let raw;
 try {
