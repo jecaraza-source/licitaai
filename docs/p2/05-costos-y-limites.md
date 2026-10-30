@@ -69,3 +69,34 @@ Suma de `03-plan-incremental.md`: Fase A ~2 sem · Fase B ~3–4 sem · C ~2 sem
 2. **Aprobar pronto:** PITR de prod (+$100/mes) o aceptar formalmente `pg_dump` diario con RPO de 24 h como interino.
 3. **Diferir:** subir compute — hacerlo reactivo a las métricas de Fase F, no preventivo.
 4. El gasto de IA se vuelve **predecible y acotado** al terminar la Fase C; hasta entonces, vigilar `ai_usage_log` semanalmente.
+
+## Consola de IA — topes en USD para llamadas directas
+
+Estado: 2026-10-30. Migración `20261030190000_ai_topes_usd.sql`.
+
+**Qué había antes.** Los topes en USD de `ai_org_policy` (`cuota_mensual_usd`,
+`limite_diario_usd`) solo se aplicaban en la ruta de jobs asíncronos
+(`reservar_presupuesto_ia`), apagada. Las llamadas directas a IA (rutas de Next y Edge
+Functions) solo pasaban por `check_ai_budget`, un tope diario de **tokens**.
+
+**Qué hay ahora.**
+- `check_ai_budget` —el único punto por el que pasan esas llamadas— también compara el
+  gasto en USD del día y del mes contra la política de la organización, si
+  `ai_org_policy.topes_usd_activos` es `true` (por defecto `false`: aplicar la migración no
+  cambia el comportamiento de nadie).
+- Gasto = `ai_usage_log` × `ai_model_pricing`. Un modelo sin precio se cobra al precio más
+  alto del catálogo. Día y mes en hora de Ciudad de México.
+- Un tope en 0 con topes activos bloquea toda la IA de esa organización.
+- **Límite conocido:** el uso se registra después de cada llamada, así que la operación que
+  cruza el tope termina; las siguientes se bloquean. `limite_por_operacion_usd` sigue sin
+  aplicarse fuera de la ruta de jobs.
+- El precio en `ai_model_pricing` se mantiene a mano: si un proveedor cambia precios, el
+  gasto calculado se desvía.
+
+**Quién edita.** Solo un admin de plataforma (`PATCH /api/admin/ia-topes`), desde
+Configuración → Consumo de IA. Los ADMIN y MANAGER de cada organización ven su consumo.
+Las organizaciones comparten las cuentas de API, así que ninguna puede subirse su tope.
+
+**Esto no sustituye el límite del proveedor.** Configura también un límite de gasto mensual
+en las consolas de Anthropic y OpenAI: es el freno de último recurso si falla la
+contabilidad de la app.

@@ -192,6 +192,7 @@ export type Database = {
           modelos_permitidos: string[]
           organization_id: string
           politica_modelo: string
+          topes_usd_activos: boolean
           updated_at: string
         }
         Insert: {
@@ -205,6 +206,7 @@ export type Database = {
           modelos_permitidos?: string[]
           organization_id: string
           politica_modelo?: string
+          topes_usd_activos?: boolean
           updated_at?: string
         }
         Update: {
@@ -218,6 +220,7 @@ export type Database = {
           modelos_permitidos?: string[]
           organization_id?: string
           politica_modelo?: string
+          topes_usd_activos?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -2800,6 +2803,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _gasto_ia_uso_log: {
+        Args: { p_desde: string; p_org: string }
+        Returns: number
+      }
       _gasto_ia_ventana: {
         Args: { p_desde: string; p_org: string }
         Returns: number
@@ -2819,6 +2826,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      ai_estado_consumo: { Args: Record<PropertyKey, never>; Returns: Json }
       ai_policy_de_org: {
         Args: { p_org: string }
         Returns: {
