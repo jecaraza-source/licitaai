@@ -88,7 +88,7 @@ export class ApiError extends Error {
   }
 
   static aiBudgetExceeded(
-    message = "Se alcanzó el límite diario de uso de IA para tu organización. Intenta de nuevo mañana.",
+    message = "Se alcanzó el límite de uso de IA de tu organización (diario o mensual). Si necesitas ampliarlo, contacta al administrador de la plataforma.",
   ): ApiError {
     return new ApiError("AI_BUDGET_EXCEEDED", message);
   }
