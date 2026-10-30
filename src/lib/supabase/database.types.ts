@@ -2840,6 +2840,7 @@ export type Database = {
           modelos_permitidos: string[]
           organization_id: string
           politica_modelo: string
+          topes_usd_activos: boolean
           updated_at: string
         }
         SetofOptions: {
