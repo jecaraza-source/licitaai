@@ -1,10 +1,22 @@
 import { Settings } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { ConsumoIaCard } from "@/components/configuracion/consumo-ia-card";
 import { ConfiguracionEmpresa } from "@/components/configuracion/configuracion-empresa";
 import { StaffJerarquiaCard } from "@/components/configuracion/staff-jerarquia-card";
 import { MetricasValorCard } from "@/components/configuracion/metricas-valor-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export default function ConfiguracionPage() {
+export default async function ConfiguracionPage() {
+  // La consola de IA la ven ADMIN y MANAGER (la API lo vuelve a comprobar).
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: perfil } = user
+    ? await supabase.from("users").select("rol").eq("id", user.id).single()
+    : { data: null };
+  const veConsumoIA = perfil?.rol === "ADMIN" || perfil?.rol === "MANAGER";
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -16,7 +28,7 @@ export default function ConfiguracionPage() {
           Configuración
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Administra el perfil de tu empresa, su staff y las métricas de valor.
+          Administra el perfil de tu empresa, su staff, las métricas de valor y el consumo de IA.
         </p>
       </div>
 
@@ -24,6 +36,7 @@ export default function ConfiguracionPage() {
         <TabsList>
           <TabsTrigger value="perfil">Perfil de la empresa</TabsTrigger>
           <TabsTrigger value="staff">Staff y cadena de autorización</TabsTrigger>
+          {veConsumoIA && <TabsTrigger value="ia">Consumo de IA</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="perfil" className="flex flex-col gap-6">
@@ -34,6 +47,12 @@ export default function ConfiguracionPage() {
         <TabsContent value="staff">
           <StaffJerarquiaCard />
         </TabsContent>
+
+        {veConsumoIA && (
+          <TabsContent value="ia">
+            <ConsumoIaCard />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

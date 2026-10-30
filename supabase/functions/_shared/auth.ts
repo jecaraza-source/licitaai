@@ -179,7 +179,7 @@ export async function authenticate(
     if (presupuestoError || !dentroDelPresupuesto) {
       return jsonError(
         429,
-        "Se alcanzó el límite diario de uso de IA para tu organización. Intenta de nuevo mañana.",
+        "Se alcanzó el límite de uso de IA de tu organización (diario o mensual). Si necesitas ampliarlo, contacta al administrador de la plataforma.",
       );
     }
   }
