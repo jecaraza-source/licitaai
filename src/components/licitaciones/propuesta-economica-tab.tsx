@@ -27,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useCambiosSinGuardar } from "@/components/licitaciones/cambios-sin-guardar";
 import { RevisorEconomicaCard } from "@/components/licitaciones/revisor-economica-card";
 
 interface FilaPartida {
@@ -111,14 +112,23 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
   const [analizando, setAnalizando] = useState(false);
   const [dictamen, setDictamen] = useState<string | null>(null);
   const [versionGuardado, setVersionGuardado] = useState(0);
+  // Foto de lo último cargado o guardado: si el contenido actual difiere, hay
+  // cambios sin guardar y la ficha avisa antes de cambiar de pestaña.
+  const [guardado, setGuardado] = useState<string | null>(null);
+  const hayCambios =
+    guardado !== null && filas !== null && JSON.stringify({ config, filas }) !== guardado;
+  useCambiosSinGuardar("propuesta-economica", hayCambios);
 
   useEffect(() => {
     fetch(`/api/licitaciones/${licitacionId}/propuesta-economica`)
       .then((res) => res.json())
       .then((json) => {
         const decimales: number = json.data?.config?.decimales ?? 2;
-        setFilas((json.data?.partidas ?? []).map((f: FilaPartida) => calcularFila(f, decimales)));
-        setConfig(json.data?.config ?? null);
+        const cargadas = (json.data?.partidas ?? []).map((f: FilaPartida) => calcularFila(f, decimales));
+        const configCargada = json.data?.config ?? null;
+        setFilas(cargadas);
+        setConfig(configCargada);
+        setGuardado(JSON.stringify({ config: configCargada, filas: cargadas }));
       });
   }, [licitacionId]);
 
@@ -195,6 +205,7 @@ export function PropuestaEconomicaTab({ licitacionId }: { licitacionId: string }
       return;
     }
     toast.success("Propuesta económica guardada");
+    setGuardado(JSON.stringify({ config, filas }));
     setVersionGuardado((v) => v + 1);
   }
 

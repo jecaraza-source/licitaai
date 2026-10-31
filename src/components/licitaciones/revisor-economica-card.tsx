@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ErrorCarga } from "@/components/layout/error-carga";
 import { RevisorPropuestaCard } from "@/components/licitaciones/revisor-propuesta-card";
 
 interface EstadoRevision {
@@ -23,18 +24,36 @@ export function RevisorEconomicaCard({
   refreshKey?: number;
 }) {
   const [estado, setEstado] = useState<EstadoRevision | null>(null);
+  const [errorCarga, setErrorCarga] = useState(false);
   const endpoint = `/api/licitaciones/${licitacionId}/propuesta-economica/revisor`;
 
   const cargar = useCallback(() => {
     fetch(endpoint)
-      .then((res) => res.json())
-      .then((json) => setEstado(json.data ?? null))
-      .catch(() => setEstado(null));
+      .then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.json();
+      })
+      .then((json) => {
+        setEstado(json.data ?? null);
+        setErrorCarga(false);
+      })
+      // Si el estado de la revisión no carga, ocultar la tarjeta haría creer que
+      // no hay revisión pendiente: se avisa y se deja reintentar.
+      .catch(() => setErrorCarga(true));
   }, [endpoint]);
 
   useEffect(() => {
     cargar();
   }, [cargar, refreshKey]);
+
+  if (errorCarga) {
+    return (
+      <ErrorCarga
+        mensaje="No se pudo consultar el estado de la revisión independiente."
+        onReintentar={cargar}
+      />
+    );
+  }
 
   if (!estado?.hay_partidas) return null;
 

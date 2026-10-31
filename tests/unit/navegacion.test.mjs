@@ -8,6 +8,7 @@ import {
   PESTANA_INICIAL,
   TODOS,
   aplicarFiltrosAQuery,
+  destinoDeEnlace,
   esRutaActiva,
   grupoDePestana,
   hrefPestana,
@@ -66,6 +67,18 @@ check("serializar y leer es una ida y vuelta exacta (con espacios y /)", JSON.st
 check("aplicarFiltrosAQuery respeta parámetros ajenos como tab", aplicarFiltrosAQuery("?tab=liberacion", { ...FILTROS_VACIOS, estadoLicitacion: "ENVIADA" }) === "tab=liberacion&estado=ENVIADA");
 check("aplicarFiltrosAQuery reemplaza los filtros previos y quita los vacíos", aplicarFiltrosAQuery("?q=viejo&estado=NUEVA&pagina=3&tab=x", { ...FILTROS_VACIOS, search: "nuevo" }) === "tab=x&q=nuevo");
 check("aplicarFiltrosAQuery sin filtros ni otros parámetros → vacío", aplicarFiltrosAQuery("?q=a&pagina=2", FILTROS_VACIOS) === "");
+
+// --- destinoDeEnlace: cuándo un clic puede perder cambios sin guardar ---
+const aqui = { href: "https://app.test/licitaciones/abc?tab=propuesta-economica", pestana: "propuesta-economica" };
+check("enlace a otra pestaña de la misma ficha → pestana", JSON.stringify(destinoDeEnlace("/licitaciones/abc?tab=liberacion", aqui)) === JSON.stringify({ tipo: "pestana", pestana: "liberacion" }));
+check("enlace a la pestaña inicial (sin ?tab) → resumen", JSON.stringify(destinoDeEnlace("/licitaciones/abc", aqui)) === JSON.stringify({ tipo: "pestana", pestana: "resumen" }));
+check("enlace a la misma pestaña no pierde nada", destinoDeEnlace("/licitaciones/abc?tab=propuesta-economica", aqui) === null);
+check("pestaña desconocida cae en resumen (como la página)", JSON.stringify(destinoDeEnlace("/licitaciones/abc?tab=nada", aqui)) === JSON.stringify({ tipo: "pestana", pestana: "resumen" }));
+check("un ancla de la misma página no avisa", destinoDeEnlace("#seccion", aqui) === null);
+check("enlace a otra página de la app → ruta con query y ancla", JSON.stringify(destinoDeEnlace("/configuracion?x=1#a", aqui)) === JSON.stringify({ tipo: "ruta", href: "/configuracion?x=1#a" }));
+check("enlace absoluto al mismo origen se trata como ruta", JSON.stringify(destinoDeEnlace("https://app.test/dashboard", aqui)) === JSON.stringify({ tipo: "ruta", href: "/dashboard" }));
+check("enlace a otro sitio no se intercepta", destinoDeEnlace("https://otro.test/licitaciones/abc", aqui) === null);
+check("href inválido no rompe", destinoDeEnlace("http://", aqui) === null);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
