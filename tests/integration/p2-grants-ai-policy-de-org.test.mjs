@@ -2,7 +2,8 @@
 // La función es SECURITY DEFINER, recibe el uuid de la organización y crea
 // la política por defecto si no existe; con execute para `authenticated`,
 // un usuario de la org A podía leer/crear la política de la org B.
-// Regresión de la migración 20261030000000_revoke_ai_policy_de_org_authenticated.
+// Regresión de las migraciones 20261030000000_revoke_ai_policy_de_org_authenticated
+// y 20261031000000_presupuesto_ia_disponible_org_propia (mismo patrón).
 //
 //   npx supabase start
 //   node tests/integration/p2-grants-ai-policy-de-org.test.mjs
@@ -104,6 +105,23 @@ async function main() {
     const { data } = await orgA.asUser.from("ai_org_policy").select("organization_id");
     const ids = (data ?? []).map((r) => r.organization_id);
     check("8. la UI sigue leyendo ai_org_policy por RLS, solo de su org", ids.includes(orgA.orgId) && !ids.includes(orgB.orgId), JSON.stringify(ids));
+  }
+
+  // 9–11. presupuesto_ia_disponible solo responde por la org del llamante
+  //       (migración 20261031000000_presupuesto_ia_disponible_org_propia).
+  {
+    const { data, error } = await orgA.asUser.rpc("presupuesto_ia_disponible", { p_org: orgB.orgId });
+    check("9. authenticated (org A) NO puede leer el presupuesto de IA de la org B", !!error && !data?.length, JSON.stringify(error ?? data));
+    check("9b. el rechazo es 42501", error?.code === "42501", JSON.stringify(error));
+  }
+  {
+    const { error } = await orgA.asUser.rpc("presupuesto_ia_disponible", { p_org: orgC.id });
+    check("10. authenticated NO puede consultar el presupuesto de una org sin política", !!error, JSON.stringify(error));
+    check("10b. no se creó la fila de política de la org C", (await filasPolitica(orgC.id)) === 0);
+  }
+  {
+    const { data, error } = await admin.rpc("presupuesto_ia_disponible", { p_org: orgB.orgId });
+    check("11. service_role SÍ puede consultar el presupuesto de cualquier org", !error && data?.length === 1, error?.message);
   }
 
   try {
