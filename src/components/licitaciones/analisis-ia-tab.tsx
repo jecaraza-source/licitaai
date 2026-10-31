@@ -26,6 +26,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import { useRealtimeLista } from "@/hooks/use-realtime-lista";
 import { AvisoRevisionIA } from "@/components/aviso-revision-ia";
+import { ErrorCarga } from "@/components/layout/error-carga";
 import type { AnalisisBases, FechasAnalisis, NivelConfianza } from "@/types";
 
 const TODOS_LOS_DOCUMENTOS = "__todos__";
@@ -113,6 +114,7 @@ const FECHA_LABELS: Record<string, string> = {
 
 export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
   const [analisis, setAnalisis] = useState<AnalisisBases | null | undefined>(undefined);
+  const [errorCarga, setErrorCarga] = useState(false);
   // P1.5 — la lista de documentos procesados + su suscripción Realtime
   // (aparecen aquí en cuanto termina el chunking/embeddings) vive en el
   // hook compartido; la limpieza del canal está garantizada.
@@ -137,11 +139,20 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
   const cargarAnalisis = useCallback(
     (docId: string) => {
       setAnalisis(undefined);
+      setErrorCarga(false);
       const query = docId === TODOS_LOS_DOCUMENTOS ? "" : `?documento_id=${docId}`;
       return fetch(`/api/licitaciones/${licitacionId}/analisis${query}`)
-        .then((res) => res.json())
+        .then((res) => {
+          if (!res.ok) throw new Error(String(res.status));
+          return res.json();
+        })
         .then((json) => setAnalisis(json.data ?? null))
-        .catch(() => setAnalisis(null));
+        .catch(() => {
+          // Sin esto un fallo se veía igual que "este documento aún no tiene
+          // análisis" y el usuario podía volver a analizar sin necesidad.
+          setAnalisis(null);
+          setErrorCarga(true);
+        });
     },
     [licitacionId],
   );
@@ -213,6 +224,14 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
 
   return (
     <div className="flex flex-col gap-6" id="analisis-ia-printable">
+      {errorCarga && (
+        <div className="print:hidden">
+          <ErrorCarga
+            mensaje="No se pudo cargar el análisis de este documento. Revisa tu conexión e inténtalo de nuevo."
+            onReintentar={() => cargarAnalisis(documentoId)}
+          />
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <div className="flex flex-wrap items-center gap-2">
           <Select value={documentoId} onValueChange={(v) => v && setDocumentoId(v)}>
@@ -274,7 +293,7 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
         </Card>
       )}
 
-      {!analizando && !analisis && (
+      {!analizando && !analisis && !errorCarga && (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
             Sube y procesa al menos un documento en la pestaña Documentos, luego analiza las

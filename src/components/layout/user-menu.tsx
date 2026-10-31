@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Scale, Settings, ShieldCheck } from "lucide-react";
+import { FileText, LogOut, Scale, Settings, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
@@ -62,6 +62,10 @@ export function UserMenu({ nombre, email }: { nombre: string; email: string }) {
           <DropdownMenuItem render={<Link href="/referencias" />}>
             <Scale />
             Referencias legales
+          </DropdownMenuItem>
+          <DropdownMenuItem render={<Link href="/terminos" />}>
+            <FileText />
+            Términos de uso
           </DropdownMenuItem>
           <DropdownMenuItem render={<Link href="/aviso-privacidad" />}>
             <ShieldCheck />

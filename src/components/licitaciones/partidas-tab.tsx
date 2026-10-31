@@ -7,6 +7,7 @@ import { descargarWorkbook } from "@/lib/exportar-excel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorCarga } from "@/components/layout/error-carga";
 import {
   Dialog,
   DialogContent,
@@ -44,12 +45,22 @@ export function PartidasTab({ licitacionId }: { licitacionId: string }) {
   const [generandoId, setGenerandoId] = useState<string | null>(null);
   const [detalle, setDetalle] = useState<PartidaConEstudio | null>(null);
   const [solicitudNombre, setSolicitudNombre] = useState<string | null>(null);
+  const [errorCarga, setErrorCarga] = useState(false);
 
+  // Un fallo ya no se disfraza de "no hay partidas": se avisa y se puede reintentar.
   function cargar() {
     fetch(`/api/licitaciones/${licitacionId}/partidas`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.json();
+      })
       .then((json) => setPartidas(json.data ?? []))
-      .catch(() => setPartidas([]));
+      .catch(() => setErrorCarga(true));
+  }
+
+  function reintentar() {
+    setErrorCarga(false);
+    cargar();
   }
 
   useEffect(() => {
@@ -113,12 +124,20 @@ export function PartidasTab({ licitacionId }: { licitacionId: string }) {
     await descargarWorkbook(workbook, "partidas.xlsx");
   }
 
+  const avisoError = errorCarga && (
+    <ErrorCarga
+      mensaje="No se pudieron cargar las partidas. Revisa tu conexión e inténtalo de nuevo."
+      onReintentar={reintentar}
+    />
+  );
+
   if (partidas === null) {
-    return <Skeleton className="h-64 w-full" />;
+    return avisoError || <Skeleton className="h-64 w-full" />;
   }
 
   return (
     <div className="flex flex-col gap-4">
+      {avisoError}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           Partidas extraídas del análisis IA. Genera un estudio de mercado para estimar el

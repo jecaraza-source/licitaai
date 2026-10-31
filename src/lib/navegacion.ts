@@ -151,3 +151,37 @@ export function aplicarFiltrosAQuery(searchActual: string, f: FiltrosLista): str
   new URLSearchParams(serializarFiltrosLista(f)).forEach((valor, clave) => params.set(clave, valor));
   return params.toString();
 }
+
+// --- Cambios sin guardar al salir de la pestaña o de la ficha ---
+
+export type DestinoSalida =
+  | { tipo: "pestana"; pestana: PestanaLicitacion }
+  | { tipo: "ruta"; href: string };
+
+/**
+ * ¿Qué haría el clic en un enlace estando en `ubicacion`? Sirve para decidir si
+ * hay que avisar de cambios sin guardar: `null` si el enlace deja todo donde
+ * está (otro sitio, ancla, o la misma pestaña), `pestana` si solo cambia la
+ * pestaña de esta ficha y `ruta` si lleva a otra página de la app.
+ */
+export function destinoDeEnlace(
+  href: string,
+  ubicacion: { href: string; pestana: PestanaLicitacion },
+): DestinoSalida | null {
+  let destino: URL;
+  let actual: URL;
+  try {
+    actual = new URL(ubicacion.href);
+    destino = new URL(href, actual);
+  } catch {
+    return null;
+  }
+  if (destino.origin !== actual.origin) return null;
+  if (destino.pathname === actual.pathname) {
+    // Mismo documento: solo cuenta si cambia la pestaña (un ancla o el mismo
+    // `?tab=` no pierden nada).
+    const pestana = parsePestana(destino.searchParams.get("tab"));
+    return pestana === ubicacion.pestana ? null : { tipo: "pestana", pestana };
+  }
+  return { tipo: "ruta", href: `${destino.pathname}${destino.search}${destino.hash}` };
+}
