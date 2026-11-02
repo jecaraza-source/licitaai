@@ -28,7 +28,7 @@
     "restore:verify": "node scripts/restore-verify.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.120.0",
+    "@anthropic-ai/sdk": "^1.3.0",
     "@base-ui/react": "^1.7.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
