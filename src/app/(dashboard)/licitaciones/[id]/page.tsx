@@ -9,6 +9,8 @@ import { TabsContent } from "@/components/ui/tabs";
 import { EstadoBadge } from "@/components/licitaciones/estado-badge";
 import { EstadoSelector } from "@/components/licitaciones/estado-selector";
 import { LicitacionTabsNav } from "@/components/licitaciones/licitacion-tabs-nav";
+import { GateLicitacionProvider } from "@/components/licitaciones/gate-licitacion";
+import { SiguientePasoPanel } from "@/components/licitaciones/siguiente-paso-panel";
 import { ProcesoTimeline } from "@/components/licitaciones/proceso-timeline";
 import { ResumenAnexoTecnicoCard } from "@/components/licitaciones/resumen-anexo-tecnico-card";
 import { ActividadTimeline, type ActividadLogConUsuario } from "@/components/licitaciones/actividad-timeline";
@@ -178,101 +180,108 @@ export default async function LicitacionDetallePage({
         </div>
       </div>
 
-      <LicitacionTabsNav>
-        <TabsContent value="resumen" className="flex flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Proceso de la licitación</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ProcesoTimeline licitacion={licitacion} />
-            </CardContent>
-          </Card>
-          <ControlProcedimientoCard
-            licitacionId={licitacion.id}
-            inicial={{
-              unidad_compradora: licitacion.unidad_compradora,
-              numero_interno: licitacion.numero_interno,
-              enlace_compras_mx: licitacion.enlace_compras_mx,
-              fecha_cierre_interno: licitacion.fecha_cierre_interno,
-              acciones_internas: (licitacion.acciones_internas ?? {}) as Partial<Record<CampoEvento, string>>,
-            }}
-            fechas={Object.fromEntries(CAMPOS_EVENTO.map((c) => [c, licitacion[c]])) as Record<CampoEvento, string | null>}
-          />
-          <ExpedienteCarpetasCard
-            licitacionId={licitacion.id}
-            fuenteCompletaInicial={licitacion.expediente_fuente_completo}
-          />
-          <ResumenAnexoTecnicoCard
-            tipo={licitacion.tipo}
-            esInvestigacionMercado={licitacion.es_investigacion_mercado}
-            analisis={analisis}
-          />
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <ActividadTimeline actividad={actividad} />
-            <ResponsabilidadesCard licitacionId={licitacion.id} />
-          </div>
-        </TabsContent>
+      <GateLicitacionProvider licitacionId={licitacion.id} estado={licitacion.estado_licitacion}>
+        <SiguientePasoPanel
+          licitacionId={licitacion.id}
+          fechaEntrega={licitacion.fecha_entrega_propuesta}
+        />
 
-        <TabsContent value="documentos">
-          <DocumentosTab
-            licitacionId={licitacion.id}
-            organizationId={licitacion.organization_id}
-            initialDocumentos={documentos}
-            modalidadProcedimiento={licitacion.modalidad_procedimiento}
-            initialDocumentosConvocanteNoAplica={licitacion.documentos_convocante_no_aplica ?? []}
-          />
-        </TabsContent>
+        <LicitacionTabsNav>
+          <TabsContent value="resumen" className="flex flex-col gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Proceso de la licitación</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ProcesoTimeline licitacion={licitacion} />
+              </CardContent>
+            </Card>
+            <ControlProcedimientoCard
+              licitacionId={licitacion.id}
+              inicial={{
+                unidad_compradora: licitacion.unidad_compradora,
+                numero_interno: licitacion.numero_interno,
+                enlace_compras_mx: licitacion.enlace_compras_mx,
+                fecha_cierre_interno: licitacion.fecha_cierre_interno,
+                acciones_internas: (licitacion.acciones_internas ?? {}) as Partial<Record<CampoEvento, string>>,
+              }}
+              fechas={Object.fromEntries(CAMPOS_EVENTO.map((c) => [c, licitacion[c]])) as Record<CampoEvento, string | null>}
+            />
+            <ExpedienteCarpetasCard
+              licitacionId={licitacion.id}
+              fuenteCompletaInicial={licitacion.expediente_fuente_completo}
+            />
+            <ResumenAnexoTecnicoCard
+              tipo={licitacion.tipo}
+              esInvestigacionMercado={licitacion.es_investigacion_mercado}
+              analisis={analisis}
+            />
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <ActividadTimeline actividad={actividad} />
+              <ResponsabilidadesCard licitacionId={licitacion.id} />
+            </div>
+          </TabsContent>
 
-        <TabsContent value="analisis" className="flex flex-col gap-6">
-          <AnalisisIaTab licitacionId={licitacion.id} />
-          <ChatDocumento licitacionId={licitacion.id} />
-        </TabsContent>
+          <TabsContent value="documentos">
+            <DocumentosTab
+              licitacionId={licitacion.id}
+              organizationId={licitacion.organization_id}
+              initialDocumentos={documentos}
+              modalidadProcedimiento={licitacion.modalidad_procedimiento}
+              initialDocumentosConvocanteNoAplica={licitacion.documentos_convocante_no_aplica ?? []}
+            />
+          </TabsContent>
 
-        <TabsContent value="viabilidad">
-          <ViabilidadTab licitacionId={licitacion.id} />
-        </TabsContent>
+          <TabsContent value="analisis" className="flex flex-col gap-6">
+            <AnalisisIaTab licitacionId={licitacion.id} />
+            <ChatDocumento licitacionId={licitacion.id} />
+          </TabsContent>
 
-        <TabsContent value="partidas">
-          <PartidasTab licitacionId={licitacion.id} />
-        </TabsContent>
+          <TabsContent value="viabilidad">
+            <ViabilidadTab licitacionId={licitacion.id} />
+          </TabsContent>
 
-        <TabsContent value="junta">
-          <JuntaAclaracionesTab licitacionId={licitacion.id} />
-        </TabsContent>
+          <TabsContent value="partidas">
+            <PartidasTab licitacionId={licitacion.id} />
+          </TabsContent>
 
-        <TabsContent value="propuesta-tecnica">
-          <PropuestaTecnicaTab licitacionId={licitacion.id} />
-        </TabsContent>
+          <TabsContent value="junta">
+            <JuntaAclaracionesTab licitacionId={licitacion.id} />
+          </TabsContent>
 
-        <TabsContent value="propuesta-economica">
-          <PropuestaEconomicaTab licitacionId={licitacion.id} />
-        </TabsContent>
+          <TabsContent value="propuesta-tecnica">
+            <PropuestaTecnicaTab licitacionId={licitacion.id} />
+          </TabsContent>
 
-        <TabsContent value="documentos-legales">
-          <DocumentosLegalesTab licitacionId={licitacion.id} />
-        </TabsContent>
+          <TabsContent value="propuesta-economica">
+            <PropuestaEconomicaTab licitacionId={licitacion.id} />
+          </TabsContent>
 
-        <TabsContent value="documentos-tecnicos">
-          <DocumentosTecnicosTab licitacionId={licitacion.id} />
-        </TabsContent>
+          <TabsContent value="documentos-legales">
+            <DocumentosLegalesTab licitacionId={licitacion.id} />
+          </TabsContent>
 
-        <TabsContent value="auditoria">
-          <AuditoriaTab licitacionId={licitacion.id} />
-        </TabsContent>
+          <TabsContent value="documentos-tecnicos">
+            <DocumentosTecnicosTab licitacionId={licitacion.id} />
+          </TabsContent>
 
-        <TabsContent value="liberacion">
-          <LiberacionTab
-            licitacionId={licitacion.id}
-            organizationId={licitacion.organization_id}
-            esInvestigacionMercado={licitacion.es_investigacion_mercado}
-          />
-        </TabsContent>
+          <TabsContent value="auditoria">
+            <AuditoriaTab licitacionId={licitacion.id} />
+          </TabsContent>
 
-        <TabsContent value="seguimiento">
-          <SeguimientoTab licitacionId={licitacion.id} organizationId={licitacion.organization_id} />
-        </TabsContent>
-      </LicitacionTabsNav>
+          <TabsContent value="liberacion">
+            <LiberacionTab
+              licitacionId={licitacion.id}
+              organizationId={licitacion.organization_id}
+              esInvestigacionMercado={licitacion.es_investigacion_mercado}
+            />
+          </TabsContent>
+
+          <TabsContent value="seguimiento">
+            <SeguimientoTab licitacionId={licitacion.id} organizationId={licitacion.organization_id} />
+          </TabsContent>
+        </LicitacionTabsNav>
+      </GateLicitacionProvider>
     </div>
   );
 }

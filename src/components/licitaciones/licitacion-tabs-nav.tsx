@@ -18,6 +18,8 @@ import {
   CambiosSinGuardarContext,
   useAlmacenCambios,
 } from "@/components/licitaciones/cambios-sin-guardar";
+import { useGateLicitacion } from "@/components/licitaciones/gate-licitacion";
+import { pendientesPorGrupo, pendientesPorPestana } from "@/lib/siguiente-paso";
 import {
   GRUPOS_PESTANAS,
   PESTANA_INICIAL,
@@ -26,6 +28,23 @@ import {
   parsePestana,
   type DestinoSalida,
 } from "@/lib/navegacion";
+
+// Cuántos pendientes de la compuerta de liberación hay detrás de una pestaña o
+// grupo; el número se dice también a lectores de pantalla.
+function InsigniaPendientes({ n, sobreAcento = false }: { n: number; sobreAcento?: boolean }) {
+  if (n <= 0) return null;
+  return (
+    <span
+      className={cn(
+        "ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums",
+        sobreAcento ? "bg-primary-foreground/25 text-primary-foreground" : "bg-destructive/15 text-destructive",
+      )}
+    >
+      {n}
+      <span className="sr-only"> pendientes</span>
+    </span>
+  );
+}
 
 // La pestaña activa se refleja en la URL (`?tab=liberacion`): recargar o volver
 // atrás no pierde el lugar, y cualquier aviso puede enlazar a una pestaña.
@@ -43,6 +62,9 @@ export function LicitacionTabsNav({ children }: { children: ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const almacen = useAlmacenCambios();
+  const { pasos } = useGateLicitacion();
+  const pendientesGrupo = pendientesPorGrupo(pasos);
+  const pendientesTab = pendientesPorPestana(pasos);
   const [pendiente, setPendiente] = useState<DestinoSalida | null>(null);
   const tabEnUrl = parsePestana(searchParams.get("tab"));
   const [tab, setTab] = useState(tabEnUrl);
@@ -134,6 +156,7 @@ export function LicitacionTabsNav({ children }: { children: ReactNode }) {
                     )}
                   >
                     {grupo.label}
+                    <InsigniaPendientes n={pendientesGrupo[grupo.label] ?? 0} sobreAcento={activo} />
                   </button>
                 );
               })}
@@ -155,6 +178,7 @@ export function LicitacionTabsNav({ children }: { children: ReactNode }) {
                   className="-mb-px whitespace-nowrap border-b-2 border-transparent px-1 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-active:border-primary data-active:font-semibold data-active:text-primary"
                 >
                   {t.label}
+                  <InsigniaPendientes n={pendientesTab[t.value] ?? 0} />
                 </TabsPrimitive.Tab>
               ))}
             </TabsPrimitive.List>
