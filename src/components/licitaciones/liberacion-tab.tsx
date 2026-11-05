@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { createClient } from "@/lib/supabase/client";
 import { cn, sanitizeFilename } from "@/lib/utils";
 import { hrefPestana } from "@/lib/navegacion";
+import { EVENTO_GATE_CAMBIO } from "@/components/licitaciones/gate-licitacion";
 import { IndiceMaestroCard } from "@/components/licitaciones/indice-maestro-card";
 import { JerarquiaAutorizacionCard } from "@/components/licitaciones/jerarquia-autorizacion-card";
 import type { ChecklistLiberacionItem, EvidenciaEnvio } from "@/types";
@@ -243,6 +244,9 @@ export function LiberacionTab({
     }
     const json = await res.json();
     setGate(json.data);
+    // El panel "Siguiente paso" lee la compuerta por su cuenta: se le avisa para
+    // que sus números no queden un punto atrás de los de esta pestaña.
+    window.dispatchEvent(new Event(EVENTO_GATE_CAMBIO));
   }
 
   if (!gate) {
@@ -317,7 +321,13 @@ export function LiberacionTab({
         </CardContent>
       </Card>
 
-      <JerarquiaAutorizacionCard licitacionId={licitacionId} onUpdated={cargar} />
+      <JerarquiaAutorizacionCard
+        licitacionId={licitacionId}
+        onUpdated={() => {
+          cargar();
+          window.dispatchEvent(new Event(EVENTO_GATE_CAMBIO));
+        }}
+      />
 
       {(gate.rojos > 0 || gate.amarillosCriticos > 0) && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
