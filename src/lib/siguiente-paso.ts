@@ -108,9 +108,12 @@ export function pendientesPorGrupo(pasos: PasoPendiente[]): Record<string, numbe
   return por;
 }
 
+/** Estados en los que la licitación aún no se envía: ahí corre la fecha de entrega y rige la compuerta. */
+export const ESTADOS_PENDIENTES_DE_ENVIO = ["NUEVA", "ANALISIS", "PREPARACION"] as const satisfies readonly EstadoLicitacion[];
+
 /** La compuerta solo importa mientras la licitación no se ha enviado. */
 export function compuertaRelevante(estado: EstadoLicitacion): boolean {
-  return estado === "NUEVA" || estado === "ANALISIS" || estado === "PREPARACION";
+  return (ESTADOS_PENDIENTES_DE_ENVIO as readonly string[]).includes(estado);
 }
 
 // --- Fecha de entrega ---

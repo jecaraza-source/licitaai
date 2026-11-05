@@ -139,6 +139,12 @@ export function serializarFiltrosLista(f: FiltrosLista): string {
   return params.toString();
 }
 
+/** Enlace a la lista de licitaciones ya filtrada por estado (para tarjetas y gráficas del dashboard). */
+export function hrefListaPorEstado(estado: string): string {
+  const qs = serializarFiltrosLista({ ...FILTROS_VACIOS, estadoLicitacion: enLista(estado, ESTADOS_LICITACION) });
+  return qs ? `/licitaciones?${qs}` : "/licitaciones";
+}
+
 const CLAVES_FILTROS = ["q", "estado", "tipo", "jurisdiccion", "pagina"];
 
 /**
