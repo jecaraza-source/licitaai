@@ -1,4 +1,5 @@
 import { apiRoute, ApiError } from "@/lib/api";
+import { ESTADOS_PENDIENTES_DE_ENVIO } from "@/lib/siguiente-paso";
 import type { DashboardStats, EstadoLicitacion } from "@/types";
 
 const ESTADOS: EstadoLicitacion[] = [
@@ -24,7 +25,9 @@ export const GET = apiRoute({}, async ({ ctx }) => {
       ctx.supabase
         .from("licitaciones")
         .select("id", { count: "exact", head: true })
-        .not("estado_licitacion", "in", "(ENVIADA,CERRADA)")
+        // Mismos estados que la lista "Requieren atención": ya enviada o en
+        // seguimiento, la fecha de entrega deja de ser un pendiente.
+        .in("estado_licitacion", [...ESTADOS_PENDIENTES_DE_ENVIO])
         .gte("fecha_entrega_propuesta", now.toISOString())
         .lte("fecha_entrega_propuesta", in7Days.toISOString()),
       ctx.supabase

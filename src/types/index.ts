@@ -430,6 +430,23 @@ export interface DashboardStats {
   porEstado: Record<EstadoLicitacion, number>;
 }
 
+/** Licitación sin enviar cuya entrega vence pronto o ya venció (dashboard). */
+export interface LicitacionUrgente {
+  id: string;
+  numero_expediente: string;
+  titulo: string;
+  institucion: string;
+  estado_licitacion: EstadoLicitacion;
+  fecha_entrega_propuesta: string | null;
+  monto_maximo: number | null;
+}
+
+export interface DashboardUrgentes {
+  items: LicitacionUrgente[];
+  /** Cuántas hay en total (items trae solo las más urgentes). */
+  total: number;
+}
+
 export type FuncionProcedimiento =
   | "COORDINADOR"
   | "JURIDICO"

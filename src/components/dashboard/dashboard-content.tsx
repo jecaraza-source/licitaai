@@ -9,17 +9,28 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EstadoBadge } from "@/components/licitaciones/estado-badge";
 import { EstadoBarChart } from "@/components/dashboard/estado-bar-chart";
 import { cn } from "@/lib/utils";
-import type { DashboardStats, Licitacion } from "@/types";
+import { hrefListaPorEstado } from "@/lib/navegacion";
+import { diasParaEntrega, estadoEntrega, type TonoEntrega } from "@/lib/siguiente-paso";
+import type { DashboardStats, DashboardUrgentes, Licitacion } from "@/types";
 
 type KpiKey = "totalActivas" | "proximasAVencer" | "enPreparacion" | "enviadasEsteMes";
 type KpiColor = "emerald" | "amber" | "sky" | "violet";
 
-const KPI_LABELS: { key: KpiKey; label: string; icon: typeof Rocket; color: KpiColor }[] = [
-  { key: "totalActivas", label: "Licitaciones activas", icon: Rocket, color: "emerald" },
-  { key: "proximasAVencer", label: "Próximas a vencer (7 días)", icon: Clock, color: "amber" },
-  { key: "enPreparacion", label: "En preparación", icon: FileEdit, color: "sky" },
-  { key: "enviadasEsteMes", label: "Enviadas este mes", icon: Send, color: "violet" },
+// Cada tarjeta lleva a donde está el detalle de su número.
+const KPI_LABELS: { key: KpiKey; label: string; icon: typeof Rocket; color: KpiColor; href: string }[] = [
+  { key: "totalActivas", label: "Licitaciones activas", icon: Rocket, color: "emerald", href: "/licitaciones" },
+  { key: "proximasAVencer", label: "Próximas a vencer (7 días)", icon: Clock, color: "amber", href: "#requieren-atencion" },
+  { key: "enPreparacion", label: "En preparación", icon: FileEdit, color: "sky", href: hrefListaPorEstado("PREPARACION") },
+  { key: "enviadasEsteMes", label: "Enviadas este mes", icon: Send, color: "violet", href: hrefListaPorEstado("ENVIADA") },
 ];
+
+const TONO_ENTREGA: Record<TonoEntrega, string> = {
+  vencida: "text-destructive",
+  urgente: "text-destructive",
+  proxima: "text-amber-600 dark:text-amber-400",
+  holgada: "text-muted-foreground",
+  "sin-fecha": "text-muted-foreground",
+};
 
 // Un color por tarjeta para que se distingan de un vistazo — antes todas
 // compartían el mismo primario neutro.
@@ -42,19 +53,13 @@ const KPI_ESTILOS: Record<KpiColor, { card: string; icon: string }> = {
   },
 };
 
-function diasRestantes(fecha: string | null): number | null {
-  if (!fecha) return null;
-  const diff = new Date(fecha).getTime() - Date.now();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
-
 function formatMonto(monto: number | null) {
   if (monto === null) return null;
   return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(monto);
 }
 
 function Countdown({ fecha }: { fecha: string | null }) {
-  const dias = diasRestantes(fecha);
+  const dias = diasParaEntrega(fecha, new Date());
   if (dias === null) return <span className="text-muted-foreground">Sin fecha</span>;
   if (dias < 0) return <span className="text-muted-foreground">Vencida</span>;
 
@@ -73,8 +78,10 @@ function Countdown({ fecha }: { fecha: string | null }) {
 export function DashboardContent() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recientes, setRecientes] = useState<Licitacion[] | null>(null);
+  const [urgentes, setUrgentes] = useState<DashboardUrgentes | null>(null);
   const [errorStats, setErrorStats] = useState(false);
   const [errorRecientes, setErrorRecientes] = useState(false);
+  const [errorUrgentes, setErrorUrgentes] = useState(false);
   const [intento, setIntento] = useState(0);
 
   useEffect(() => {
@@ -88,6 +95,9 @@ export function DashboardContent() {
     pedir("/api/dashboard/stats")
       .then((json) => activo && setStats(json.data))
       .catch(() => activo && setErrorStats(true));
+    pedir("/api/dashboard/urgentes")
+      .then((json) => activo && setUrgentes(json.data))
+      .catch(() => activo && setErrorUrgentes(true));
     pedir("/api/licitaciones?page=1&pageSize=5")
       .then((json) => activo && setRecientes(json.data?.data ?? []))
       .catch(() => activo && setErrorRecientes(true));
@@ -100,10 +110,11 @@ export function DashboardContent() {
   function reintentar() {
     setErrorStats(false);
     setErrorRecientes(false);
+    setErrorUrgentes(false);
     setIntento((n) => n + 1);
   }
 
-  const hayError = errorStats || errorRecientes;
+  const hayError = errorStats || errorRecientes || errorUrgentes;
 
   return (
     <div className="flex flex-col gap-6">
@@ -122,35 +133,102 @@ export function DashboardContent() {
         </div>
       )}
       <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-        {KPI_LABELS.map(({ key, label, icon: Icon, color }) => (
-          <Card key={key} size="sm" className={cn("gap-1.5", KPI_ESTILOS[color].card)}>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-0.5">
-              <CardTitle className="text-[11px] leading-tight font-medium text-muted-foreground">
-                {label}
-              </CardTitle>
-              <span
-                className={cn(
-                  "flex size-5 shrink-0 items-center justify-center rounded-full",
-                  KPI_ESTILOS[color].icon,
+        {KPI_LABELS.map(({ key, label, icon: Icon, color, href }) => (
+          <Link
+            key={key}
+            href={href}
+            className="rounded-xl transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <Card size="sm" className={cn("h-full gap-1.5", KPI_ESTILOS[color].card)}>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-0.5">
+                <CardTitle className="text-[11px] leading-tight font-medium text-muted-foreground">
+                  {label}
+                </CardTitle>
+                <span
+                  className={cn(
+                    "flex size-5 shrink-0 items-center justify-center rounded-full",
+                    KPI_ESTILOS[color].icon,
+                  )}
+                >
+                  <Icon className="size-3" />
+                </span>
+              </CardHeader>
+              <CardContent>
+                {stats ? (
+                  <p className="text-lg font-bold">{stats[key]}</p>
+                ) : errorStats ? (
+                  <p className="text-lg font-bold text-muted-foreground" aria-label="No disponible">
+                    —
+                  </p>
+                ) : (
+                  <Skeleton className="h-6 w-10" />
                 )}
-              >
-                <Icon className="size-3" />
-              </span>
-            </CardHeader>
-            <CardContent>
-              {stats ? (
-                <p className="text-lg font-bold">{stats[key]}</p>
-              ) : errorStats ? (
-                <p className="text-lg font-bold text-muted-foreground" aria-label="No disponible">
-                  —
-                </p>
-              ) : (
-                <Skeleton className="h-6 w-10" />
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         ))}
       </div>
+
+      <Card id="requieren-atencion" className="scroll-mt-4">
+        <CardHeader>
+          <CardTitle>Requieren atención</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Sin enviar, con entrega en los próximos 7 días o ya vencida.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {urgentes === null && errorUrgentes ? (
+            <p className="text-sm text-muted-foreground">No disponible por ahora.</p>
+          ) : urgentes === null ? (
+            <div className="flex flex-col gap-3">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : urgentes.items.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Todo al día: ninguna licitación sin enviar vence en los próximos 7 días ni está vencida.
+            </p>
+          ) : (
+            <>
+              <ul className="flex flex-col divide-y">
+                {urgentes.items.map((l) => {
+                  const entrega = estadoEntrega(diasParaEntrega(l.fecha_entrega_propuesta, new Date()));
+                  return (
+                    <li key={l.id}>
+                      <Link
+                        href={`/licitaciones/${l.id}`}
+                        className="flex flex-col gap-1 py-3 hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium break-words">
+                            {l.numero_expediente} — {l.titulo}
+                          </p>
+                          <p className="text-sm break-words text-muted-foreground">{l.institucion}</p>
+                        </div>
+                        <div className="flex shrink-0 flex-row flex-wrap items-center gap-2 text-sm sm:flex-col sm:items-end sm:gap-1">
+                          <span className={cn("text-xs font-semibold", TONO_ENTREGA[entrega.tono])}>
+                            {entrega.etiqueta}
+                          </span>
+                          <EstadoBadge estado={l.estado_licitacion} />
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+              {urgentes.total > urgentes.items.length && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  y {urgentes.total - urgentes.items.length} más.{" "}
+                  <Link href="/licitaciones" className="font-medium underline underline-offset-2">
+                    Ver todas las licitaciones
+                  </Link>
+                </p>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

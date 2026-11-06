@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { hrefListaPorEstado } from "@/lib/navegacion";
 import type { DashboardStats, EstadoLicitacion } from "@/types";
 
 const ESTADOS: { key: EstadoLicitacion; label: string }[] = [
@@ -32,14 +34,15 @@ export function EstadoBarChart({ porEstado }: { porEstado: DashboardStats["porEs
         const valor = porEstado[e.key] ?? 0;
         const pct = (valor / max) * 100;
         return (
-          <div
+          <Link
             key={e.key}
-            className="group flex items-center gap-3"
+            href={hrefListaPorEstado(e.key)}
+            aria-label={`${e.label}: ${valor}. Ver la lista`}
+            className="group -mx-1.5 flex items-center gap-3 rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-ring"
             onPointerEnter={() => setActivo(e.key)}
             onPointerLeave={() => setActivo((a) => (a === e.key ? null : a))}
             onFocus={() => setActivo(e.key)}
             onBlur={() => setActivo((a) => (a === e.key ? null : a))}
-            tabIndex={0}
           >
             <span className="w-20 shrink-0 text-xs text-muted-foreground">{e.label}</span>
             <div className="relative h-1.5 max-w-xs flex-1 bg-muted">
@@ -62,7 +65,7 @@ export function EstadoBarChart({ porEstado }: { porEstado: DashboardStats["porEs
             <span className="w-6 shrink-0 text-right text-xs font-semibold tabular-nums">
               {valor}
             </span>
-          </div>
+          </Link>
         );
       })}
     </div>

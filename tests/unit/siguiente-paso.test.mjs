@@ -2,6 +2,7 @@
 // Run: npx tsx tests/unit/siguiente-paso.test.mjs
 import {
   compuertaRelevante,
+  ESTADOS_PENDIENTES_DE_ENVIO,
   diasParaEntrega,
   estadoEntrega,
   pasosPendientes,
@@ -88,6 +89,7 @@ check("titular no afirma que todo está listo si la compuerta bloquea sin pasos"
 
 // --- relevancia ---
 check("la compuerta importa antes de enviar", ["NUEVA", "ANALISIS", "PREPARACION"].every(compuertaRelevante));
+check("la lista de estados pendientes de envío coincide con compuertaRelevante", ["NUEVA", "ANALISIS", "PREPARACION", "ENVIADA", "SEGUIMIENTO", "CERRADA"].every((e) => compuertaRelevante(e) === ESTADOS_PENDIENTES_DE_ENVIO.includes(e)));
 check("y deja de importar después", ["ENVIADA", "SEGUIMIENTO", "CERRADA"].every((e) => !compuertaRelevante(e)));
 
 // --- fecha de entrega (hora de Ciudad de México, UTC-6 sin horario de verano) ---

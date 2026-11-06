@@ -10,6 +10,7 @@ import {
   aplicarFiltrosAQuery,
   destinoDeEnlace,
   esRutaActiva,
+  hrefListaPorEstado,
   grupoDePestana,
   hrefPestana,
   parseFiltrosLista,
@@ -79,6 +80,11 @@ check("enlace a otra página de la app → ruta con query y ancla", JSON.stringi
 check("enlace absoluto al mismo origen se trata como ruta", JSON.stringify(destinoDeEnlace("https://app.test/dashboard", aqui)) === JSON.stringify({ tipo: "ruta", href: "/dashboard" }));
 check("enlace a otro sitio no se intercepta", destinoDeEnlace("https://otro.test/licitaciones/abc", aqui) === null);
 check("href inválido no rompe", destinoDeEnlace("http://", aqui) === null);
+
+// --- hrefListaPorEstado: tarjetas y gráfica del dashboard llevan a la lista filtrada ---
+check("enlace a la lista por estado", hrefListaPorEstado("PREPARACION") === "/licitaciones?estado=PREPARACION");
+check("el enlace se lee de vuelta con los mismos filtros", parseFiltrosLista(new URLSearchParams(hrefListaPorEstado("ENVIADA").split("?")[1])).estadoLicitacion === "ENVIADA");
+check("un estado inexistente cae en la lista sin filtro", hrefListaPorEstado("HACKEADA") === "/licitaciones");
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
