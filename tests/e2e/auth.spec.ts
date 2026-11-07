@@ -12,7 +12,7 @@ test.describe("Autenticación", () => {
 
     await login(page, TEST_USER.email, TEST_USER.password);
     await expect(page).toHaveURL(/\/dashboard/);
-    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
 
     await page.getByRole("button").filter({ hasText: "" }).first(); // abre menú de usuario
     await page.locator('[data-slot="dropdown-menu-trigger"]').click();
