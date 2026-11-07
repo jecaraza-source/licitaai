@@ -2,6 +2,14 @@ import { test, expect } from "@playwright/test";
 import { login, TEST_USER } from "./helpers";
 
 test.describe("Autenticación", () => {
+  test("la página de inicio es pública y lleva al login", async ({ page }) => {
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("licitaciones públicas");
+    await page.getByRole("link", { name: "Iniciar sesión" }).first().click();
+    await expect(page).toHaveURL(/\/login/);
+  });
+
   test("redirige a /login cuando no hay sesión", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
