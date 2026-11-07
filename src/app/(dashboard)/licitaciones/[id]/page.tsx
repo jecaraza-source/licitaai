@@ -120,6 +120,7 @@ export default async function LicitacionDetallePage({
         </span>
       </nav>
 
+      <GateLicitacionProvider licitacionId={licitacion.id} estado={licitacion.estado_licitacion}>
       <div className="rounded-xl border bg-card p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
@@ -180,7 +181,6 @@ export default async function LicitacionDetallePage({
         </div>
       </div>
 
-      <GateLicitacionProvider licitacionId={licitacion.id} estado={licitacion.estado_licitacion}>
         <SiguientePasoPanel
           licitacionId={licitacion.id}
           fechaEntrega={licitacion.fecha_entrega_propuesta}
