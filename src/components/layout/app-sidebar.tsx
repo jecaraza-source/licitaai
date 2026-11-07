@@ -21,7 +21,7 @@ import {
 const LICITAAI_LOGO = "/branding/licitaai-dashboard-horizontal.png";
 
 const OPERATION_ITEMS = [
-  { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Inicio", icon: LayoutDashboard },
   { href: "/licitaciones", label: "Licitaciones", icon: FileStack },
   { href: "/licitaciones/nueva", label: "Nueva licitación", icon: PlusCircle, requiereEscritura: true },
 ];
@@ -55,7 +55,7 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="py-4">
+      <SidebarHeader className="py-3">
         <Link href="/dashboard" className="flex w-full items-center justify-center px-2">
           {logoUrl ? (
             <Image
@@ -64,7 +64,7 @@ export function AppSidebar({
               width={130}
               height={60}
               priority
-              className="h-16 w-auto object-contain group-data-[collapsible=icon]:size-9"
+              className="h-14 w-auto object-contain group-data-[collapsible=icon]:size-9"
             />
           ) : (
             <Image
@@ -74,7 +74,7 @@ export function AppSidebar({
               height={90}
               priority
               unoptimized
-              className="h-40 w-auto max-w-full object-contain group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9"
+              className="h-14 w-auto max-w-full object-contain group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9"
             />
           )}
           {/* Fallback de marca textual oculto visualmente para lectores de pantalla */}
@@ -124,16 +124,6 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <div className="flex justify-center group-data-[collapsible=icon]:hidden">
-          <Image
-            src={LICITAAI_LOGO}
-            alt="LicitaAI"
-            width={220}
-            height={90}
-            unoptimized
-            className="h-42 w-auto max-w-full object-contain"
-          />
-        </div>
         {mostrarAdmin && (
           <SidebarGroup className="p-0">
             <SidebarGroupLabel className="px-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">

@@ -78,7 +78,7 @@ check("motivo desconocido no rompe", pasosPendientes(con({ revisionIndependiente
 const porPestana = pendientesPorPestana(pasos);
 check("pendientes por pestaña suman los de la misma pestaña", porPestana.liberacion === 4 && porPestana.auditoria === 3 && porPestana["propuesta-tecnica"] === 1 && porPestana.analisis === 1, JSON.stringify(porPestana));
 const porGrupo = pendientesPorGrupo(pasos);
-check("pendientes por grupo", porGrupo.Proceso === 7 && porGrupo.Propuesta === 2 && porGrupo["Análisis"] === 1 && porGrupo.Resumen === undefined && porGrupo.Documentos === undefined, JSON.stringify(porGrupo));
+check("pendientes por grupo", porGrupo["Revisión y envío"] === 7 && porGrupo.Propuesta === 2 && porGrupo["Análisis"] === 1 && porGrupo.Resumen === undefined && porGrupo.Documentos === undefined, JSON.stringify(porGrupo));
 check("sin pendientes no hay insignias", Object.keys(pendientesPorGrupo([])).length === 0);
 
 // --- titular ---

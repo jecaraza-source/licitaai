@@ -39,8 +39,10 @@ check("parsePestana: sin parámetro → pestaña inicial", parsePestana(null) ==
 check("parsePestana: valor desconocido o malicioso → pestaña inicial", ["", "nada", "../x", "<script>", "LIBERACION"].every((v) => parsePestana(v) === PESTANA_INICIAL));
 check("hrefPestana lleva ?tab= salvo en la inicial", hrefPestana("abc", "liberacion") === "/licitaciones/abc?tab=liberacion" && hrefPestana("abc", "resumen") === "/licitaciones/abc");
 check("hrefPestana normaliza una pestaña inválida", hrefPestana("abc", "inventada") === "/licitaciones/abc");
-check("grupoDePestana: Liberación pertenece a Proceso", grupoDePestana("liberacion").label === "Proceso");
+check("grupoDePestana: Liberación pertenece a Revisión y envío", grupoDePestana("liberacion").label === "Revisión y envío");
 check("grupoDePestana: desconocida cae en el primer grupo", grupoDePestana("x").label === GRUPOS_PESTANAS[0].label);
+check("grupoDePestana: Partidas y Junta pertenecen a Análisis", grupoDePestana("partidas").label === "Análisis" && grupoDePestana("junta").label === "Análisis");
+check("grupoDePestana: Seguimiento es su propio grupo", grupoDePestana("seguimiento").label === "Seguimiento" && grupoDePestana("seguimiento").tabs.length === 1);
 check("todo grupo tiene al menos una pestaña", GRUPOS_PESTANAS.every((g) => g.tabs.length >= 1));
 
 // --- barra lateral ---

@@ -190,7 +190,7 @@ export default async function LicitacionDetallePage({
           <TabsContent value="resumen" className="flex flex-col gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Proceso de la licitación</CardTitle>
+                <CardTitle>Fechas clave</CardTitle>
               </CardHeader>
               <CardContent>
                 <ProcesoTimeline licitacion={licitacion} />
