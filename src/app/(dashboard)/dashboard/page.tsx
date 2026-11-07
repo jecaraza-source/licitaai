@@ -10,7 +10,7 @@ export default function DashboardPage() {
           <span className="flex size-9 items-center justify-center rounded-lg bg-secondary text-primary">
             <LayoutDashboard className="size-5" />
           </span>
-          Dashboard
+          Inicio
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">Resumen general de tus licitaciones.</p>
       </div>

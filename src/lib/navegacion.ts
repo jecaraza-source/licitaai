@@ -15,9 +15,13 @@ export interface GrupoPestanas {
   tabs: PestanaDef[];
 }
 
-// 13 pestañas agrupadas en 5 categorías por fase del proceso: un primer nivel
-// de categorías y, si la categoría activa tiene más de una pestaña, un segundo
-// nivel con las de esa categoría.
+// 13 pestañas agrupadas en 6 categorías en el orden en que se trabaja una
+// licitación: se reúnen los documentos, se analizan las bases (incluidas las
+// partidas que nacen de ahí y la junta de aclaraciones, donde se aclaran las
+// dudas de ese análisis), se arma la propuesta, se revisa y libera antes de
+// enviar, y al final se da seguimiento. Un primer nivel de categorías y, si la
+// categoría activa tiene más de una pestaña, un segundo nivel con las suyas.
+// Los valores de las pestañas (`?tab=`) no cambian al reordenar.
 export const GRUPOS_PESTANAS: GrupoPestanas[] = [
   { label: "Resumen", tabs: [{ value: "resumen", label: "Resumen" }] },
   {
@@ -32,26 +36,26 @@ export const GRUPOS_PESTANAS: GrupoPestanas[] = [
     label: "Análisis",
     tabs: [
       { value: "analisis", label: "Análisis IA" },
+      { value: "partidas", label: "Partidas" },
       { value: "viabilidad", label: "Viabilidad" },
+      { value: "junta", label: "Junta de Aclaraciones" },
     ],
   },
   {
     label: "Propuesta",
     tabs: [
-      { value: "partidas", label: "Partidas" },
       { value: "propuesta-tecnica", label: "Propuesta Técnica" },
       { value: "propuesta-economica", label: "Propuesta Económica" },
     ],
   },
   {
-    label: "Proceso",
+    label: "Revisión y envío",
     tabs: [
       { value: "auditoria", label: "Auditoría" },
       { value: "liberacion", label: "Liberación" },
-      { value: "junta", label: "Junta de Aclaraciones" },
-      { value: "seguimiento", label: "Seguimiento" },
     ],
   },
+  { label: "Seguimiento", tabs: [{ value: "seguimiento", label: "Seguimiento" }] },
 ];
 
 export const PESTANA_INICIAL = "resumen";
