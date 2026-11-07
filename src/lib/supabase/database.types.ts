@@ -791,6 +791,95 @@ export type Database = {
         }
         Relationships: []
       }
+      correos_compras_mx: {
+        Row: {
+          adjuntos: NonNullable<Json>
+          asunto: string
+          created_at: string
+          cuerpo_texto: string
+          de: string
+          estado: string
+          gestionado_en: string | null
+          gestionado_por: string | null
+          id: string
+          licitacion_id: string | null
+          message_id: string | null
+          organization_id: string
+          para: string[]
+          recibido_en: string
+          remitente_reconocido: boolean
+          resend_email_id: string
+          sugerencia_licitacion_id: string | null
+        }
+        Insert: {
+          adjuntos?: NonNullable<Json>
+          asunto?: string
+          created_at?: string
+          cuerpo_texto?: string
+          de: string
+          estado?: string
+          gestionado_en?: string | null
+          gestionado_por?: string | null
+          id?: string
+          licitacion_id?: string | null
+          message_id?: string | null
+          organization_id: string
+          para?: string[]
+          recibido_en: string
+          remitente_reconocido?: boolean
+          resend_email_id: string
+          sugerencia_licitacion_id?: string | null
+        }
+        Update: {
+          adjuntos?: NonNullable<Json>
+          asunto?: string
+          created_at?: string
+          cuerpo_texto?: string
+          de?: string
+          estado?: string
+          gestionado_en?: string | null
+          gestionado_por?: string | null
+          id?: string
+          licitacion_id?: string | null
+          message_id?: string | null
+          organization_id?: string
+          para?: string[]
+          recibido_en?: string
+          remitente_reconocido?: boolean
+          resend_email_id?: string
+          sugerencia_licitacion_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "correos_compras_mx_gestionado_por_fkey"
+            columns: ["gestionado_por"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "correos_compras_mx_licitacion_id_fkey"
+            columns: ["licitacion_id"]
+            isOneToOne: false
+            referencedRelation: "licitaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "correos_compras_mx_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "correos_compras_mx_sugerencia_licitacion_id_fkey"
+            columns: ["sugerencia_licitacion_id"]
+            isOneToOne: false
+            referencedRelation: "licitaciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       data_retention_policy: {
         Row: {
           activo: boolean
@@ -1878,6 +1967,7 @@ export type Database = {
       }
       organizations: {
         Row: {
+          alias_correo: string
           created_at: string
           id: string
           jurisdiccion: string | null
@@ -1886,6 +1976,7 @@ export type Database = {
           rfc: string | null
         }
         Insert: {
+          alias_correo?: string
           created_at?: string
           id?: string
           jurisdiccion?: string | null
@@ -1894,6 +1985,7 @@ export type Database = {
           rfc?: string | null
         }
         Update: {
+          alias_correo?: string
           created_at?: string
           id?: string
           jurisdiccion?: string | null

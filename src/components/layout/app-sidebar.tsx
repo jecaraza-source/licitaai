@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, FileStack, LayoutDashboard, PlusCircle, Scale, Settings, Users } from "lucide-react";
+import { Activity, FileStack, LayoutDashboard, Mail, PlusCircle, Scale, Settings, Users } from "lucide-react";
 import { esRutaActiva } from "@/lib/navegacion";
 import {
   Sidebar,
@@ -24,6 +24,7 @@ const OPERATION_ITEMS = [
   { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
   { href: "/licitaciones", label: "Licitaciones", icon: FileStack },
   { href: "/licitaciones/nueva", label: "Nueva licitación", icon: PlusCircle, requiereEscritura: true },
+  { href: "/correos", label: "Correos", icon: Mail },
 ];
 
 const MANAGEMENT_ITEMS = [
@@ -88,7 +89,7 @@ export function AppSidebar({
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.filter((item) => item.href === "/dashboard" || item.href.startsWith("/licitaciones")).map((item) => {
+              {items.filter((item) => item.href === "/dashboard" || item.href.startsWith("/licitaciones") || item.href === "/correos").map((item) => {
                 const isActive = esRutaActiva(item.href, pathname);
                 return (
                   <SidebarMenuItem key={item.href}>

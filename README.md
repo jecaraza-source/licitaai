@@ -45,7 +45,9 @@ TipTap · react-pdf · react-dropzone · docx / xlsx · Resend · Sentry · Play
 | `SUPABASE_SERVICE_ROLE_KEY` | Cron de alertas de vencimiento | Supabase → Project Settings → API |
 | `ANTHROPIC_API_KEY` | Análisis IA, chat, propuestas, auditoría | console.anthropic.com |
 | `OPENAI_API_KEY` | Embeddings (búsqueda semántica) | platform.openai.com |
-| `RESEND_API_KEY` | Emails transaccionales | resend.com/api-keys |
+| `RESEND_API_KEY` | Emails transaccionales y lectura de correos recibidos | resend.com/api-keys |
+| `CORREO_ENTRADA_DOMINIO` | Bandeja de correos de Compras MX (subdominio de entrada) | Ver `docs/correos-compras-mx.md` |
+| `RESEND_WEBHOOK_SECRET` | Firma del webhook de correo entrante | resend.com/webhooks |
 | `NEXT_PUBLIC_SENTRY_DSN` / `SENTRY_DSN` | Monitoreo de errores (opcional) | sentry.io |
 | `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN` | Subida de sourcemaps (opcional) | sentry.io |
 | `CRON_SECRET` | Autoriza el cron de Vercel | Genera cualquier cadena aleatoria |
