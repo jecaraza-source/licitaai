@@ -5,12 +5,11 @@ import { Label } from "@/components/ui/label";
 import { DynamicList } from "@/components/configuracion/empresa-perfil-form";
 import type { FormState, SetCampo } from "@/hooks/use-empresa-perfil-form";
 
-// Certificaciones, clientes de referencia y datos técnicos de la empresa —
-// se muestran junto a los documentos corporativos porque, igual que ellos,
-// alimentan las propuestas técnicas (TEC01-TEC08) más que el alta de la
-// empresa en sí. Comparten el mismo `form`/`setCampo` que EmpresaPerfilForm
-// (useEmpresaPerfilForm, instanciado una sola vez en ConfiguracionEmpresa),
-// así que se guardan juntos con el botón "Guardar perfil" de esa tarjeta.
+// Certificaciones, clientes de referencia y datos técnicos de la empresa: alimentan
+// las propuestas técnicas (TEC01-TEC08) más que el alta de la empresa en sí. Van
+// dentro del formulario del perfil (EmpresaPerfilForm, vía `extra`) y comparten su
+// `form`/`setCampo` (useEmpresaPerfilForm, instanciado una sola vez en
+// ConfiguracionTabs), así que se editan y guardan con el botón "Guardar perfil".
 export function OtrosDatosEmpresaForm({
   form,
   setCampo,

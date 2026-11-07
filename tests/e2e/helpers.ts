@@ -23,3 +23,22 @@ export async function login(page: Page, email: string, password: string) {
   await page.getByRole("button", { name: "Iniciar sesión" }).click();
   await page.waitForURL("**/dashboard");
 }
+
+/**
+ * Alta de licitación en pasos: llena los tres campos obligatorios del primer
+ * paso, avanza hasta el último (las fechas son opcionales) y crea. Termina en
+ * la ficha, en la pestaña Documentos.
+ */
+export async function crearLicitacion(
+  page: Page,
+  datos: { expediente: string; institucion?: string; titulo: string },
+) {
+  await page.goto("/licitaciones/nueva");
+  await page.getByLabel("Número de expediente").fill(datos.expediente);
+  await page.getByLabel("Institución convocante").fill(datos.institucion ?? "Institución de prueba");
+  await page.getByLabel("Título").fill(datos.titulo);
+  await page.getByRole("button", { name: "Siguiente" }).click();
+  await page.getByRole("button", { name: "Siguiente" }).click();
+  await page.getByRole("button", { name: "Crear licitación" }).click();
+  await page.waitForURL(/\/licitaciones\/[a-f0-9-]+(\?.*)?$/);
+}
