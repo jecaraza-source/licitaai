@@ -1,13 +1,10 @@
+import { Suspense } from "react";
 import { Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { ConsumoIaCard } from "@/components/configuracion/consumo-ia-card";
-import { ConfiguracionEmpresa } from "@/components/configuracion/configuracion-empresa";
-import { StaffJerarquiaCard } from "@/components/configuracion/staff-jerarquia-card";
-import { MetricasValorCard } from "@/components/configuracion/metricas-valor-card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ConfiguracionTabs } from "@/components/configuracion/configuracion-tabs";
 
 export default async function ConfiguracionPage() {
-  // La consola de IA la ven ADMIN y MANAGER (la API lo vuelve a comprobar).
+  // El uso de IA y el valor generado los ven ADMIN y MANAGER (la API lo vuelve a comprobar).
   const supabase = await createClient();
   const {
     data: { user },
@@ -15,7 +12,7 @@ export default async function ConfiguracionPage() {
   const { data: perfil } = user
     ? await supabase.from("users").select("rol").eq("id", user.id).single()
     : { data: null };
-  const veConsumoIA = perfil?.rol === "ADMIN" || perfil?.rol === "MANAGER";
+  const veAdminManager = perfil?.rol === "ADMIN" || perfil?.rol === "MANAGER";
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,32 +25,13 @@ export default async function ConfiguracionPage() {
           Configuración
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Administra el perfil de tu empresa, su staff, las métricas de valor y el consumo de IA.
+          Administra el perfil de tu empresa y sus documentos, el staff y, si tienes permiso, el uso de IA y el valor que genera.
         </p>
       </div>
 
-      <Tabs defaultValue="perfil">
-        <TabsList>
-          <TabsTrigger value="perfil">Perfil de la empresa</TabsTrigger>
-          <TabsTrigger value="staff">Staff y cadena de autorización</TabsTrigger>
-          {veConsumoIA && <TabsTrigger value="ia">Consumo de IA</TabsTrigger>}
-        </TabsList>
-
-        <TabsContent value="perfil" className="flex flex-col gap-6">
-          <MetricasValorCard />
-          <ConfiguracionEmpresa />
-        </TabsContent>
-
-        <TabsContent value="staff">
-          <StaffJerarquiaCard />
-        </TabsContent>
-
-        {veConsumoIA && (
-          <TabsContent value="ia">
-            <ConsumoIaCard />
-          </TabsContent>
-        )}
-      </Tabs>
+      <Suspense>
+        <ConfiguracionTabs veAdminManager={veAdminManager} />
+      </Suspense>
     </div>
   );
 }

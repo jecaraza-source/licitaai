@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { Plus, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -86,12 +86,18 @@ export function DynamicList({
 }
 
 // Perfil general y datos legales de la empresa. "Datos técnicos",
-// "Certificaciones" y "Clientes de referencia" viven en la pestaña "Otros
-// datos" de la tarjeta "Documentos corporativos" (ver
-// otros-datos-empresa-form.tsx) — ambas piezas comparten el mismo estado
-// (useEmpresaPerfilForm, instanciado una sola vez en ConfiguracionEmpresa) y
-// se guardan juntas con el botón "Guardar perfil" de aquí abajo.
-export function EmpresaPerfilForm({ empresaForm }: { empresaForm: EmpresaPerfilFormState }) {
+// "Certificaciones" y "Clientes de referencia" (ver otros-datos-empresa-form.tsx)
+// entran por `extra`, justo encima de los botones: comparten el mismo estado
+// (useEmpresaPerfilForm, instanciado una sola vez en ConfiguracionTabs) y se
+// editan y guardan juntos con el botón "Guardar perfil" de aquí abajo.
+export function EmpresaPerfilForm({
+  empresaForm,
+  extra,
+}: {
+  empresaForm: EmpresaPerfilFormState;
+  /** Más campos del mismo perfil (certificaciones, clientes y datos técnicos); se editan y guardan junto con el resto. */
+  extra?: ReactNode;
+}) {
   const {
     empresas,
     selectedId,
@@ -539,6 +545,8 @@ export function EmpresaPerfilForm({ empresaForm }: { empresaForm: EmpresaPerfilF
           </div>
         </div>
       </div>
+
+      {extra}
 
       <div className="flex justify-end gap-2">
         {empresas.length > 0 && (

@@ -1,16 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { CalendarClock, FileText, Layers } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarClock, Check, FileText, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import {
+  FECHAS_ALTA,
+  PASOS_ALTA,
+  ULTIMO_PASO_ALTA,
+  hrefTrasCrear,
+  primerPasoConError,
+} from "@/lib/alta-licitacion";
 import {
   Select,
   SelectContent,
@@ -46,26 +54,16 @@ const SISTEMA_POR_ESTADO: Record<string, (typeof SISTEMAS)[number]> = {
   CDMX: "SCA",
 };
 
-const DATE_FIELDS = [
-  { name: "fecha_publicacion", label: "Publicación" },
-  { name: "fecha_limite_preguntas", label: "Límite de preguntas" },
-  { name: "fecha_junta_aclaraciones", label: "Junta de aclaraciones" },
-  { name: "fecha_visita", label: "Visita a instalaciones" },
-  { name: "fecha_entrega_muestras", label: "Entrega de muestras" },
-  { name: "fecha_entrega_propuesta", label: "Entrega de propuesta" },
-  { name: "fecha_apertura_tecnica", label: "Apertura técnica" },
-  { name: "fecha_apertura_economica", label: "Apertura económica" },
-  { name: "fecha_fallo", label: "Fallo" },
-  { name: "fecha_firma_contrato", label: "Firma de contrato" },
-  { name: "fecha_garantia", label: "Garantía" },
-] as const;
-
 export function LicitacionForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [paso, setPaso] = useState(0);
+  const seccionesRef = useRef<Array<HTMLElement | null>>([]);
+  const yaMontado = useRef(false);
   const {
     register,
     handleSubmit,
+    trigger,
     watch,
     setValue,
     formState: { errors },
@@ -80,6 +78,35 @@ export function LicitacionForm() {
   });
 
   const estadoId = watch("estado_id");
+  const [expedienteCapturado, institucionCapturada] = watch(["numero_expediente", "institucion"]);
+
+  // Al cambiar de paso el foco pasa a su sección, para que quien navega con
+  // teclado o lector de pantalla no se quede en un botón que ya no está.
+  useEffect(() => {
+    if (!yaMontado.current) {
+      yaMontado.current = true;
+      return;
+    }
+    seccionesRef.current[paso]?.focus();
+  }, [paso]);
+
+  async function siguiente() {
+    const campos = PASOS_ALTA[paso].campos as unknown as Array<keyof LicitacionFormValues>;
+    const valido = await trigger(campos, { shouldFocus: true });
+    if (valido) setPaso((p) => Math.min(p + 1, ULTIMO_PASO_ALTA));
+  }
+
+  // «Siguiente» y «Crear licitación» son el botón de envío del formulario, así que
+  // Enter dentro de un campo hace lo mismo que el botón: avanzar de paso. Solo el
+  // último paso crea la licitación (Enter en el expediente no la guarda a medias).
+  function alEnviar(ev: React.FormEvent<HTMLFormElement>) {
+    if (paso < ULTIMO_PASO_ALTA) {
+      ev.preventDefault();
+      void siguiente();
+      return;
+    }
+    void handleSubmit(onSubmit, (errs) => setPaso(primerPasoConError(Object.keys(errs))))(ev);
+  }
 
   async function onSubmit(values: LicitacionInput) {
     setLoading(true);
@@ -98,13 +125,71 @@ export function LicitacionForm() {
       return;
     }
 
-    toast.success("Licitación creada");
-    router.push(`/licitaciones/${json.data.id}`);
+    toast.success("Licitación creada", {
+      description: "Siguiente paso: sube la convocatoria y las bases en Documentos.",
+    });
+    router.push(hrefTrasCrear(json.data.id));
     router.refresh();
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex max-w-3xl flex-col gap-6">
+    <form onSubmit={alEnviar} noValidate className="flex max-w-3xl flex-col gap-6">
+      <nav aria-label="Pasos del alta">
+        <ol className="flex items-start gap-2">
+          {PASOS_ALTA.map((p, i) => {
+            const hecho = i < paso;
+            const actual = i === paso;
+            const contenido = (
+              <>
+                <span
+                  className={cn(
+                    "flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold tabular-nums",
+                    hecho && "border-primary bg-primary text-primary-foreground",
+                    actual && "border-primary text-primary",
+                    !hecho && !actual && "text-muted-foreground",
+                  )}
+                  aria-hidden="true"
+                >
+                  {hecho ? <Check className="size-3.5" /> : i + 1}
+                </span>
+                <span className="flex min-w-0 flex-col text-left">
+                  <span className={cn("text-sm font-medium", !actual && !hecho && "text-muted-foreground")}>
+                    {p.titulo}
+                  </span>
+                  {p.opcional && <span className="text-xs text-muted-foreground">Opcional</span>}
+                </span>
+              </>
+            );
+            return (
+              <li key={p.id} className="flex-1" aria-current={actual ? "step" : undefined}>
+                <div className={cn("mb-1.5 h-1 rounded-full", hecho || actual ? "bg-primary" : "bg-muted")} aria-hidden="true" />
+                {hecho ? (
+                  <button
+                    type="button"
+                    onClick={() => setPaso(i)}
+                    className="flex w-full items-center gap-2 rounded-md py-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  >
+                    {contenido}
+                    <span className="sr-only">(volver a este paso)</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 py-1">{contenido}</div>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+
+      <section
+        ref={(el) => {
+          seccionesRef.current[0] = el;
+        }}
+        hidden={paso !== 0}
+        tabIndex={-1}
+        aria-label={`Paso 1 de ${PASOS_ALTA.length}: ${PASOS_ALTA[0].titulo}`}
+        className="outline-none"
+      >
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -152,7 +237,17 @@ export function LicitacionForm() {
         </div>
         </CardContent>
       </Card>
+      </section>
 
+      <section
+        ref={(el) => {
+          seccionesRef.current[1] = el;
+        }}
+        hidden={paso !== 1}
+        tabIndex={-1}
+        aria-label={`Paso 2 de ${PASOS_ALTA.length}: ${PASOS_ALTA[1].titulo}`}
+        className="outline-none"
+      >
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -210,6 +305,7 @@ export function LicitacionForm() {
         <div className="flex flex-col gap-2">
           <Label htmlFor="monto_maximo">Monto máximo (MXN)</Label>
           <Input id="monto_maximo" className="h-11" type="number" step="0.01" {...register("monto_maximo")} />
+          {errors.monto_maximo && <p className="text-sm text-destructive">{errors.monto_maximo.message}</p>}
         </div>
 
         <div className="hidden sm:block" aria-hidden="true" />
@@ -243,7 +339,17 @@ export function LicitacionForm() {
         </div>
         </CardContent>
       </Card>
+      </section>
 
+      <section
+        ref={(el) => {
+          seccionesRef.current[2] = el;
+        }}
+        hidden={paso !== 2}
+        tabIndex={-1}
+        aria-label={`Paso 3 de ${PASOS_ALTA.length}: ${PASOS_ALTA[2].titulo}`}
+        className="outline-none"
+      >
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -253,19 +359,28 @@ export function LicitacionForm() {
             Fechas del procedimiento
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">
+            Se creará <span className="font-medium text-foreground">{expedienteCapturado || "la licitación"}</span>
+            {institucionCapturada ? ` de ${institucionCapturada}` : ""}. Las fechas se pueden dejar en blanco y
+            completar después en «Fechas clave».
+          </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {DATE_FIELDS.map((field) => (
+            {FECHAS_ALTA.map((field) => (
               <div key={field.name} className="flex flex-col gap-2">
                 <Label htmlFor={field.name}>{field.label}</Label>
                 <Input id={field.name} className="h-11" type="datetime-local" {...register(field.name)} />
+                {errors[field.name] && (
+                  <p className="text-sm text-destructive">{errors[field.name]?.message}</p>
+                )}
               </div>
             ))}
           </div>
         </CardContent>
       </Card>
+      </section>
 
-      <div className="flex flex-col-reverse justify-end gap-2 sm:flex-row">
+      <div className="flex flex-col-reverse justify-between gap-2 sm:flex-row">
         <Button
           type="button"
           variant="outline"
@@ -274,9 +389,24 @@ export function LicitacionForm() {
         >
           Cancelar
         </Button>
-        <Button type="submit" className="h-11" disabled={loading}>
-          {loading ? "Guardando…" : "Crear licitación"}
-        </Button>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row">
+          {paso > 0 && (
+            <Button type="button" variant="outline" className="h-11" onClick={() => setPaso(paso - 1)}>
+              <ArrowLeft className="size-4" />
+              Atrás
+            </Button>
+          )}
+          {paso < ULTIMO_PASO_ALTA ? (
+            <Button key="siguiente" type="submit" className="h-11">
+              Siguiente
+              <ArrowRight className="size-4" />
+            </Button>
+          ) : (
+            <Button key="crear" type="submit" className="h-11" disabled={loading}>
+              {loading ? "Guardando…" : "Crear licitación"}
+            </Button>
+          )}
+        </div>
       </div>
     </form>
   );

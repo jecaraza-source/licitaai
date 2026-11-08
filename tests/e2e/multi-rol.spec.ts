@@ -1,17 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { login, TEST_USER, TEST_VIEWER } from "./helpers";
+import { login, TEST_USER, TEST_VIEWER, crearLicitacion } from "./helpers";
 
 test.describe("Multi-rol — ADMIN vs VIEWER", () => {
   test("ADMIN puede crear licitaciones", async ({ page }) => {
     test.skip(!TEST_USER.email, "Requiere TEST_USER_EMAIL/TEST_USER_PASSWORD");
 
     await login(page, TEST_USER.email, TEST_USER.password);
-    await page.goto("/licitaciones/nueva");
-    await page.getByLabel("Número de expediente").fill(`E2E-ROL-${Date.now()}`);
-    await page.getByLabel("Institución convocante").fill("Institución de prueba");
-    await page.getByLabel("Título").fill("Licitación de prueba de rol ADMIN");
-    await page.getByRole("button", { name: "Crear licitación" }).click();
-    await page.waitForURL(/\/licitaciones\/[a-f0-9-]+$/);
+    await crearLicitacion(page, { expediente: `E2E-ROL-${Date.now()}`, institucion: "Institución de prueba", titulo: "Licitación de prueba de rol ADMIN" });
   });
 
   test("VIEWER no ve el botón ni puede acceder a /licitaciones/nueva", async ({ page }) => {

@@ -163,11 +163,11 @@ function empresaToForm(data: EmpresaPerfil): FormState {
   };
 }
 
-// Estado y lógica del perfil de empresa, compartidos entre EmpresaPerfilForm
-// ("Perfil de empresa") y la pestaña "Otros datos" de DocumentosCorporativosCard
-// ("Documentos corporativos") — ambos editan el mismo registro y se guardan
+// Estado y lógica del perfil de empresa, compartidos entre EmpresaPerfilForm y
+// OtrosDatosEmpresaForm (que va dentro de él) y con la pestaña "Documentos de la
+// empresa", que necesita saber cuál es la empresa activa. Se editan y guardan
 // juntos con un solo botón "Guardar perfil", así que el estado vive en el
-// ancestro común (ConfiguracionEmpresa) y se llama una sola vez.
+// ancestro común (ConfiguracionTabs) y se llama una sola vez.
 export function useEmpresaPerfilForm() {
   const router = useRouter();
   const [empresas, setEmpresas] = useState<EmpresaPerfil[]>([]);

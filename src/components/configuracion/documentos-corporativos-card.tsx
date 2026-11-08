@@ -16,12 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createClient } from "@/lib/supabase/client";
 import { cn, sanitizeFilename } from "@/lib/utils";
 import { TIPOS_DOCUMENTO_CORPORATIVO } from "@/lib/documentos-corporativos";
-import { OtrosDatosEmpresaForm } from "@/components/configuracion/otros-datos-empresa-form";
-import type { FormState, SetCampo } from "@/hooks/use-empresa-perfil-form";
 import type { DocumentoCorporativo } from "@/types";
 
 const TIPOS_DOCUMENTO = TIPOS_DOCUMENTO_CORPORATIVO;
@@ -272,16 +269,7 @@ function RepresentanteVerificacion({
   );
 }
 
-export function DocumentosCorporativosCard({
-  empresaId,
-  form,
-  setCampo,
-}: {
-  empresaId: string;
-  /** Perfil de la empresa activa, para la pestaña "Otros datos" (certificaciones, clientes de referencia, datos técnicos). */
-  form: FormState;
-  setCampo: SetCampo;
-}) {
+export function DocumentosCorporativosCard({ empresaId }: { empresaId: string }) {
   const [documentos, setDocumentos] = useState<DocumentoCorporativo[] | null>(null);
   const [noAplican, setNoAplican] = useState<string[]>([]);
   const [tipoSeleccionado, setTipoSeleccionado] = useState(TIPOS_DOCUMENTO[0]);
@@ -451,14 +439,7 @@ export function DocumentosCorporativosCard({
       <CardHeader>
         <CardTitle className="text-sm">Documentos corporativos</CardTitle>
       </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="documentos">
-          <TabsList>
-            <TabsTrigger value="documentos">Documentos</TabsTrigger>
-            <TabsTrigger value="otros-datos">Otros datos</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="documentos" className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-4">
         <p className="text-xs text-muted-foreground">
           Bóveda permanente de la empresa: acta constitutiva, poderes, opiniones de cumplimiento,
           etc. (Paso 10). Se conservan aquí para reutilizarse en cualquier licitación.
@@ -634,12 +615,6 @@ export function DocumentosCorporativosCard({
           </ul>
         )}
 
-          </TabsContent>
-
-          <TabsContent value="otros-datos">
-            <OtrosDatosEmpresaForm form={form} setCampo={setCampo} />
-          </TabsContent>
-        </Tabs>
       </CardContent>
     </Card>
   );
