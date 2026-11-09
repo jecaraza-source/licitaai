@@ -79,7 +79,7 @@ export default async function DashboardLayout({
         logoUrl={empresaActiva?.logo_url ?? null}
         empresaNombre={empresaActiva?.razon_social ?? null}
       />
-      <SidebarInset>
+      <SidebarInset className="min-w-0">
         <Header nombre={nombre} email={email} empresaNombre={empresaActiva?.razon_social ?? null} />
         <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">{children}</main>
       </SidebarInset>

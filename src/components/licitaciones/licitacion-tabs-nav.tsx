@@ -46,6 +46,15 @@ function InsigniaPendientes({ n, sobreAcento = false }: { n: number; sobreAcento
   );
 }
 
+// En pantallas angostas las dos barras se desplazan en horizontal; si se llega
+// por un enlace a una sección lejana, la activa quedaría fuera de la vista.
+// Esto la centra dentro de su barra, sin mover la página en vertical.
+function centrarActivo(barra: HTMLElement | null) {
+  const activo = barra?.querySelector<HTMLElement>('[aria-current="true"], [data-active]');
+  if (!barra || !activo) return;
+  barra.scrollLeft = Math.max(0, activo.offsetLeft - (barra.clientWidth - activo.offsetWidth) / 2);
+}
+
 // La pestaña activa se refleja en la URL (`?tab=liberacion`): recargar o volver
 // atrás no pierde el lugar, y cualquier aviso puede enlazar a una pestaña.
 // La URL se actualiza con history.replaceState (integrado con useSearchParams
@@ -74,6 +83,15 @@ export function LicitacionTabsNav({ children }: { children: ReactNode }) {
     setTab(tabEnUrl);
   }
   const grupoActivo = grupoDePestana(tab);
+  const barraGrupos = useRef<HTMLElement>(null);
+  const barraPestanas = useRef<HTMLDivElement>(null);
+  // Las insignias de pendientes llegan después (se leen de la compuerta) y
+  // ensanchan las barras, así que también se recentra cuando sus cuentas cambian.
+  const firmaPendientes = JSON.stringify([pendientesGrupo, pendientesTab]);
+  useEffect(() => {
+    centrarActivo(barraGrupos.current);
+    centrarActivo(barraPestanas.current);
+  }, [tab, firmaPendientes]);
 
   // El clic de un enlace se atiende en captura, antes que el router de Next:
   // la ref evita re-suscribir el listener en cada cambio de pestaña.
@@ -138,7 +156,7 @@ export function LicitacionTabsNav({ children }: { children: ReactNode }) {
     <CambiosSinGuardarContext.Provider value={almacen}>
       <Tabs value={tab} onValueChange={(v) => typeof v === "string" && pedirIrA(v)}>
         <div className="flex flex-col gap-1.5">
-          <nav aria-label="Secciones de la licitación" className="-mx-1 overflow-x-auto px-1 pb-1">
+          <nav ref={barraGrupos} aria-label="Secciones de la licitación" className="relative -mx-1 overflow-x-auto px-1 pb-1">
             <div className="flex w-max gap-1 rounded-lg bg-muted p-[3px]">
               {GRUPOS_PESTANAS.map((grupo) => {
                 const activo = grupo === grupoActivo;
@@ -166,7 +184,7 @@ export function LicitacionTabsNav({ children }: { children: ReactNode }) {
           {/* Segundo nivel: pestañas reales (role="tab", aria-selected y flechas
               del teclado). Si el grupo tiene una sola, la lista queda oculta a la
               vista pero presente, para que el panel siga etiquetado. */}
-          <div className="-mx-1 overflow-x-auto px-1">
+          <div ref={barraPestanas} className="relative -mx-1 overflow-x-auto px-1">
             <TabsPrimitive.List
               aria-label={grupoActivo.label}
               className={cn("flex w-max gap-3", grupoActivo.tabs.length > 1 ? "border-b" : "sr-only")}
