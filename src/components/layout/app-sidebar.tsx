@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Activity, FileStack, LayoutDashboard, Mail, PlusCircle, Scale, Settings, Users } from "lucide-react";
 import { esRutaActiva } from "@/lib/navegacion";
+import { CORREOS_COMPRAS_MX_ACTIVO } from "@/lib/funcionalidades";
 import {
   Sidebar,
   SidebarContent,
@@ -24,7 +25,7 @@ const OPERATION_ITEMS = [
   { href: "/dashboard", label: "Inicio", icon: LayoutDashboard },
   { href: "/licitaciones", label: "Licitaciones", icon: FileStack },
   { href: "/licitaciones/nueva", label: "Nueva licitación", icon: PlusCircle, requiereEscritura: true },
-  { href: "/correos", label: "Correos", icon: Mail },
+  ...(CORREOS_COMPRAS_MX_ACTIVO ? [{ href: "/correos", label: "Correos", icon: Mail }] : []),
 ];
 
 const MANAGEMENT_ITEMS = [
