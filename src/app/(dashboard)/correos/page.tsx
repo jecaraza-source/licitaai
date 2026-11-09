@@ -1,8 +1,11 @@
+import { notFound } from "next/navigation";
 import { Mail } from "lucide-react";
+import { CORREOS_COMPRAS_MX_ACTIVO } from "@/lib/funcionalidades";
 import { createClient } from "@/lib/supabase/server";
 import { BandejaCorreosContent } from "@/components/correos/bandeja-correos";
 
 export default async function CorreosPage() {
+  if (!CORREOS_COMPRAS_MX_ACTIVO) notFound();
   const supabase = await createClient();
   const {
     data: { user },

@@ -23,6 +23,7 @@ import { AuditoriaTab } from "@/components/licitaciones/auditoria-tab";
 import { LiberacionTab } from "@/components/licitaciones/liberacion-tab";
 import { SeguimientoTab } from "@/components/licitaciones/seguimiento-tab";
 import { CorreosLicitacionCard } from "@/components/correos/correos-licitacion-card";
+import { CORREOS_COMPRAS_MX_ACTIVO } from "@/lib/funcionalidades";
 import { ControlProcedimientoCard } from "@/components/licitaciones/control-procedimiento-card";
 import { ExpedienteCarpetasCard } from "@/components/licitaciones/expediente-carpetas-card";
 import { CAMPOS_EVENTO, type CampoEvento } from "@/lib/compras-mx";
@@ -280,7 +281,7 @@ export default async function LicitacionDetallePage({
 
           <TabsContent value="seguimiento" className="flex flex-col gap-6">
             <SeguimientoTab licitacionId={licitacion.id} organizationId={licitacion.organization_id} />
-            <CorreosLicitacionCard licitacionId={licitacion.id} />
+            {CORREOS_COMPRAS_MX_ACTIVO && <CorreosLicitacionCard licitacionId={licitacion.id} />}
           </TabsContent>
         </LicitacionTabsNav>
       </GateLicitacionProvider>

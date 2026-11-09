@@ -49,7 +49,7 @@ const PASOS = [
     icon: CalendarClock,
     titulo: "Da seguimiento",
     texto:
-      "Alertas de vencimiento, los correos de Compras MX asociados a cada licitación y el registro del fallo en un solo lugar.",
+      "Alertas de vencimiento, el historial de cada licitación y el registro del fallo en un solo lugar.",
   },
 ];
 
