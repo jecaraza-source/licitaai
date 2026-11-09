@@ -92,3 +92,33 @@ Pendiente de datos de producción:
   API p95 como gates.
 - Lighthouse CI en los preview deployments (requiere G2 / staging).
 - Revisión del top-10 de consultas con datos reales.
+
+### Vigilancia de campo de Core Web Vitals (J-17)
+
+**Estado (2026-11-09).** El código ya instrumenta: `<SpeedInsights />` y
+`<Analytics />` están en `src/app/layout.tsx` y producción sirve sus
+scripts desde el mismo origen (`/_vercel/…`), de modo que la CSP no necesita
+cambios. Lo que **no** está comprobado es que Vercel los esté recibiendo:
+la API respondió «Web Analytics not found» para el proyecto y Speed
+Insights no se puede consultar por API. Hasta verlo en el panel, tómalo como
+no confirmado.
+
+**Para activarlo (dueño de la cuenta de Vercel):** proyecto `licitaai` →
+pestaña *Speed Insights* → *Enable* (y *Analytics* → *Enable*).
+
+**Rutina de revisión** (semanal durante el primer mes, luego mensual):
+
+1. En *Speed Insights*, filtra por **Production** y mira el percentil **p75**
+   por ruta, en móvil y escritorio por separado.
+2. Compara con los objetivos de §2: LCP < 2.5 s, INP < 200 ms, CLS < 0.1.
+   Las rutas que importan primero: `/licitaciones`, `/licitaciones/[id]`
+   (pestañas pesadas, §3) y `/dashboard`.
+3. Si una métrica de una de esas rutas pasa del umbral en p75: abrir un
+   issue con la ruta, la métrica y el dispositivo; mirar primero el chunk de
+   la pestaña (§3) y las consultas de esa ruta (§4).
+4. Tras 1–2 semanas con datos, anotar aquí el baseline y convertir los
+   objetivos de §2 en gate (cierra «pendiente de baseline»).
+
+Limitaciones: con poco tráfico el p75 de una ruta tiene muy pocas muestras;
+no actuar sobre rutas con decenas de visitas. Speed Insights no avisa
+solo; la alerta es esta revisión manual.
