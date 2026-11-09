@@ -1,6 +1,6 @@
 # Auditoría de navegación y usabilidad — LicitaAI
 
-> **Estado al 2026-10-31.** La fase 1 ya está en `main`: #54 resolvió A1, A2, A5, A6, C1 y C3 y parte de A7, B4 y B6. Lo que faltaba (errores de carga que se tragaban en Partidas, Análisis IA, revisor económico y `/estado`; enlace a Términos en el menú de usuario; aviso de cambios sin guardar al salir de una pestaña, C2) se cierra en el PR de arreglos de navegación. Siguen abiertos solo los puntos de diseño (fase 2) y C4 (móvil sin verificar).
+> **Estado al 2026-10-31.** La fase 1 ya está en `main`: #54 resolvió A1, A2, A5, A6, C1 y C3 y parte de A7, B4 y B6. Lo que faltaba (errores de carga que se tragaban en Partidas, Análisis IA, revisor económico y `/estado`; enlace a Términos en el menú de usuario; aviso de cambios sin guardar al salir de una pestaña, C2) se cierra en el PR de arreglos de navegación. Siguen abiertos solo los puntos de diseño (fase 2) y C4 (móvil: corregido el desborde y el scroll de las barras; queda decidir el espacio vertical del encabezado).
 
 Fecha: 2026-10-08 · Base: `main` en `6774426` (#52)
 
@@ -67,7 +67,7 @@ Fecha: 2026-10-08 · Base: `main` en `6774426` (#52)
 | C1 | **Las pestañas son botones sin semántica de pestañas.** No hay `role="tab"`, `aria-selected` ni `aria-controls`, ni navegación con flechas. El estado activo se indica solo con color y una animación de escala. | `licitacion-tabs-nav.tsx` (sin coincidencias ARIA) | Código | S–M |
 | C2 | **Al cambiar de pestaña el panel se desmonta** (el propio código lo documenta: solo se monta la pestaña activa). Ediciones sin guardar, por ejemplo precios en Propuesta económica, se perderían sin aviso. **No lo probé en pantalla.** | `licitaciones/[id]/page.tsx` (comentario F3) | Código (mantener montado o avisar) | S–M |
 | C3 | **Sin migas de pan.** Solo un enlace "Volver a licitaciones" en la ficha. | `licitaciones/[id]/page.tsx` | Diseño + código | S |
-| C4 | **Móvil sin verificar.** La ficha tiene una barra de 5 grupos más una segunda de pestañas con scroll horizontal. | — | Probar | S |
+| C4 | **Móvil y tablet.** Probada la ficha a 375 y 768 px (cascarón con datos de ejemplo; no el contenido real de cada pestaña). Se corrigieron tres fallos: la página se ensanchaba por el texto oculto de las insignias dentro de las barras con scroll (375 px), la columna principal no se encogía con la barra lateral abierta y desbordaba (768 px), y al llegar por un enlace a una sección lejana la pestaña activa quedaba fuera de la vista. Pendiente de decidir: en móvil el encabezado y «Siguiente paso» ocupan unas dos pantallas antes de las pestañas. | `licitacion-tabs-nav.tsx`, `(dashboard)/layout.tsx` | Código (hecho) + diseño | S |
 
 ### Qué conviene conservar
 - Barra lateral con grupos "Operación" y "Gestión", que ya es clara y corta.
