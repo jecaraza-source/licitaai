@@ -66,9 +66,55 @@ normales no gasten. Resultados de referencia en
 **No se ejecuta en CI**: gasto real + `ai_org_policy` (cuota mensual, por
 operación) está para impedir una corrida grande sin querer.
 
-### Carga sostenida con IA real (pendiente de presupuesto)
+### Carga sostenida con IA real — `carga-ia-sostenida.mjs` (C6)
 
-Para el comportamiento del breaker bajo throttling real (429 de Anthropic)
-y la cola bajo latencia de proveedor de 20–30 s/job: subir
-`CARGA_IA_ANALISIS` a decenas y correr con `CARGA_WORKERS` alto. Cada
-`analizar-bases` cuesta ~$0.03.
+Encola decenas de `analizar-bases` repartidas en varias organizaciones y las
+drena con varias invocaciones **concurrentes** del worker (`carga-ia-real.mjs`
+las corre una por una y no puede ver esto). Mide: transiciones del circuit
+breaker (CLOSED → OPEN → HALF_OPEN → CLOSED), jobs que reintentan y con qué
+error, latencia de cola y duración por job con latencia real de proveedor,
+throughput, reparto entre organizaciones y gasto.
+
+```bash
+# mismas keys y mismo arranque que en la sección anterior, luego:
+CARGA_IA_ANALISIS=30 CARGA_IA_WORKERS=6 CARGA_IA_MAX_USD=2 \
+  node tests/load/carga-ia-sostenida.mjs
+```
+
+Variables: `CARGA_IA_ANALISIS` (20), `CARGA_IA_ORGS` (3), `CARGA_IA_WORKERS` (6,
+la concurrencia real contra el proveedor), `CARGA_IA_MAX_USD` (2),
+`CARGA_IA_COSTO_EST` (0.05 por job, para el chequeo previo),
+`CARGA_IA_TIMEOUT_MIN` (15), `CARGA_IA_DEBUG=1`.
+
+Protecciones de gasto: no arranca si `jobs × coste estimado` supera
+`CARGA_IA_MAX_USD`; si el gasto real lo supera durante la corrida, cancela lo
+que queda en cola; aborta antes de gastar si detecta que el worker está en
+modo mock (embeddings con el patrón `[1, 0, 0, …]`). Al terminar, o con
+Ctrl+C / `kill`, restaura los flags (`ai.versionado_resultados`,
+`resiliencia.circuit_breaker`, `ai.cache`), deja el breaker local en CLOSED y
+borra sus datos. Un `kill -9` no puede limpiar: en ese caso, `npx supabase db
+reset`.
+
+**Qué no hace:** no puede provocar un 429. Si el proveedor no limita la tasa
+con tu carga, el reporte lo dice ("no se observaron reintentos ni aperturas
+del breaker"), y eso no demuestra que el breaker funcione bajo 429. Sube
+workers y análisis con el tope a la vista para presionar más.
+
+`CARGA_IA_SIMULADO=1` corre sin proveedores reales para validar el arnés. En
+ese modo `analizar-bases` falla (no tiene mock) y el breaker de Anthropic abre
+con los fallos consecutivos; sirve para comprobar la mecánica, no para medir.
+
+#### Notas de entorno (CLI de Supabase ≥ 3)
+
+- `config.toml`: la sección `[inbucket]` se renombró a `[local_smtp]` (la CLI
+  nueva se niega a arrancar con el nombre viejo; la fijada en CI, 2.119.0, ya
+  acepta el nuevo).
+- El helper `tests/helpers/local-supabase.mjs` prefiere las keys nuevas
+  (`sb_secret_…`), pero el runtime de Edge Functions de esa CLI compara el
+  worker contra la key JWT clásica, y el worker responde «No autorizado» (los
+  jobs se quedan en `AUTHORIZED`). Exporta las clásicas antes de correr:
+
+```bash
+eval "$(npx supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')"
+export SUPABASE_URL="$API_URL" SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+```
