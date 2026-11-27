@@ -7,9 +7,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-plex-sans), "Segoe UI", Arial, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
   --font-heading: var(--font-sans);
+  --shadow-xs: 0 1px 1px rgb(16 40 28 / 0.05);
+  --shadow-card: 0 1px 2px rgb(16 40 28 / 0.05), 0 6px 20px -10px rgb(16 40 28 / 0.12);
+  --shadow-pop: 0 2px 4px rgb(16 40 28 / 0.06), 0 16px 40px -12px rgb(16 40 28 / 0.22);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -42,15 +45,13 @@
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-xl: calc(var(--radius) * 1.3);
+  --radius-2xl: calc(var(--radius) * 1.7);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
-  --font-sans: "Calibri", "Carlito", "Segoe UI", Arial, ui-sans-serif, system-ui, sans-serif;
-
   /* Paleta institucional propia de LicitaAI (verde). Esta es la marca por
      defecto de la plataforma; se sobreescribe en tiempo de ejecución con los
      colores del logotipo de la empresa activa — ver src/lib/theme-colors.ts. */
@@ -60,37 +61,37 @@
   --brand-secondary-light: #9cc2ac;
   --brand-neutral: #8a9b93;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.977 0.006 150);
+  --foreground: oklch(0.215 0.028 160);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.215 0.028 160);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.215 0.028 160);
   --primary: var(--brand-primary);
   --primary-foreground: #ffffff;
-  --secondary: #e6f0ea;
+  --secondary: #e8f1ec;
   --secondary-foreground: var(--brand-primary);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted: oklch(0.955 0.01 150);
+  --muted-foreground: oklch(0.48 0.02 160);
   --accent: #eff5f0;
   --accent-foreground: #33513f;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: oklch(0.915 0.01 150);
+  --input: oklch(0.87 0.012 150);
   --ring: var(--brand-primary);
   --chart-1: var(--brand-primary);
   --chart-2: var(--brand-secondary);
   --chart-3: var(--brand-neutral);
   --chart-4: var(--brand-primary-light);
   --chart-5: var(--brand-secondary-light);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
+  --radius: 0.75rem;
+  --sidebar: oklch(0.963 0.011 150);
+  --sidebar-foreground: oklch(0.26 0.03 160);
   --sidebar-primary: var(--brand-primary);
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #e6f0ea;
   --sidebar-accent-foreground: var(--brand-primary);
-  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-border: oklch(0.9 0.012 150);
   --sidebar-ring: var(--brand-primary);
 }
 
@@ -139,10 +140,20 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
   html {
     @apply font-sans;
+  }
+  h1, h2, h3, h4 {
+    @apply font-heading tracking-tight text-balance;
+  }
+  /* Cifras alineadas en columnas: montos, fechas y expedientes. */
+  table, .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 22%, transparent);
   }
 }
 

@@ -81,7 +81,7 @@ export default async function DashboardLayout({
       />
       <SidebarInset className="min-w-0">
         <Header nombre={nombre} email={email} empresaNombre={empresaActiva?.razon_social ?? null} />
-        <main className="flex flex-1 flex-col gap-4 p-4 md:p-6">{children}</main>
+        <main className="mx-auto flex w-full max-w-[1480px] flex-1 flex-col gap-5 p-4 md:p-8">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

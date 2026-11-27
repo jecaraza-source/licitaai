@@ -39,10 +39,10 @@ export function UserMenu({ nombre, email }: { nombre: string; email: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className={cn(buttonVariants({ variant: "ghost" }), "flex items-center gap-2 px-2")}
+        className={cn(buttonVariants({ variant: "ghost" }), "h-10 gap-2.5 rounded-full py-0 pr-3 pl-1")}
       >
-        <Avatar className="size-7">
-          <AvatarFallback>{initials(nombre)}</AvatarFallback>
+        <Avatar className="size-8">
+          <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">{initials(nombre)}</AvatarFallback>
         </Avatar>
         <span className="hidden text-sm font-medium sm:inline">{nombre}</span>
       </DropdownMenuTrigger>
