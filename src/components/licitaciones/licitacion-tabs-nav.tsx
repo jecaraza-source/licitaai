@@ -157,7 +157,7 @@ export function LicitacionTabsNav({ children }: { children: ReactNode }) {
       <Tabs value={tab} onValueChange={(v) => typeof v === "string" && pedirIrA(v)}>
         <div className="flex flex-col gap-1.5">
           <nav ref={barraGrupos} aria-label="Secciones de la licitación" className="relative -mx-1 overflow-x-auto px-1 pb-1">
-            <div className="flex w-max gap-1 rounded-lg bg-muted p-[3px]">
+            <div className="flex w-max gap-1 rounded-xl bg-muted/90 p-1 ring-1 ring-inset ring-foreground/[0.05]">
               {GRUPOS_PESTANAS.map((grupo) => {
                 const activo = grupo === grupoActivo;
                 return (
@@ -167,14 +167,14 @@ export function LicitacionTabsNav({ children }: { children: ReactNode }) {
                     aria-current={activo ? "true" : undefined}
                     onClick={() => pedirIrA(grupo.tabs[0].value)}
                     className={cn(
-                      "whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                      "whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-[background,color,box-shadow] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                       activo
-                        ? "scale-[1.03] bg-primary text-primary-foreground shadow-md"
-                        : "text-muted-foreground hover:text-foreground",
+                        ? "bg-card text-primary shadow-[0_1px_2px_rgb(16_40_28/0.14),0_0_0_1px_var(--border)]"
+                        : "text-muted-foreground hover:bg-card/60 hover:text-foreground",
                     )}
                   >
                     {grupo.label}
-                    <InsigniaPendientes n={pendientesGrupo[grupo.label] ?? 0} sobreAcento={activo} />
+                    <InsigniaPendientes n={pendientesGrupo[grupo.label] ?? 0} />
                   </button>
                 );
               })}

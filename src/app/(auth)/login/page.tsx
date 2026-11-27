@@ -55,9 +55,9 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="overflow-hidden border-border/70 bg-card shadow-xl shadow-primary/5">
+    <Card className="overflow-hidden shadow-pop">
       <CardHeader className="gap-3 px-7 pb-5 pt-8 sm:px-9 sm:pt-9">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
+        <div className="flex size-11 items-center justify-center rounded-xl bg-secondary text-primary ring-1 ring-primary/15">
           <LockKeyhole className="size-5" aria-hidden="true" />
         </div>
         <div className="space-y-1">
@@ -82,13 +82,13 @@ export default function LoginPage() {
             <div className="relative">
               <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <Input id="password" type={showPassword ? "text" : "password"} autoComplete="current-password" className="h-11 px-10" {...register("password")} />
-              <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-2 top-1/2 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
+              <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}>
                 {showPassword ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
               </button>
             </div>
             {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
           </div>
-          <Button type="submit" disabled={loading} className="h-11 w-full gap-2">
+          <Button type="submit" size="lg" disabled={loading} className="w-full">
             {loading ? "Entrando…" : "Iniciar sesión"}
             {!loading && <ArrowRight className="size-4" aria-hidden="true" />}
           </Button>

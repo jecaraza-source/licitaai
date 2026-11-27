@@ -21,6 +21,13 @@ import {
 
 const LICITAAI_LOGO = "/branding/licitaai-dashboard-horizontal.png";
 
+// Ítem de menú: reposo discreto; el activo se levanta como una tarjeta con un
+// indicador de marca a la izquierda (no solo color: forma + peso + posición).
+const ITEM_CLASS =
+  "relative h-10 gap-3 rounded-lg px-3 text-[0.9375rem] font-medium text-sidebar-foreground/75 hover:bg-card/70 hover:text-sidebar-foreground data-active:bg-card data-active:font-semibold data-active:text-primary data-active:shadow-[0_1px_2px_rgb(16_40_28/0.08),0_0_0_1px_var(--sidebar-border)] [&_svg]:size-[18px] data-active:[&_svg]:text-primary before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-r-full before:bg-primary before:opacity-0 data-active:before:opacity-100 group-data-[collapsible=icon]:before:hidden";
+const GROUP_LABEL_CLASS =
+  "mb-1 px-3 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80";
+
 const OPERATION_ITEMS = [
   { href: "/dashboard", label: "Inicio", icon: LayoutDashboard },
   { href: "/licitaciones", label: "Licitaciones", icon: FileStack },
@@ -57,7 +64,7 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="py-3">
+      <SidebarHeader className="px-4 pt-5 pb-4">
         <Link href="/dashboard" className="flex w-full items-center justify-center px-2">
           {logoUrl ? (
             <Image
@@ -83,9 +90,9 @@ export function AppSidebar({
           <span className="sr-only">{empresaNombre ?? "LicitaAI"}</span>
         </Link>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="px-1">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          <SidebarGroupLabel className={GROUP_LABEL_CLASS}>
             Operación
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -97,8 +104,7 @@ export function AppSidebar({
                     <SidebarMenuButton
                       isActive={isActive}
                       tooltip={item.label}
-                      size="lg"
-                      className="text-base [&_svg]:size-5"
+                      className={ITEM_CLASS}
                       render={<Link href={item.href}><item.icon /><span>{item.label}</span></Link>}
                     />
                   </SidebarMenuItem>
@@ -107,8 +113,8 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup className="mt-2">
-          <SidebarGroupLabel className="px-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        <SidebarGroup className="mt-3">
+          <SidebarGroupLabel className={GROUP_LABEL_CLASS}>
             Gestión
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -117,7 +123,7 @@ export function AppSidebar({
                 const isActive = esRutaActiva(item.href, pathname);
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton isActive={isActive} tooltip={item.label} size="lg" className="text-base [&_svg]:size-5" render={<Link href={item.href}><item.icon /><span>{item.label}</span></Link>} />
+                    <SidebarMenuButton isActive={isActive} tooltip={item.label} className={ITEM_CLASS} render={<Link href={item.href}><item.icon /><span>{item.label}</span></Link>} />
                   </SidebarMenuItem>
                 );
               })}
@@ -128,7 +134,7 @@ export function AppSidebar({
       <SidebarFooter>
         {mostrarAdmin && (
           <SidebarGroup className="p-0">
-            <SidebarGroupLabel className="px-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            <SidebarGroupLabel className={GROUP_LABEL_CLASS}>
               Admin
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -137,8 +143,7 @@ export function AppSidebar({
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       tooltip={`Admin · ${item.label}`}
-                      size="lg"
-                      className="text-base [&_svg]:size-5"
+                      className={ITEM_CLASS}
                       render={<Link href={item.href}><item.icon /><span>{item.label}</span></Link>}
                     />
                   </SidebarMenuItem>

@@ -74,7 +74,7 @@ const CONTROLES = [
 export default function Inicio() {
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b">
+      <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <Link href="/" aria-label="LicitaAI, inicio">
             <Image
@@ -100,15 +100,16 @@ export default function Inicio() {
       </header>
 
       <main>
-        <section className="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-14 sm:px-6 md:py-20 lg:grid-cols-[1.1fr_0.9fr]">
+        <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 py-14 sm:px-6 md:py-24 lg:grid-cols-[1.05fr_0.95fr]">
           <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+            <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-secondary px-3 py-1 text-xs font-semibold tracking-[0.08em] text-primary uppercase">
+              <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
               Licitaciones públicas en México
             </p>
-            <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+            <h1 className="text-[2.5rem] leading-[1.06] font-semibold tracking-[-0.035em] text-balance sm:text-[3.4rem]">
               Participa en licitaciones públicas sin que se te escape nada
             </h1>
-            <p className="mt-5 max-w-xl text-lg text-muted-foreground text-pretty">
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground text-pretty">
               LicitaAI lee las bases, ayuda a armar tu propuesta y revisa cada requisito antes de enviarla a
               Compras MX. Tu equipo decide; la plataforma lleva la cuenta de lo que falta y de lo que vence.
             </p>
@@ -116,7 +117,6 @@ export default function Inicio() {
               <Button
                 size="lg"
                 nativeButton={false}
-                className="h-11 gap-2 px-5"
                 render={
                   <Link href="/login">
                     Iniciar sesión
@@ -128,7 +128,6 @@ export default function Inicio() {
                 size="lg"
                 variant="outline"
                 nativeButton={false}
-                className="h-11 px-5"
                 render={<a href="mailto:contacto@licitaai.mx">Escríbenos</a>}
               />
             </div>
@@ -139,7 +138,11 @@ export default function Inicio() {
 
           {/* Vista ilustrativa del panel "Siguiente paso" de la ficha de una licitación. */}
           <figure className="relative">
-            <div className="rounded-2xl border bg-card p-5 shadow-sm">
+            <div
+              aria-hidden="true"
+              className="absolute -inset-4 -z-10 rounded-[2rem] bg-[radial-gradient(80%_70%_at_70%_20%,color-mix(in_oklab,var(--primary),white_82%),transparent_70%)]"
+            />
+            <div className="rounded-2xl border bg-card p-6 shadow-pop">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Siguiente paso</p>
@@ -155,13 +158,13 @@ export default function Inicio() {
                   ["3 puntos del checklist sin confirmar", "Liberación"],
                   ["Falta la autorización del supervisor", "Liberación"],
                 ].map(([texto, donde]) => (
-                  <li key={texto} className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+                  <li key={texto} className="flex items-center justify-between gap-3 rounded-xl border bg-background px-3.5 py-2.5">
                     <span>{texto}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">{donde}</span>
                   </li>
                 ))}
               </ul>
-              <div className="mt-4 inline-flex h-8 items-center rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground">
+              <div className="mt-5 inline-flex h-9 items-center rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.18)]">
                 Empezar por el primero
               </div>
             </div>
@@ -171,15 +174,15 @@ export default function Inicio() {
           </figure>
         </section>
 
-        <section id="como-funciona" className="border-t bg-muted/40">
+        <section id="como-funciona" className="border-t bg-muted/50">
           <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 md:py-16">
             <h2 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
               Del análisis de las bases al envío
             </h2>
             <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {PASOS.map(({ icon: Icono, titulo, texto }) => (
-                <li key={titulo} className="rounded-xl border bg-card p-5">
-                  <span className="flex size-9 items-center justify-center rounded-lg bg-secondary text-primary">
+                <li key={titulo} className="rounded-2xl border bg-card p-6 shadow-card">
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary ring-1 ring-primary/15">
                     <Icono className="size-5" aria-hidden="true" />
                   </span>
                   <h3 className="mt-4 font-semibold">{titulo}</h3>
@@ -213,8 +216,8 @@ export default function Inicio() {
           </ul>
         </section>
 
-        <section className="border-t">
-          <div className="mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-5 px-4 py-12 sm:px-6 md:flex-row md:items-center">
+        <section className="border-t bg-card">
+          <div className="mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-5 px-4 py-14 sm:px-6 md:flex-row md:items-center">
             <div>
               <h2 className="text-xl font-semibold tracking-tight">¿Ya tienes cuenta?</h2>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -224,7 +227,7 @@ export default function Inicio() {
                 </a>
               </p>
             </div>
-            <Button size="lg" nativeButton={false} className="h-11 px-5" render={<Link href="/login">Iniciar sesión</Link>} />
+            <Button size="lg" nativeButton={false} render={<Link href="/login">Iniciar sesión</Link>} />
           </div>
         </section>
       </main>

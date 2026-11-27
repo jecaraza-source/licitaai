@@ -36,20 +36,20 @@ const TONO_ENTREGA: Record<TonoEntrega, string> = {
 // compartían el mismo primario neutro.
 const KPI_ESTILOS: Record<KpiColor, { card: string; icon: string }> = {
   emerald: {
-    card: "bg-emerald-500/5",
-    icon: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+    card: "",
+    icon: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/15 dark:bg-emerald-500/15 dark:text-emerald-400",
   },
   amber: {
-    card: "bg-amber-500/5",
-    icon: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+    card: "",
+    icon: "bg-amber-50 text-amber-700 ring-1 ring-amber-600/15 dark:bg-amber-500/15 dark:text-amber-400",
   },
   sky: {
-    card: "bg-sky-500/5",
-    icon: "bg-sky-500/15 text-sky-600 dark:text-sky-400",
+    card: "",
+    icon: "bg-sky-50 text-sky-700 ring-1 ring-sky-600/15 dark:bg-sky-500/15 dark:text-sky-400",
   },
   violet: {
-    card: "bg-violet-500/5",
-    icon: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
+    card: "",
+    icon: "bg-violet-50 text-violet-700 ring-1 ring-violet-600/15 dark:bg-violet-500/15 dark:text-violet-400",
   },
 };
 
@@ -132,36 +132,36 @@ export function DashboardContent() {
           </Button>
         </div>
       )}
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {KPI_LABELS.map(({ key, label, icon: Icon, color, href }) => (
           <Link
             key={key}
             href={href}
-            className="rounded-xl transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="group/kpi rounded-2xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35"
           >
-            <Card size="sm" className={cn("h-full gap-1.5", KPI_ESTILOS[color].card)}>
-              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-0.5">
-                <CardTitle className="text-[11px] leading-tight font-medium text-muted-foreground">
+            <Card className="h-full gap-4 transition-[box-shadow,border-color] group-hover/kpi:border-primary/30 group-hover/kpi:shadow-pop">
+              <CardHeader className="flex flex-row items-start justify-between gap-3">
+                <CardTitle className="text-sm leading-snug font-medium text-muted-foreground">
                   {label}
                 </CardTitle>
                 <span
                   className={cn(
-                    "flex size-5 shrink-0 items-center justify-center rounded-full",
+                    "flex size-9 shrink-0 items-center justify-center rounded-xl",
                     KPI_ESTILOS[color].icon,
                   )}
                 >
-                  <Icon className="size-3" />
+                  <Icon className="size-[18px]" />
                 </span>
               </CardHeader>
               <CardContent>
                 {stats ? (
-                  <p className="text-lg font-bold">{stats[key]}</p>
+                  <p className="text-4xl leading-none font-semibold tracking-tight tabular-nums">{stats[key]}</p>
                 ) : errorStats ? (
-                  <p className="text-lg font-bold text-muted-foreground" aria-label="No disponible">
+                  <p className="text-4xl leading-none font-semibold text-muted-foreground" aria-label="No disponible">
                     —
                   </p>
                 ) : (
-                  <Skeleton className="h-6 w-10" />
+                  <Skeleton className="h-9 w-14" />
                 )}
               </CardContent>
             </Card>
@@ -198,7 +198,7 @@ export function DashboardContent() {
                     <li key={l.id}>
                       <Link
                         href={`/licitaciones/${l.id}`}
-                        className="flex flex-col gap-1 py-3 hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                        className="-mx-3 flex flex-col gap-1 rounded-lg px-3 py-3 transition-colors hover:bg-muted/60 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                       >
                         <div className="min-w-0">
                           <p className="font-medium break-words">
