@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   UserCheck,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: { absolute: "LicitaAI | Licitaciones públicas, sin que se te escape nada" },
@@ -94,7 +94,7 @@ export default function Inicio() {
             <a href="#control" className="hidden px-2 text-sm text-muted-foreground transition-colors hover:text-foreground sm:block">
               Control
             </a>
-            <Button nativeButton={false} render={<Link href="/login">Iniciar sesión</Link>} />
+            <Link href="/login" className={buttonVariants()}>Iniciar sesión</Link>
           </nav>
         </div>
       </header>
@@ -114,22 +114,13 @@ export default function Inicio() {
               Compras MX. Tu equipo decide; la plataforma lleva la cuenta de lo que falta y de lo que vence.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Button
-                size="lg"
-                nativeButton={false}
-                render={
-                  <Link href="/login">
-                    Iniciar sesión
-                    <ArrowRight className="size-4" aria-hidden="true" />
-                  </Link>
-                }
-              />
-              <Button
-                size="lg"
-                variant="outline"
-                nativeButton={false}
-                render={<a href="mailto:contacto@licitaai.mx">Escríbenos</a>}
-              />
+              <Link href="/login" className={buttonVariants({ size: "lg" })}>
+                Iniciar sesión
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Link>
+              <a href="mailto:contacto@licitaai.mx" className={buttonVariants({ size: "lg", variant: "outline" })}>
+                Escríbenos
+              </a>
             </div>
             <p className="mt-4 text-sm text-muted-foreground">
               Federal (Compras MX), Estado de México (EDCA) y Ciudad de México (SCA).
@@ -227,7 +218,7 @@ export default function Inicio() {
                 </a>
               </p>
             </div>
-            <Button size="lg" nativeButton={false} render={<Link href="/login">Iniciar sesión</Link>} />
+            <Link href="/login" className={buttonVariants({ size: "lg" })}>Iniciar sesión</Link>
           </div>
         </section>
       </main>
