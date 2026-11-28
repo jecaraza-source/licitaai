@@ -19,6 +19,8 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { cn, sanitizeFilename } from "@/lib/utils";
 import { TIPOS_DOCUMENTO_CORPORATIVO } from "@/lib/documentos-corporativos";
+import { useEsperarJob } from "@/hooks/use-esperar-job";
+import { descripcionFalloJob, respuestaAsincrona } from "@/lib/esperar-job";
 import type { DocumentoCorporativo } from "@/types";
 
 const TIPOS_DOCUMENTO = TIPOS_DOCUMENTO_CORPORATIVO;
@@ -275,6 +277,7 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
   const [tipoSeleccionado, setTipoSeleccionado] = useState(TIPOS_DOCUMENTO[0]);
   const [subiendo, setSubiendo] = useState(false);
   const [analizandoIds, setAnalizandoIds] = useState<string[]>([]);
+  const { esperar } = useEsperarJob();
   const [fechasManuales, setFechasManuales] = useState<Record<string, string>>({});
   const [autorizandoIds, setAutorizandoIds] = useState<string[]>([]);
 
@@ -325,6 +328,26 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
           return;
         }
         const json = await res.json().catch(() => null);
+
+        // Con `jobs.async_analizar_doc_corp` la ruta responde 202: se espera al
+        // job y se recarga el documento ya analizado. Los detalles (empresa que
+        // no coincide, datos extraídos) quedan guardados en el documento; solo
+        // en esta vía no se anuncian con avisos aparte.
+        const asinc = respuestaAsincrona(json);
+        if (asinc) {
+          const r = await esperar(asinc.job_id);
+          if (r.estado === "abortado") return;
+          if (r.estado !== "completado") {
+            toast.error("No se pudo calcular la vigencia", { description: descripcionFalloJob(r) ?? undefined });
+            return;
+          }
+          toast.success("Documento analizado", {
+            description: "Revisa la vigencia y los datos detectados en el documento.",
+          });
+          cargar();
+          return;
+        }
+
         if (!fechaEmisionManual && json?.data?.coincide_empresa === false) {
           toast.warning("El documento no coincide con la empresa activa", {
             description:
@@ -347,7 +370,7 @@ export function DocumentosCorporativosCard({ empresaId }: { empresaId: string })
         setAnalizandoIds((prev) => prev.filter((id) => id !== docId));
       }
     },
-    [empresaId, cargar],
+    [empresaId, cargar, esperar],
   );
 
   const autorizarDiscrepancia = useCallback(

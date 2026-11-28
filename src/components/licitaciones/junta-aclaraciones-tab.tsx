@@ -20,6 +20,9 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Plus, Printer, Sparkles, Trash2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useEsperarJob } from "@/hooks/use-esperar-job";
+import { JobStatusView } from "@/components/jobs/job-status";
+import { descripcionFalloJob, respuestaAsincrona } from "@/lib/esperar-job";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -163,6 +166,7 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
   const [junta, setJunta] = useState<Junta | null | undefined>(undefined);
   const [preguntas, setPreguntas] = useState<Pregunta[]>([]);
   const [generando, setGenerando] = useState(false);
+  const { esperar, job, cancelar } = useEsperarJob();
   const [guardando, setGuardando] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [subiendoActa, setSubiendoActa] = useState(false);
@@ -197,13 +201,40 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
       method: "POST",
     });
     const json = await res.json();
-    setGenerando(false);
 
     if (!res.ok) {
+      setGenerando(false);
       toast.error("No se pudieron generar las preguntas", { description: json.error?.message ?? json.error });
       return;
     }
 
+    // Con `jobs.async_preguntas_junta` la ruta responde 202: se espera al job
+    // y se recarga la junta ya guardada.
+    const asinc = respuestaAsincrona(json);
+    if (asinc) {
+      const r = await esperar(asinc.job_id);
+      if (r.estado === "abortado") return;
+      setGenerando(false);
+      if (r.estado !== "completado") {
+        toast.error("No se pudieron generar las preguntas", { description: descripcionFalloJob(r) ?? undefined });
+        return;
+      }
+      const recarga = await fetch(`/api/licitaciones/${licitacionId}/junta-aclaraciones`)
+        .then((x) => (x.ok ? x.json() : null))
+        .catch(() => null);
+      if (!recarga) {
+        toast.warning("Las preguntas se generaron, pero no se pudieron cargar", {
+          description: "Recarga la página para verlas.",
+        });
+        return;
+      }
+      setJunta(recarga.data ?? null);
+      setPreguntas(recarga.data?.preguntas_json ?? []);
+      toast.success("Preguntas generadas");
+      return;
+    }
+
+    setGenerando(false);
     setJunta(json.data);
     setPreguntas(json.data.preguntas_json ?? []);
     toast.success("Preguntas generadas");
@@ -368,6 +399,9 @@ export function JuntaAclaracionesTab({ licitacionId }: { licitacionId: string })
           <Sparkles />
           {generando ? "Generando…" : "Generar preguntas con IA"}
         </Button>
+        {generando && (
+          <JobStatusView job={job} onCancelar={job ? () => void cancelar() : undefined} className="w-full max-w-sm" />
+        )}
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={onAgregarManual}>
             <Plus /> Agregar pregunta

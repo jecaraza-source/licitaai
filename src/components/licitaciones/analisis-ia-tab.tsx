@@ -25,6 +25,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useRealtimeLista } from "@/hooks/use-realtime-lista";
+import { useEsperarJob } from "@/hooks/use-esperar-job";
+import { JobStatusView } from "@/components/jobs/job-status";
+import { descripcionFalloJob, respuestaAsincrona } from "@/lib/esperar-job";
 import { AvisoRevisionIA } from "@/components/aviso-revision-ia";
 import { ErrorCarga } from "@/components/layout/error-carga";
 import type { AnalisisBases, FechasAnalisis, NivelConfianza } from "@/types";
@@ -131,6 +134,8 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
   });
   const [documentoId, setDocumentoId] = useState(TODOS_LOS_DOCUMENTOS);
   const [analizando, setAnalizando] = useState(false);
+  const [enJob, setEnJob] = useState(false);
+  const { esperar, job, cancelar } = useEsperarJob();
   const { iaDisponible } = useEstadoIA();
   const [stepIndex, setStepIndex] = useState(0);
   const [confirmandoSobreescritura, setConfirmandoSobreescritura] = useState(false);
@@ -188,13 +193,32 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
     const json = await res.json();
 
     if (stepInterval.current) clearInterval(stepInterval.current);
-    setAnalizando(false);
 
     if (!res.ok) {
+      setAnalizando(false);
       toast.error("No se pudo analizar las bases", { description: json.error?.message ?? json.error });
       return;
     }
 
+    // Con `jobs.async_analizar_bases` la ruta responde 202 con el job: se
+    // espera a que termine y se recarga el análisis ya guardado.
+    const asinc = respuestaAsincrona(json);
+    if (asinc) {
+      setEnJob(true);
+      const r = await esperar(asinc.job_id);
+      setEnJob(false);
+      if (r.estado === "abortado") return;
+      setAnalizando(false);
+      if (r.estado !== "completado") {
+        toast.error("No se pudo analizar las bases", { description: descripcionFalloJob(r) ?? undefined });
+        return;
+      }
+      await cargarAnalisis(documentoId);
+      toast.success("Análisis completado");
+      return;
+    }
+
+    setAnalizando(false);
     setAnalisis(json.data);
     toast.success("Análisis completado");
   }
@@ -234,7 +258,7 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
       )}
       <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={documentoId} onValueChange={(v) => v && setDocumentoId(v)}>
+          <Select value={documentoId} onValueChange={(v) => v && setDocumentoId(v)} disabled={analizando}>
             <SelectTrigger className="w-64">
               <SelectValue>
                 {(v: string) =>
@@ -287,7 +311,16 @@ export function AnalisisIaTab({ licitacionId }: { licitacionId: string }) {
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
             <Sparkles className="size-6 animate-pulse text-primary" />
-            <p className="text-sm font-medium">{PROGRESS_STEPS[stepIndex]}</p>
+            {enJob ? (
+              <JobStatusView
+                job={job}
+                cargando={!job}
+                onCancelar={() => void cancelar()}
+                className="w-full max-w-sm text-left"
+              />
+            ) : (
+              <p className="text-sm font-medium">{PROGRESS_STEPS[stepIndex]}</p>
+            )}
             <p className="text-xs text-muted-foreground">Esto puede tardar uno o dos minutos.</p>
           </CardContent>
         </Card>

@@ -19,6 +19,9 @@ import {
   Table as TableIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useEsperarJob } from "@/hooks/use-esperar-job";
+import { JobStatusView } from "@/components/jobs/job-status";
+import { descripcionFalloJob, respuestaAsincrona } from "@/lib/esperar-job";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,6 +52,7 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
   const [secciones, setSecciones] = useState<Seccion[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [generando, setGenerando] = useState(false);
+  const { esperar, job, cancelar } = useEsperarJob();
   const [mejorando, setMejorando] = useState(false);
   const [exportando, setExportando] = useState(false);
   const [nombreVersion, setNombreVersion] = useState("");
@@ -133,13 +137,31 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
       method: "POST",
     });
     const json = await res.json();
-    setGenerando(false);
 
     if (!res.ok) {
+      setGenerando(false);
       toast.error("No se pudo generar la propuesta técnica", { description: json.error?.message ?? json.error });
       return;
     }
 
+    // Con `jobs.async_propuesta_tecnica` la ruta responde 202: se espera al
+    // job y se recarga la propuesta ya guardada.
+    const asinc = respuestaAsincrona(json);
+    if (asinc) {
+      const r = await esperar(asinc.job_id);
+      if (r.estado === "abortado") return;
+      setGenerando(false);
+      if (r.estado !== "completado") {
+        toast.error("No se pudo generar la propuesta técnica", { description: descripcionFalloJob(r) ?? undefined });
+        return;
+      }
+      setActiveId(null); // que cargarPropuesta seleccione la primera sección nueva
+      cargarPropuesta();
+      toast.success("Propuesta técnica generada");
+      return;
+    }
+
+    setGenerando(false);
     setPropuesta(json.data);
     const secs = json.data.contenido_json?.secciones ?? [];
     setSecciones(secs);
@@ -224,6 +246,9 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
               <Sparkles />
               {generando ? "Generando…" : "Generar propuesta técnica con IA"}
             </Button>
+            {generando && (
+              <JobStatusView job={job} onCancelar={job ? () => void cancelar() : undefined} className="w-full max-w-sm text-left" />
+            )}
           </CardContent>
         </Card>
       </div>
@@ -240,6 +265,9 @@ export function PropuestaTecnicaTab({ licitacionId }: { licitacionId: string }) 
           <Sparkles />
           {generando ? "Regenerando…" : "Regenerar todo con IA"}
         </Button>
+        {generando && (
+          <JobStatusView job={job} onCancelar={job ? () => void cancelar() : undefined} className="w-full max-w-sm" />
+        )}
         <Button variant="outline" onClick={handleExportar} disabled={exportando}>
           {exportando ? "Exportando…" : "Exportar como DOCX"}
         </Button>

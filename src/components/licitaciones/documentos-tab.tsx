@@ -13,6 +13,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn, sanitizeFilename } from "@/lib/utils";
 import { CATEGORIA_LABELS, ESTADO_DOT, ESTADO_LABELS } from "@/lib/checklist-labels";
 import dynamic from "next/dynamic";
+import { useEsperarJob } from "@/hooks/use-esperar-job";
+import { JobStatusView } from "@/components/jobs/job-status";
+import { descripcionFalloJob, respuestaAsincrona } from "@/lib/esperar-job";
 
 // P2 · F3 — react-pdf (~pdf.js) es pesado y solo se usa al abrir el visor.
 // Carga diferida + sin SSR (usa `window`).
@@ -56,6 +59,7 @@ function RequisitoRow({
 }) {
   const [analizando, setAnalizando] = useState(false);
   const [quitando, setQuitando] = useState(false);
+  const { esperar, job, cancelar } = useEsperarJob();
 
   async function toggleNoAplica(noAplica: boolean) {
     const res = await fetch(`/api/checklist-items/${item.id}`, {
@@ -158,11 +162,27 @@ function RequisitoRow({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ documento_id: doc.id }),
       });
-      setAnalizando(false);
 
       if (!res.ok) {
+        setAnalizando(false);
         toast.error("No se pudo analizar el documento con IA");
         return;
+      }
+
+      // Con `jobs.async_auditar_documento` la ruta responde 202: se espera al
+      // job antes de anunciar el resultado y refrescar el checklist.
+      const asinc = respuestaAsincrona(await res.json().catch(() => null));
+      if (asinc) {
+        const r = await esperar(asinc.job_id);
+        if (r.estado === "abortado") return;
+        setAnalizando(false);
+        if (r.estado !== "completado") {
+          toast.error("No se pudo analizar el documento con IA", { description: descripcionFalloJob(r) ?? undefined });
+          onUpdated(); // el documento sí quedó asociado al renglón
+          return;
+        }
+      } else {
+        setAnalizando(false);
       }
       toast.success(`"${item.descripcion}" analizado con IA`);
       onUpdated();
@@ -236,6 +256,9 @@ function RequisitoRow({
               ? "Reemplazar y volver a analizar"
               : "Cargar y analizar con IA"}
         </div>
+      )}
+      {analizando && job && (
+        <JobStatusView job={job} onCancelar={() => void cancelar()} />
       )}
     </div>
   );

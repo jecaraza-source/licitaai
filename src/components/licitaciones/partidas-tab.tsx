@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { useEsperarJob } from "@/hooks/use-esperar-job";
+import { descripcionFalloJob, respuestaAsincrona } from "@/lib/esperar-job";
 import type { EstudioMercado, NivelConfianza, Partida } from "@/types";
 
 type PartidaConEstudio = Partida & { estudio_mercado: EstudioMercado | null };
@@ -43,6 +45,7 @@ export function PartidasTab({ licitacionId }: { licitacionId: string }) {
   const [partidas, setPartidas] = useState<PartidaConEstudio[] | null>(null);
   const [generandoTodas, setGenerandoTodas] = useState(false);
   const [generandoId, setGenerandoId] = useState<string | null>(null);
+  const { esperar } = useEsperarJob();
   const [detalle, setDetalle] = useState<PartidaConEstudio | null>(null);
   const [solicitudNombre, setSolicitudNombre] = useState<string | null>(null);
   const [errorCarga, setErrorCarga] = useState(false);
@@ -86,12 +89,28 @@ export function PartidasTab({ licitacionId }: { licitacionId: string }) {
     });
     const json = await res.json();
 
-    setGenerandoId(null);
-    setGenerandoTodas(false);
-
     if (!res.ok) {
+      setGenerandoId(null);
+      setGenerandoTodas(false);
       toast.error("No se pudo generar el estudio de mercado", { description: json.error?.message ?? json.error });
       return;
+    }
+
+    // Con `jobs.async_estudio_mercado` la ruta responde 202: se espera al job
+    // (los botones siguen en "Generando…") y se recargan las partidas.
+    const asinc = respuestaAsincrona(json);
+    if (asinc) {
+      const r = await esperar(asinc.job_id);
+      if (r.estado === "abortado") return;
+      setGenerandoId(null);
+      setGenerandoTodas(false);
+      if (r.estado !== "completado") {
+        toast.error("No se pudo generar el estudio de mercado", { description: descripcionFalloJob(r) ?? undefined });
+        return;
+      }
+    } else {
+      setGenerandoId(null);
+      setGenerandoTodas(false);
     }
 
     toast.success("Estudio de mercado generado");
