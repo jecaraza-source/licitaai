@@ -292,13 +292,18 @@ vez, una organización a la vez**.
 ### 5.1 Activar para una organización piloto
 
 ```sql
--- rollout dirigido: solo esta organización
+-- rollout dirigido: solo esta organización. NO tocar `enabled`: una org en
+-- `orgs_incluidas` ya recibe el flag aunque enabled=false, y poner
+-- enabled=true lo enciende para TODAS las organizaciones.
 update public.feature_flags
-   set orgs_incluidas = array['<uuid-org-piloto>']
+   set orgs_incluidas = array['<uuid-org-piloto>']::uuid[]
  where key = 'jobs.async_procesar_documento';
-update public.feature_flags set enabled = true
- where key in ('jobs.api', 'jobs.async_procesar_documento');
 ```
+
+> Corrección (2026-11-27): la versión anterior de este bloque ponía además
+> `enabled = true` y activaba `jobs.api`, lo que anulaba el piloto. `jobs.api`
+> solo expone `POST /api/jobs` y ningún flujo `jobs.async_*` lo necesita.
+> Plan vigente para la beta: [`22-plan-flags-beta.md`](22-plan-flags-beta.md).
 
 Vigilar `/admin/salud` 24 h. Si algo va mal:
 `update public.feature_flags set enabled = false where key = '…';`
@@ -312,10 +317,10 @@ update public.feature_flags set rollout_pct = 25 where key = 'jobs.async_procesa
 
 ### 5.3 Orden sugerido de flags
 
-1. `jobs.api` + `jobs.async_procesar_documento` (piloto B1)
+1. `jobs.async_procesar_documento` (piloto B1; `jobs.api` no es necesario)
 2. `ai.gobierno_costo` + `ai.versionado_resultados`
 3. `resiliencia.circuit_breaker`
-4. el resto de `jobs.async_*` (una operación por semana)
+4. el resto de `jobs.async_*` (una operación por semana) — **solo después de conectar `<JobStatus>` en su pantalla**; hoy la UI no maneja la respuesta 202 (ver `22-plan-flags-beta.md`)
 5. `perf.virtualizar_tablas`
 6. `retencion.limpieza_automatica` — **y además** pasar cada
    `data_retention_policy` de `dry_run=true` a `false` una por una,
