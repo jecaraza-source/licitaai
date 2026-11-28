@@ -20,6 +20,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { TrazabilidadRequisitosCard } from "@/components/licitaciones/trazabilidad-requisitos-card";
 import { CATEGORIA_LABELS, ESTADO_DOT, ESTADO_LABELS } from "@/lib/checklist-labels";
+import { useEsperarJob } from "@/hooks/use-esperar-job";
+import { respuestaLoteAsincrona } from "@/lib/esperar-job";
 import type { EstadoChecklistItem } from "@/types";
 
 interface Documento {
@@ -456,6 +458,7 @@ export function AuditoriaTab({ licitacionId }: { licitacionId: string }) {
   const [data, setData] = useState<AuditoriaData | null>(null);
   const [usuarios, setUsuarios] = useState<UsuarioOrg[]>([]);
   const [auditando, setAuditando] = useState(false);
+  const { esperarJobs, lote } = useEsperarJob();
 
   const cargar = useCallback(() => {
     fetch(`/api/licitaciones/${licitacionId}/auditoria`)
@@ -475,16 +478,39 @@ export function AuditoriaTab({ licitacionId }: { licitacionId: string }) {
     const res = await fetch(`/api/licitaciones/${licitacionId}/auditoria/auditar-todos`, {
       method: "POST",
     });
-    setAuditando(false);
     if (!res.ok) {
+      setAuditando(false);
       toast.error("No se pudo completar la auditoría");
       return;
     }
     const json = await res.json().catch(() => null);
-    const fallidos: number = json?.data?.documentos?.fallidos ?? 0;
+
+    // Con `jobs.async_auditar_expediente` la ruta responde 202 con un job por
+    // documento + uno de expediente: se espera al lote completo (una consulta
+    // por ronda) antes de anunciar el resultado.
+    const asinc = respuestaLoteAsincrona(json);
+    let fallidos: number = json?.data?.documentos?.fallidos ?? 0;
+    if (asinc) {
+      const ids = [...asinc.jobs, ...(asinc.expediente_job_id ? [asinc.expediente_job_id] : [])];
+      const r = await esperarJobs(ids);
+      if (r.estado === "abortado") return;
+      setAuditando(false);
+      if (r.estado === "tiempo_agotado") {
+        toast.warning("La auditoría sigue en proceso", {
+          description: "Vuelve a abrir esta pestaña en unos minutos para ver el resultado.",
+        });
+        cargar();
+        return;
+      }
+      fallidos = r.fallidos;
+    } else {
+      setAuditando(false);
+    }
     if (fallidos > 0) {
       toast.warning(
-        `Auditoría parcial: ${fallidos} documento(s) no se pudieron auditar. Vuelve a intentarlo para completarlos.`,
+        asinc
+          ? `Auditoría parcial: ${fallidos} tarea(s) de auditoría no se pudieron completar. Vuelve a intentarlo para completarlas.`
+          : `Auditoría parcial: ${fallidos} documento(s) no se pudieron auditar. Vuelve a intentarlo para completarlos.`,
       );
     } else {
       toast.success("Auditoría del expediente actualizada");
@@ -508,7 +534,11 @@ export function AuditoriaTab({ licitacionId }: { licitacionId: string }) {
       <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <Button onClick={handleAuditarTodos} disabled={auditando}>
           <Sparkles />
-          {auditando ? "Auditando…" : "Auditar todos los documentos con IA"}
+          {auditando
+            ? lote && lote.total > 0
+              ? `Auditando… ${lote.terminados}/${lote.total}`
+              : "Auditando…"
+            : "Auditar todos los documentos con IA"}
         </Button>
         <Button variant="outline" onClick={() => window.print()}>
           Exportar reporte PDF

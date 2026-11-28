@@ -122,25 +122,44 @@ update public.feature_flags
   (`revisionActiva && revisionPendientes.length > 0` bloquea). No hay bypass
   verificado para organizaciones de un solo usuario.
 
-## Bloqueados hasta cambiar código
+## Flags `jobs.async_*` restantes: UI preparada, falta validar en staging
 
-Con el flag activo, estas rutas responden `202 { job_id, async: true }`. La UI
-actual no lo maneja y `<JobStatus>` (`src/components/jobs/job-status.tsx`) no
-está conectado a ninguna pantalla:
+Con el flag activo, estas rutas responden `202 { job_id, async: true }`. Hasta
+el 2026-11-27 la UI no lo manejaba. El PR "UI async" conecta cada pantalla:
+detecta el 202, espera al job (`GET /api/jobs/:id`, sin flag; en el lote de
+auditoría, una consulta por ronda a `jobs`), muestra su estado
+(`<JobStatusView>`) y **solo entonces** anuncia el resultado o el error y
+recarga el dato guardado.
 
-| Flag | Qué pasa hoy en la UI si se activa |
+| Flag | Pantalla |
 |---|---|
-| `jobs.async_analizar_bases` | `analisis-ia-tab.tsx` hace `setAnalisis(json.data)` con el objeto del job y muestra "Análisis completado" |
-| `jobs.async_estudio_mercado` | pantalla no preparada para 202 |
-| `jobs.async_preguntas_junta` | ídem |
-| `jobs.async_propuesta_tecnica` | ídem |
-| `jobs.async_analizar_fallo` | `seguimiento-tab.tsx` espera el resultado en la respuesta |
-| `jobs.async_auditar_documento` | el checklist anuncia "analizado con IA" y refresca antes de que termine el job |
-| `jobs.async_auditar_expediente` | `auditoria-tab.tsx` lee `data.documentos.fallidos` (ausente en el 202) y puede anunciar éxito mientras los jobs siguen en cola |
-| `jobs.async_analizar_doc_corp` | sin verificar; tratar como bloqueado |
+| `jobs.async_analizar_bases` | Análisis IA |
+| `jobs.async_estudio_mercado` | Partidas |
+| `jobs.async_preguntas_junta` | Junta de aclaraciones |
+| `jobs.async_propuesta_tecnica` | Propuesta técnica |
+| `jobs.async_analizar_fallo` | Seguimiento |
+| `jobs.async_auditar_documento` | Documentos (checklist) |
+| `jobs.async_auditar_expediente` | Auditoría ("Auditar todos", con avance N/M) |
+| `jobs.async_analizar_doc_corp` | Configuración → documentos corporativos (en esta vía no se muestran los avisos de "empresa no coincide" / datos extraídos; quedan guardados en el documento) |
 
-**Mantener OFF** hasta conectar `<JobStatus>` en cada pantalla y probarlo en
-staging. Es el siguiente PR de la lista.
+Cubierto con pruebas: unitarias de la lógica de espera y E2E con la red
+simulada (`tests/e2e/p2-ui-jobs-async.spec.ts`, propuesta técnica y auditoría
+en lote). **No** se ha probado con el worker real ni con llaves de IA: antes de
+activar cada flag en producción, repetir esa operación en staging (Ola 0.4).
+Activarlos **de uno en uno** (una operación por semana, como en la doc 18),
+primero solo para TCI con `orgs_incluidas`, después de la Ola 1.
+
+Puntos a vigilar al activarlos:
+
+- `auditar-todos` encola un job por documento y uno de expediente con la
+  misma prioridad; con concurrencia 3 por organización, el de expediente puede
+  empezar antes de que terminen los últimos documentos. Confirmar en staging
+  que el resultado del expediente refleja todas las auditorías.
+- La clave de idempotencia ahora incluye `partida_id` (estudio de mercado) y
+  `fecha_emision_manual` (documentos corporativos); antes, pedir otra partida
+  a menos de 2 min devolvía el job de la anterior.
+- Si la espera supera 15 min o la red falla 5 veces seguidas, la pantalla avisa
+  que sigue en proceso y deja de consultar; el job continúa en el servidor.
 
 ## No activar en la beta
 

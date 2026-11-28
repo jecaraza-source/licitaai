@@ -122,6 +122,19 @@ export function bucketIdempotencia(): number {
   return Math.floor(Date.now() / 120_000);
 }
 
+/** Clave de idempotencia de una operación de IA encolada. Debe distinguir
+ * todo lo que cambia el resultado: sin `discriminador`, pedir el estudio de
+ * la partida B a menos de 2 min del de la A devolvía el job de la A. */
+export function claveIdempotenciaOperacion(p: {
+  tipo: string;
+  recursoId: string;
+  documentoId?: string | null;
+  discriminador?: string | null;
+  bucket: number;
+}): string {
+  return `${p.tipo}:${p.recursoId}:${p.documentoId ?? ""}:${p.discriminador ?? ""}:${p.bucket}`;
+}
+
 /**
  * Helper para las rutas de operaciones de IA (Fase B): si el flag async de
  * la operación está activo, crea el job (con reserva de presupuesto) y
@@ -140,6 +153,9 @@ export async function encolarOperacionIA(
     recursoId: string;
     input: Record<string, unknown>;
     bytes?: number;
+    /** Parte del input que cambia el resultado además del documento
+     * (p. ej. partida_id, fecha_emision_manual). Entra en la idempotency_key. */
+    discriminador?: string | null;
   },
 ): Promise<{ job_id: string; estado: string; async: true } | null> {
   const activo = await isEnabled(ctx.supabase, opts.flag, { organizationId: ctx.organizationId });
@@ -153,7 +169,13 @@ export async function encolarOperacionIA(
       tipo: opts.tipo,
       recurso_tipo: opts.recursoTipo,
       recurso_id: opts.recursoId,
-      idempotency_key: `${opts.tipo}:${opts.recursoId}:${docId}:${bucket}`,
+      idempotency_key: claveIdempotenciaOperacion({
+        tipo: opts.tipo,
+        recursoId: opts.recursoId,
+        documentoId: docId,
+        discriminador: opts.discriminador,
+        bucket,
+      }),
       input: opts.input,
     },
     { bytes: opts.bytes },

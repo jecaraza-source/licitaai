@@ -24,6 +24,7 @@ export const POST = apiRoute(
       recursoTipo: "licitacion",
       recursoId: params.id,
       input: { licitacion_id: params.id, partida_id: body.partida_id },
+      discriminador: body.partida_id ?? "todas",
     });
     if (encolado) return { data: encolado, status: 202 };
 

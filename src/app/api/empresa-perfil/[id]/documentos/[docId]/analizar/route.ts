@@ -32,6 +32,7 @@ export const POST = apiRoute(
       recursoTipo: "documento_corporativo",
       recursoId: params.docId,
       input: { documento_id: params.docId, fecha_emision_manual: body.fecha_emision_manual ?? null },
+      discriminador: body.fecha_emision_manual ?? "auto",
     });
     if (encolado) return { data: encolado, status: 202 };
 

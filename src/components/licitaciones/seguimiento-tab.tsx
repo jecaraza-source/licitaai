@@ -19,6 +19,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, sanitizeFilename } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { useEsperarJob } from "@/hooks/use-esperar-job";
+import { JobStatusView } from "@/components/jobs/job-status";
+import { descripcionFalloJob, respuestaAsincrona } from "@/lib/esperar-job";
 
 interface Seguimiento {
   id: string;
@@ -293,6 +296,7 @@ export function SeguimientoTab({
   const [tags, setTags] = useState<string[]>([]);
   const [nuevoTag, setNuevoTag] = useState("");
   const [analizando, setAnalizando] = useState(false);
+  const { esperar, job, cancelar } = useEsperarJob();
   const [guardando, setGuardando] = useState(false);
 
   const cargar = useCallback(() => {
@@ -348,10 +352,25 @@ export function SeguimientoTab({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ documento_id: doc.id }),
       });
-      setAnalizando(false);
       if (!res.ok) {
+        setAnalizando(false);
         toast.error("No se pudo analizar el acta de fallo");
         return;
+      }
+
+      // Con `jobs.async_analizar_fallo` la ruta responde 202: se espera al
+      // job y se recarga el seguimiento ya guardado.
+      const asinc = respuestaAsincrona(await res.json().catch(() => null));
+      if (asinc) {
+        const r = await esperar(asinc.job_id);
+        if (r.estado === "abortado") return;
+        setAnalizando(false);
+        if (r.estado !== "completado") {
+          toast.error("No se pudo analizar el acta de fallo", { description: descripcionFalloJob(r) ?? undefined });
+          return;
+        }
+      } else {
+        setAnalizando(false);
       }
       toast.success("Acta de fallo analizada");
       cargar();
@@ -399,6 +418,9 @@ export function SeguimientoTab({
               {analizando ? "Analizando acta…" : "Arrastra el acta de fallo (PDF) para extraer el resultado"}
             </p>
           </div>
+          {analizando && job && (
+            <JobStatusView job={job} onCancelar={() => void cancelar()} className="w-full max-w-sm" />
+          )}
 
           {resultado && (resultado.empresa_ganadora || resultado.precio_ganador) && (
             <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">

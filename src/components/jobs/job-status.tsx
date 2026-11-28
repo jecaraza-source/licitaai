@@ -29,44 +29,30 @@ function IconoEstado({ estado }: { estado: EstadoJob }) {
   return <Loader2 className="size-4 animate-spin text-primary" />;
 }
 
-export interface JobStatusProps {
-  jobId: string | null | undefined;
-  /** Se llama una vez cuando el job llega a COMPLETED. */
-  onCompleted?: (job: Job) => void;
-  /** Se llama una vez cuando el job llega a FAILED / EXPIRED / CANCELLED. */
-  onFailed?: (job: Job) => void;
-  /** Oculta el botón de cancelar. */
-  sinCancelar?: boolean;
+export interface JobStatusViewProps {
+  job: Job | null;
+  /** Mientras no hay job leído (primera consulta en curso). */
+  cargando?: boolean;
+  error?: string | null;
+  usandoPolling?: boolean;
+  /** Si no se pasa, no se muestra el botón de cancelar. */
+  onCancelar?: () => void;
   className?: string;
 }
 
-export function JobStatus({ jobId, onCompleted, onFailed, sinCancelar, className }: JobStatusProps) {
-  const { job, cargando, error, usandoPolling, cancelar } = useJob(jobId);
-  const notificado = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!job || notificado.current === job.id) return;
-    if (job.estado === "COMPLETED") {
-      notificado.current = job.id;
-      onCompleted?.(job);
-    } else if (job.estado === "FAILED" || job.estado === "EXPIRED" || job.estado === "CANCELLED") {
-      notificado.current = job.id;
-      onFailed?.(job);
-    }
-  }, [job, onCompleted, onFailed]);
-
-  if (!jobId) return null;
-
-  if (cargando && !job) {
+/** Vista pura del estado de un job: la comparten <JobStatus> (que obtiene el
+ * job con useJob) y las pantallas que ya lo siguen con useEsperarJob. */
+export function JobStatusView({ job, cargando, error, usandoPolling, onCancelar, className }: JobStatusViewProps) {
+  if (!job && cargando) {
     return (
-      <div className={cn("flex items-center gap-2 text-sm text-muted-foreground", className)}>
+      <div className={cn("flex items-center gap-2 text-sm text-muted-foreground", className)} role="status">
         <Loader2 className="size-4 animate-spin" />
         Consultando estado…
       </div>
     );
   }
 
-  if (error && !job) {
+  if (!job && error) {
     return <p className={cn("text-sm text-destructive", className)}>{error}</p>;
   }
   if (!job) return null;
@@ -76,7 +62,7 @@ export function JobStatus({ jobId, onCompleted, onFailed, sinCancelar, className
   const progreso = job.estado === "COMPLETED" ? 100 : Math.max(0, Math.min(100, job.progreso));
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("space-y-2", className)} role="status" aria-live="polite">
       <div className="flex items-center justify-between gap-3 text-sm">
         <span className="flex items-center gap-2 font-medium">
           <IconoEstado estado={job.estado} />
@@ -87,8 +73,8 @@ export function JobStatus({ jobId, onCompleted, onFailed, sinCancelar, className
             </span>
           )}
         </span>
-        {activo && !sinCancelar && (
-          <Button variant="ghost" size="sm" onClick={() => void cancelar()}>
+        {activo && onCancelar && (
+          <Button variant="ghost" size="sm" onClick={onCancelar}>
             Cancelar
           </Button>
         )}
@@ -117,5 +103,45 @@ export function JobStatus({ jobId, onCompleted, onFailed, sinCancelar, className
         </p>
       )}
     </div>
+  );
+}
+
+export interface JobStatusProps {
+  jobId: string | null | undefined;
+  /** Se llama una vez cuando el job llega a COMPLETED. */
+  onCompleted?: (job: Job) => void;
+  /** Se llama una vez cuando el job llega a FAILED / EXPIRED / CANCELLED. */
+  onFailed?: (job: Job) => void;
+  /** Oculta el botón de cancelar. */
+  sinCancelar?: boolean;
+  className?: string;
+}
+
+export function JobStatus({ jobId, onCompleted, onFailed, sinCancelar, className }: JobStatusProps) {
+  const { job, cargando, error, usandoPolling, cancelar } = useJob(jobId);
+  const notificado = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!job || notificado.current === job.id) return;
+    if (job.estado === "COMPLETED") {
+      notificado.current = job.id;
+      onCompleted?.(job);
+    } else if (job.estado === "FAILED" || job.estado === "EXPIRED" || job.estado === "CANCELLED") {
+      notificado.current = job.id;
+      onFailed?.(job);
+    }
+  }, [job, onCompleted, onFailed]);
+
+  if (!jobId) return null;
+
+  return (
+    <JobStatusView
+      job={job}
+      cargando={cargando}
+      error={error}
+      usandoPolling={usandoPolling}
+      onCancelar={sinCancelar ? undefined : () => void cancelar()}
+      className={className}
+    />
   );
 }
